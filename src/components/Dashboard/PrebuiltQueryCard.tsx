@@ -7,19 +7,19 @@ interface PrebuiltQueryCardProps {
 }
 
 const TAG_COLORS: Record<string, string> = {
-  Samples: '#2b6cb0',
-  Facilities: '#2f855a',
-  'Water Bodies': '#2b6cb0',
-  Near: '#805ad5',
-  Downstream: '#d69e2e',
-  Upstream: '#dd6b20',
+  Samples: 'var(--color-tag-samples)',
+  Facilities: 'var(--color-tag-facilities)',
+  'Water Bodies': 'var(--color-tag-water-bodies)',
+  Near: 'var(--color-tag-near)',
+  Downstream: 'var(--color-tag-downstream)',
+  Upstream: 'var(--color-tag-upstream)',
 };
 
 function getTagColor(tag: string): string {
   for (const [key, color] of Object.entries(TAG_COLORS)) {
     if (tag.includes(key)) return color;
   }
-  return '#718096';
+  return 'var(--color-gray-500)';
 }
 
 const MAX_VISIBLE_TAGS = 3;
@@ -47,6 +47,7 @@ export function PrebuiltQueryCard({ query, onClick }: PrebuiltQueryCardProps) {
       {expanded && <p className="query-card-desc">{query.description}</p>}
 
       <div className="query-card-tags">
+        <span className="query-card-tags-label">Tags</span>
         {visibleTags.map((tag) => (
           <span
             key={tag}

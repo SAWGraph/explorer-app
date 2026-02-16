@@ -13,6 +13,7 @@ export function Dashboard() {
         <section className="dashboard-section">
           <div className="dashboard-section-header">
             <h3>Pick up where you left off</h3>
+            <a href="#" className="section-link">Take a quick walkthrough 🎉</a>
           </div>
           <div className="recent-work-placeholder">
             <p>This section lists your recent work. Open an analysis to see it here.</p>
@@ -27,7 +28,7 @@ export function Dashboard() {
               onClick={() => navigateTo('editor')}
             >
               <span className="btn-icon">&#x2b1c;&#x2b1c;</span>
-              Create Custom Analysis
+              View more Available Analysis Questions
             </button>
           </div>
 
