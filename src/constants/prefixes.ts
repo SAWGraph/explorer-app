@@ -16,4 +16,5 @@ PREFIX naics: <http://w3id.org/fio/v1/naics#>
 PREFIX qudt: <http://qudt.org/schema/qudt/>
 PREFIX me_egad: <http://w3id.org/sawgraph/v1/me-egad#>
 PREFIX me_egad_data: <http://w3id.org/sawgraph/v1/me-egad-data#>
+PREFIX schema: <https://schema.org/>
 `.trim();

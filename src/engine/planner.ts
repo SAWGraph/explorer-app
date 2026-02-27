@@ -52,7 +52,7 @@ function getS2Step(block: EntityBlock): PipelineStep {
     case 'waterBodies':
       return {
         type: 'GET_S2_FOR_ANCHOR',
-        endpoint: 'spatialkg',
+        endpoint: 'hydrologykg',
         description: 'Finding S2 cells containing water bodies',
         buildQuery: () => buildWaterBodyS2Query(block.waterBodyFilters),
       };
@@ -141,7 +141,7 @@ function findEntitiesStep(block: EntityBlock): PipelineStep {
     case 'waterBodies':
       return {
         type: 'FIND_TARGET_ENTITIES',
-        endpoint: 'spatialkg',
+        endpoint: 'hydrologykg',
         description: 'Finding water bodies in target area',
         buildQuery: (ctx) => {
           const vals = s2CellsToValuesString(ctx.s2Cells);
@@ -173,7 +173,7 @@ function getDetailsStep(block: EntityBlock): PipelineStep {
     case 'waterBodies':
       return {
         type: 'GET_ANCHOR_DETAILS',
-        endpoint: 'spatialkg',
+        endpoint: 'hydrologykg',
         description: 'Getting water body details for map',
         buildQuery: (ctx) => {
           const vals = s2CellsToValuesString(ctx.anchorS2Cells);

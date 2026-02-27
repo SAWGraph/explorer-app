@@ -12,8 +12,8 @@ export function buildWaterBodyS2Query(filters?: WaterBodyFilters): string {
     ${PREFIXES}
     SELECT DISTINCT ?s2cell WHERE {
       ?s2cell rdf:type kwg-ont:S2Cell_Level13 ;
-              kwg-ont:sfContains ?waterBody .
-      ?waterBody rdf:type hyf:HY_HydroFeature .
+              spatial:connectedTo ?waterBody .
+      ?waterBody rdf:type hyf:HY_WaterBody .
       ${filterClauses}
     } GROUP BY ?s2cell
   `;
@@ -33,10 +33,10 @@ export function buildWaterBodyRetrievalQuery(
     ${PREFIXES}
     SELECT DISTINCT ?waterBody ?wbWKT ?wbName WHERE {
       VALUES ?s2cell { ${s2ValuesString} }
-      ?s2cell kwg-ont:sfContains ?waterBody .
-      ?waterBody rdf:type hyf:HY_HydroFeature ;
+      ?s2cell spatial:connectedTo ?waterBody .
+      ?waterBody rdf:type hyf:HY_WaterBody ;
                  geo:hasGeometry/geo:asWKT ?wbWKT .
-      OPTIONAL { ?waterBody rdfs:label ?wbName . }
+      OPTIONAL { ?waterBody schema:name ?wbName . }
       ${filterClauses}
     }
   `;
