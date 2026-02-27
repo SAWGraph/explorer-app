@@ -33,28 +33,28 @@ export interface PipelineContext {
   results: Record<string, SparqlRow[]>;
 }
 
-function getS2Step(block: EntityBlock): PipelineStep {
+function getS2Step(block: EntityBlock, regionCode?: string): PipelineStep {
   switch (block.type) {
     case 'facilities':
       return {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'federation',
         description: 'Finding S2 cells containing matching facilities',
-        buildQuery: () => buildFacilityS2Query(block.facilityFilters),
+        buildQuery: () => buildFacilityS2Query(block.facilityFilters, regionCode),
       };
     case 'samples':
       return {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'sawgraph',
         description: 'Finding S2 cells containing matching samples',
-        buildQuery: () => buildSampleS2Query(block.sampleFilters),
+        buildQuery: () => buildSampleS2Query(block.sampleFilters, regionCode),
       };
     case 'waterBodies':
       return {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'hydrologykg',
         description: 'Finding S2 cells containing water bodies',
-        buildQuery: () => buildWaterBodyS2Query(block.waterBodyFilters),
+        buildQuery: () => buildWaterBodyS2Query(block.waterBodyFilters, regionCode),
       };
   }
 }
@@ -87,7 +87,7 @@ function expandNearStep(): PipelineStep {
   return {
     type: 'EXPAND_S2_NEAR',
     endpoint: 'spatialkg',
-    description: 'Expanding to neighboring S2 cells (~10km)',
+    description: 'Expanding to neighboring S2 cells (touching neighbors)',
     buildQuery: (ctx) => {
       const vals = s2CellsToValuesString(ctx.s2Cells);
       return buildNearExpansionQuery(vals);
@@ -196,12 +196,14 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
 
   if (relationship.type === 'near') {
     // Start from Block C (the anchor entity), find Block A nearby
-    steps.push(getS2Step(blockC));
-
-    // Filter to region BEFORE expanding to keep S2 cell count manageable
     const regionCodeC = getRegionCode(blockC);
     const regionCodeA = getRegionCode(blockA);
     const preExpandRegion = regionCodeC || regionCodeA;
+
+    // Pass region code to S2 query so it can filter directly in SPARQL
+    steps.push(getS2Step(blockC, preExpandRegion));
+
+    // Still add explicit region filter for endpoints that don't support it natively
     if (preExpandRegion) steps.push(filterS2ToRegionStep(preExpandRegion));
 
     steps.push(expandNearStep());
@@ -218,12 +220,14 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     steps.push(getDetailsStep(blockC));
   } else if (relationship.type === 'downstream') {
     // Start from Block C (facilities), trace downstream, find Block A
-    steps.push(getS2Step(blockC));
-
-    // Filter to region BEFORE tracing to keep S2 cell count manageable
     const regionCodeC = getRegionCode(blockC);
     const regionCodeA = getRegionCode(blockA);
     const preTraceRegion = regionCodeC || regionCodeA;
+
+    // Pass region code to S2 query so it can filter directly in SPARQL
+    steps.push(getS2Step(blockC, preTraceRegion));
+
+    // Still add explicit region filter for endpoints that don't support it natively
     if (preTraceRegion) steps.push(filterS2ToRegionStep(preTraceRegion));
 
     steps.push(traceDownstreamStep());
@@ -237,9 +241,12 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     steps.push(getDetailsStep(blockC));
   } else if (relationship.type === 'upstream') {
     // Start from Block A (samples), trace upstream, find Block C
-    steps.push(getS2Step(blockA));
-
     const regionCodeA = getRegionCode(blockA);
+
+    // Pass region code to S2 query so it can filter directly in SPARQL
+    steps.push(getS2Step(blockA, regionCodeA));
+
+    // Still add explicit region filter for endpoints that don't support it natively
     if (regionCodeA) steps.push(filterS2ToRegionStep(regionCodeA));
 
     steps.push(traceUpstreamStep());

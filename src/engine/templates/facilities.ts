@@ -1,15 +1,22 @@
 import { PREFIXES } from '../../constants/prefixes';
 import type { FacilityFilters } from '../../types/query';
 
-export function buildFacilityS2Query(filters?: FacilityFilters): string {
+export function buildFacilityS2Query(filters?: FacilityFilters, regionCode?: string): string {
   const industryValuesClause = buildIndustryValues(filters?.industryCodes);
-  const limit = industryValuesClause ? '' : 'LIMIT 5000';
+
+  // If region filter is provided, incorporate it in the query and don't use LIMIT
+  // Otherwise use LIMIT 5000 to prevent excessive results
+  const regionFilterClause = regionCode
+    ? `?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.${regionCode} .`
+    : '';
+  const limit = regionCode || industryValuesClause ? '' : 'LIMIT 5000';
 
   return `
     ${PREFIXES}
     SELECT DISTINCT ?s2cell WHERE {
       ?s2cell rdf:type kwg-ont:S2Cell_Level13 ;
               kwg-ont:sfContains ?facility .
+      ${regionFilterClause}
       ?facility fio:ofIndustry ?industryGroup ;
                 fio:ofIndustry ?industryCode .
       ?industryCode a naics:NAICS-IndustryCode ;

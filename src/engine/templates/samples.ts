@@ -25,8 +25,15 @@ function buildSampleFilterClauses(filters?: SampleFilters): string {
   return clauses;
 }
 
-export function buildSampleS2Query(filters?: SampleFilters): string {
+export function buildSampleS2Query(filters?: SampleFilters, regionCode?: string): string {
   const filterClauses = buildSampleFilterClauses(filters);
+
+  // Note: sawgraph may not have spatial:connectedTo links for S2→region
+  // The region filter will be applied in a separate step via spatialkg
+  // But we include the clause here in case the data exists
+  const regionFilterClause = regionCode
+    ? `?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.${regionCode} .`
+    : '';
 
   return `
     ${PREFIXES}
@@ -34,6 +41,7 @@ export function buildSampleS2Query(filters?: SampleFilters): string {
       ?sp rdf:type coso:SamplePoint ;
           spatial:connectedTo ?s2cell .
       ?s2cell rdf:type kwg-ont:S2Cell_Level13 .
+      ${regionFilterClause}
       ?observation rdf:type coso:ContaminantObservation ;
           coso:observedAtSamplePoint ?sp ;
           coso:ofSubstance ?substance ;

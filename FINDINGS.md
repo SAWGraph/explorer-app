@@ -102,7 +102,41 @@ SELECT DISTINCT ?s2cell WHERE {
 
 ---
 
-## 6. Water Bodies Query — Wrong Type, Predicate, Endpoint, and Label (FIXED)
+## 6. Region Filter Applied After LIMIT Bug (FIXED)
+
+**Problem:** Queries for states with small amounts of data (like Alabama with 42 facilities) were returning 0 results even though the data exists. The issue was that `buildFacilityS2Query` used `LIMIT 5000` to prevent excessive results, but this limit was applied BEFORE the region filter.
+
+**Symptom:**
+- Query "What samples in Alabama are near facilities?" showed:
+  - Step 1: Finding S2 cells containing matching facilities (5000 results) ✓
+  - Step 2: Filtering to region 01 (0 results) ✗
+- The 5000 S2 cells returned were an arbitrary nationwide sample that didn't include Alabama's 39 S2 cells
+
+**Root Cause:** The pipeline architecture was:
+1. GET_S2_FOR_ANCHOR: Find S2 cells with facilities nationwide (`LIMIT 5000`)
+2. FILTER_S2_TO_REGION: Filter those 5000 cells to the target region
+
+Small states like Alabama (39 S2 cells) weren't in the arbitrary 5000 cells returned by the federation endpoint, so the region filter had nothing to work with.
+
+**Fix:**
+- Modified `buildFacilityS2Query`, `buildSampleS2Query`, and `buildWaterBodyS2Query` to accept optional `regionCode` parameter
+- When region is provided, incorporate `?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.{regionCode}` directly in the SPARQL query
+- When region is provided, don't use LIMIT (the region filter naturally limits results)
+- Modified `getS2Step` in planner.ts to pass region code to query builders
+- Modified `planPipeline` to determine region code and pass it to `getS2Step` for all relationship types (near, downstream, upstream)
+- Kept the explicit `filterS2ToRegionStep` as a fallback for endpoints that don't have region linkage data
+
+**Files Modified:**
+- `src/engine/templates/facilities.ts` - Added regionCode parameter and region filter clause
+- `src/engine/templates/samples.ts` - Added regionCode parameter and region filter clause
+- `src/engine/templates/waterBodies.ts` - Added regionCode parameter and region filter clause
+- `src/engine/planner.ts` - Modified getS2Step and planPipeline to pass region codes
+
+**Result:** Now queries for Alabama (and other small states) will work correctly. The S2 query filters to the region first, then returns those cells without arbitrary limits.
+
+---
+
+## 7. Water Bodies Query — Wrong Type, Predicate, Endpoint, and Label (FIXED)
 
 **Problem:** "Water bodies near facilities" returned 0 results at Step 5. Four bugs:
 
