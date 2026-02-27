@@ -6,7 +6,7 @@ interface RelationshipSelectorProps {
 }
 
 const RELATIONSHIP_TYPES: { value: SpatialRelationship['type']; label: string; description: string }[] = [
-  { value: 'near', label: 'Near', description: '~10 km of the feature(s) below' },
+  { value: 'near', label: 'Near', description: '~1-2 km of the feature(s) below' },
   { value: 'downstream', label: 'Downstream of', description: 'downstream of the feature(s) below' },
   { value: 'upstream', label: 'Upstream from', description: 'upstream from the feature(s) below' },
 ];

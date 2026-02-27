@@ -37,7 +37,8 @@ function describeEntity(block: EntityBlock): string {
 function describeRelationship(rel: SpatialRelationship): string {
   switch (rel.type) {
     case 'near':
-      return `near (~${(rel.hops || 1) * 10}km)`;
+      // Each hop adds ~1-2km (touching S2 neighbors at Level 13)
+      return `near (~${(rel.hops || 1) * 2}km)`;
     case 'downstream':
       return 'downstream of';
     case 'upstream':
