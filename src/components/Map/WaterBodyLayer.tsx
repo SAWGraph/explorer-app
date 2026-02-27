@@ -1,4 +1,4 @@
-import { Polyline, Polygon, CircleMarker, Popup } from 'react-leaflet';
+import { LayerGroup, Polyline, Polygon, CircleMarker, Popup } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -9,7 +9,7 @@ interface WaterBodyLayerProps {
 
 export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
   return (
-    <>
+    <LayerGroup>
       {features.map((f) => {
         if (f.geometry.type === 'Point') {
           return (
@@ -53,6 +53,6 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
         }
         return null;
       })}
-    </>
+    </LayerGroup>
   );
 }

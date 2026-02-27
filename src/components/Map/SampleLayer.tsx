@@ -1,4 +1,4 @@
-import { CircleMarker, Popup } from 'react-leaflet';
+import { LayerGroup, CircleMarker, Popup } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -9,7 +9,7 @@ interface SampleLayerProps {
 
 export function SampleLayer({ features }: SampleLayerProps) {
   return (
-    <>
+    <LayerGroup>
       {features.map((f) => (
         <CircleMarker
           key={f.id}
@@ -22,6 +22,6 @@ export function SampleLayer({ features }: SampleLayerProps) {
           </Popup>
         </CircleMarker>
       ))}
-    </>
+    </LayerGroup>
   );
 }

@@ -1,4 +1,4 @@
-import { CircleMarker, Popup } from 'react-leaflet';
+import { LayerGroup, CircleMarker, Popup } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -24,7 +24,7 @@ function getColor(feature: MapFeature): string {
 
 export function FacilityLayer({ features }: FacilityLayerProps) {
   return (
-    <>
+    <LayerGroup>
       {features.map((f) => (
         <CircleMarker
           key={f.id}
@@ -42,6 +42,6 @@ export function FacilityLayer({ features }: FacilityLayerProps) {
           </Popup>
         </CircleMarker>
       ))}
-    </>
+    </LayerGroup>
   );
 }

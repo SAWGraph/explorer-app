@@ -1,4 +1,4 @@
-import { Polygon, Popup } from 'react-leaflet';
+import { LayerGroup, Polygon, Popup } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -9,7 +9,7 @@ interface RegionBoundaryLayerProps {
 
 export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
   return (
-    <>
+    <LayerGroup>
       {features.map((f) => {
         if (f.geometry.type !== 'Polygon') return null;
         return (
@@ -30,6 +30,6 @@ export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
           </Polygon>
         );
       })}
-    </>
+    </LayerGroup>
   );
 }
