@@ -1,73 +1,90 @@
-# React + TypeScript + Vite
+# Sawgraph Explorer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![Alt text](./src/assets/sawgraph-explorer-logo.svg)
 
-Currently, two official plugins are available:
+A web-based interface for querying the [SAWGraph](https://sawgraph.org) knowledge graph — a PFAS contamination dataset linking water samples, industrial facilities, and hydrological features across the United States.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## What it does
 
-## React Compiler
+The app lets you ask spatial analysis questions in plain English:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+> _"What water samples are downstream of [22 - Utilities] facilities in Ohio?"_
 
-## Expanding the ESLint configuration
+It translates those questions into multi-step SPARQL pipelines, executes them against SAWGraph's knowledge graph endpoints, and renders the results on an interactive map.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **React 19** + **TypeScript** + **Vite 7**
+- **Zustand** — application state
+- **React Query** — filter dropdown data with `staleTime: Infinity`
+- **react-leaflet** — map rendering
+- **S2 Level 13 cells** — spatial bucketing for all geo queries
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Getting started
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd sawgraph-query-editor
+npm install --legacy-peer-deps   # react-leaflet has a peer dep mismatch with React 19
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Other commands:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build    # TypeScript check + Vite build
+npm run lint     # ESLint
+npm run preview  # Preview production build
 ```
+
+## How queries work
+
+An **Analysis Question** has three parts:
+
+```
+[Block A — target entity]  [Relationship]  [Block C — anchor entity]
+     water samples            downstream       facilities in Ohio
+```
+
+When you click Apply, the query engine:
+
+1. **Plans** the question (`engine/planner.ts`) → array of `PipelineStep`
+2. **Executes** steps sequentially (`engine/executor.ts`), threading S2 cell sets between steps
+3. **Renders** results as map layers (`resultTransformer.ts` → `MapFeature[]`)
+
+Supported entity types: **samples**, **facilities**, **water bodies**
+Supported relationships: **near** (~1–2 km), **downstream**, **upstream**
+
+## SPARQL endpoints
+
+All hosted at `frink.apps.renci.org`:
+
+| Endpoint      | Used for                                        |
+| ------------- | ----------------------------------------------- |
+| `sawgraph`    | Sample data, substances                         |
+| `fiokg`       | Facility industry codes                         |
+| `federation`  | Facility spatial queries (`kwg-ont:sfContains`) |
+| `spatialkg`   | S2 cell lookups, region/county boundaries       |
+| `hydrologykg` | Upstream/downstream tracing                     |
+
+## Filter dropdowns
+
+| Dropdown         | Data source                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| Industry (NAICS) | Live SPARQL → `fiokg`, fallback to hardcoded list            |
+| Substance        | Live SPARQL → `sawgraph`, fallback to hardcoded list         |
+| Material type    | Live SPARQL → `sawgraph`, fallback to hardcoded list         |
+| State            | Static — all 50 states; 13 with SAWGraph data are selectable |
+| County           | Live SPARQL → `spatialkg`, fetched on state selection        |
+
+## Docs
+
+Inside `docs/`:
+
+| File              | Contents                                            |
+| ----------------- | --------------------------------------------------- |
+| `ARCHITECTURE.md` | System design, module boundaries, data flow         |
+| `SCHEMA.md`       | Predicate inventories, class counts, endpoint roles |
+| `DEBUGGING.md`    | Documented bugs with root causes and fixes          |
+| `CONVENTIONS.md`  | Coding standards, endpoint selection rules          |
+| `changelog/`      | Weekly changelogs (`YYYY-Www.md`)                   |
+| `plans/`          | Feature planning: `drafts/` → `active/` → `done/`   |
