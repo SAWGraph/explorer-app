@@ -1,5 +1,5 @@
-import Select from 'react-select';
 import type { WaterBodyFilters as WaterBodyFiltersType } from '../../types/query';
+import { FlatSelect } from './FlatSelect/FlatSelect';
 
 interface WaterBodyFiltersProps {
   value?: WaterBodyFiltersType;
@@ -15,19 +15,15 @@ const FTYPE_OPTIONS = [
 ];
 
 export function WaterBodyFilters({ value, onChange }: WaterBodyFiltersProps) {
-  const selectedFtypes = FTYPE_OPTIONS.filter((o) => value?.ftypes?.includes(o.value));
-
   return (
     <div className="waterbody-filters">
       <div className="filter-field">
         <label>Water Type:</label>
-        <Select
+        <FlatSelect
           options={FTYPE_OPTIONS}
-          value={selectedFtypes}
-          onChange={(opts) => onChange({ ...value, ftypes: opts.map((o) => o.value) })}
-          isMulti
+          selectedValues={value?.ftypes ?? []}
+          onChange={(vals) => onChange({ ...value, ftypes: vals })}
           placeholder="Any water type..."
-          classNamePrefix="rs"
         />
       </div>
     </div>

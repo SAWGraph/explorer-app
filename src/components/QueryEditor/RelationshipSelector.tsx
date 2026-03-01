@@ -1,4 +1,5 @@
 import type { SpatialRelationship } from '../../types/query';
+import { FlatSelect } from './FlatSelect/FlatSelect';
 
 interface RelationshipSelectorProps {
   value: SpatialRelationship;
@@ -20,18 +21,16 @@ export function RelationshipSelector({ value, onChange }: RelationshipSelectorPr
         <span className="block-label">Relationship</span>
       </div>
       <div className="relationship-content">
-        <select
-          value={value.type}
-          onChange={(e) =>
-            onChange({ ...value, type: e.target.value as SpatialRelationship['type'] })
-          }
-        >
-          {RELATIONSHIP_TYPES.map((r) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </select>
+        <FlatSelect
+          options={RELATIONSHIP_TYPES}
+          selectedValues={[value.type]}
+          onChange={(vals) => {
+            if (vals[0]) onChange({ ...value, type: vals[0] as SpatialRelationship['type'] });
+          }}
+          isMulti={false}
+          isClearable={false}
+          placeholder="Select relationship..."
+        />
         <span className="relationship-desc">{selected.description}</span>
       </div>
     </div>

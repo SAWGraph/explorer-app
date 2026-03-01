@@ -1,6 +1,6 @@
-import Select from 'react-select';
 import type { SampleFilters as SampleFiltersType } from '../../types/query';
 import { useSubstances, useMaterialTypes } from '../../hooks/useDiscoveryQueries';
+import { FlatSelect } from './FlatSelect/FlatSelect';
 
 interface SampleFiltersProps {
   value?: SampleFiltersType;
@@ -14,32 +14,25 @@ export function SampleFilters({ value, onChange }: SampleFiltersProps) {
   const substanceOptions = substances.map((s) => ({ value: s.uri, label: s.label }));
   const materialOptions = materialTypes.map((m) => ({ value: m.uri, label: m.label }));
 
-  const selectedSubstances = substanceOptions.filter((o) => value?.substances?.includes(o.value));
-  const selectedMaterials = materialOptions.filter((o) => value?.materialTypes?.includes(o.value));
-
   return (
     <div className="sample-filters">
       <div className="filter-field">
         <label>Substance:</label>
-        <Select
+        <FlatSelect
           options={substanceOptions}
-          value={selectedSubstances}
-          onChange={(opts) => onChange({ ...value, substances: opts.map((o) => o.value) })}
-          isMulti
+          selectedValues={value?.substances ?? []}
+          onChange={(vals) => onChange({ ...value, substances: vals })}
           placeholder="Any substance..."
-          classNamePrefix="rs"
         />
       </div>
 
       <div className="filter-field">
         <label>Material:</label>
-        <Select
+        <FlatSelect
           options={materialOptions}
-          value={selectedMaterials}
-          onChange={(opts) => onChange({ ...value, materialTypes: opts.map((o) => o.value) })}
-          isMulti
+          selectedValues={value?.materialTypes ?? []}
+          onChange={(vals) => onChange({ ...value, materialTypes: vals })}
           placeholder="Any material type..."
-          classNamePrefix="rs"
         />
       </div>
 

@@ -23,7 +23,10 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
       relationship: { type: 'near', hops: 1 },
       blockC: {
         type: 'facilities',
-        facilityFilters: { industryCodes: ['3253'] },
+        facilityFilters: {
+          industryCodes: ['3253'],
+          industryLabels: { '3253': 'Pesticide, Fertilizer, and Other Agricultural Chemical Manufacturing' },
+        },
       },
     },
   },
@@ -41,7 +44,13 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
       relationship: { type: 'near', hops: 1 },
       blockC: {
         type: 'facilities',
-        facilityFilters: { industryCodes: ['562212', '928110'] },
+        facilityFilters: {
+          industryCodes: ['562212', '928110'],
+          industryLabels: {
+            '562212': 'Solid Waste Landfill',
+            '928110': 'National Security',
+          },
+        },
       },
     },
   },
@@ -59,7 +68,13 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
       relationship: { type: 'near', hops: 1 },
       blockC: {
         type: 'facilities',
-        facilityFilters: { industryCodes: ['562212', '928110'] },
+        facilityFilters: {
+          industryCodes: ['562212', '928110'],
+          industryLabels: {
+            '562212': 'Solid Waste Landfill',
+            '928110': 'National Security',
+          },
+        },
       },
     },
   },
@@ -77,7 +92,10 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
       relationship: { type: 'downstream' },
       blockC: {
         type: 'facilities',
-        facilityFilters: { industryCodes: ['5622'] },
+        facilityFilters: {
+          industryCodes: ['5622'],
+          industryLabels: { '5622': 'Waste Treatment and Disposal' },
+        },
       },
     },
   },

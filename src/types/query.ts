@@ -31,6 +31,7 @@ export interface SampleFilters {
 
 export interface FacilityFilters {
   industryCodes?: string[];
+  industryLabels?: Record<string, string>; // code → label for display
 }
 
 export interface WaterBodyFilters {

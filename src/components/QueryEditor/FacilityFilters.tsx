@@ -1,4 +1,4 @@
-import Select from 'react-select';
+import { HierarchicalSelect } from './HierarchicalSelect/HierarchicalSelect';
 import type { FacilityFilters as FacilityFiltersType } from '../../types/query';
 import { useIndustries } from '../../hooks/useDiscoveryQueries';
 
@@ -10,28 +10,15 @@ interface FacilityFiltersProps {
 export function FacilityFilters({ value, onChange }: FacilityFiltersProps) {
   const { data: industries = [] } = useIndustries();
 
-  const industryOptions = industries.map((i) => ({
-    value: i.code,
-    label: i.code.length <= 4
-      ? `${i.code} - ${i.label} (Group)`
-      : `${i.code} - ${i.label}`,
-  }));
-
-  const selectedIndustries = industryOptions.filter((o) =>
-    value?.industryCodes?.includes(o.value)
-  );
-
   return (
     <div className="facility-filters">
       <div className="filter-field">
         <label>Industry (NAICS):</label>
-        <Select
-          options={industryOptions}
-          value={selectedIndustries}
-          onChange={(opts) => onChange({ ...value, industryCodes: opts.map((o) => o.value) })}
-          isMulti
+        <HierarchicalSelect
+          industries={industries}
+          selectedCodes={value?.industryCodes ?? []}
+          onChange={(codes, labels) => onChange({ ...value, industryCodes: codes, industryLabels: labels })}
           placeholder="Any industry..."
-          classNamePrefix="rs"
         />
       </div>
     </div>

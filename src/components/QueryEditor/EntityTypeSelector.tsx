@@ -1,4 +1,5 @@
 import type { EntityType } from '../../types/query';
+import { FlatSelect } from './FlatSelect/FlatSelect';
 
 interface EntityTypeSelectorProps {
   value: EntityType;
@@ -15,13 +16,16 @@ export function EntityTypeSelector({ value, onChange }: EntityTypeSelectorProps)
   return (
     <div className="entity-type-selector">
       <label>Type:</label>
-      <select value={value} onChange={(e) => onChange(e.target.value as EntityType)}>
-        {ENTITY_TYPES.map((t) => (
-          <option key={t.value} value={t.value}>
-            {t.label}
-          </option>
-        ))}
-      </select>
+      <FlatSelect
+        options={ENTITY_TYPES}
+        selectedValues={[value]}
+        onChange={(vals) => {
+          if (vals[0]) onChange(vals[0] as EntityType);
+        }}
+        isMulti={false}
+        isClearable={false}
+        placeholder="Select type..."
+      />
     </div>
   );
 }

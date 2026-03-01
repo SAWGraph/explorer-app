@@ -1,5 +1,5 @@
 import type { AnalysisQuestion, EntityBlock, SpatialRelationship, RegionFilter } from '../types/query';
-import { US_STATES } from '../constants/regions';
+import { ALL_US_STATES } from '../constants/regions';
 
 export function generateQuestion(q: AnalysisQuestion): string {
   const entityA = describeEntity(q.blockA);
@@ -24,8 +24,20 @@ function describeEntity(block: EntityBlock): string {
     }
     case 'facilities': {
       const codes = block.facilityFilters?.industryCodes;
+      const labels = block.facilityFilters?.industryLabels ?? {};
       if (codes?.length) {
-        return `${codes.join(', ')} facilities`;
+        // Show only top-level codes (no code is a prefix of another in the set)
+        const codeSet = new Set(codes);
+        const topLevel = codes.filter((code) => {
+          for (let len = 1; len < code.length; len++) {
+            if (codeSet.has(code.substring(0, len))) return false;
+          }
+          return true;
+        });
+        const formatted = topLevel.map((code) =>
+          labels[code] ? `${code} - ${labels[code]}` : code
+        );
+        return `${formatted.join(', ')} facilities`;
       }
       return 'facilities';
     }
@@ -52,7 +64,7 @@ function describeRegion(region?: RegionFilter): string {
   if (!region) return '';
   const parts: string[] = [];
   if (region.stateCode) {
-    const state = US_STATES.find((s) => s.fips === region.stateCode);
+    const state = ALL_US_STATES.find((s) => s.fips === region.stateCode);
     if (state) parts.push(state.name);
   }
   return parts.length ? ` in ${parts.join(', ')}` : '';
