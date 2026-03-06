@@ -1,7 +1,8 @@
-import { LayerGroup, Polyline, Polygon, CircleMarker, Popup } from 'react-leaflet';
+import { LayerGroup, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
+import { triangleIcon } from './layerStyles';
 
 interface WaterBodyLayerProps {
   features: MapFeature[];
@@ -13,16 +14,15 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
       {features.map((f) => {
         if (f.geometry.type === 'Point') {
           return (
-            <CircleMarker
+            <Marker
               key={f.id}
-              center={f.geometry.coordinates as LatLngExpression}
-              radius={5}
-              pathOptions={{ color: '#3498db', fillColor: '#2980b9', fillOpacity: 0.6 }}
+              position={f.geometry.coordinates as LatLngExpression}
+              icon={triangleIcon}
             >
               <Popup>
                 <MapPopupContent feature={f} />
               </Popup>
-            </CircleMarker>
+            </Marker>
           );
         }
         if (f.geometry.type === 'LineString') {

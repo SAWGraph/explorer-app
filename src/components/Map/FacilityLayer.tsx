@@ -1,7 +1,8 @@
-import { LayerGroup, CircleMarker, Popup } from 'react-leaflet';
+import { LayerGroup, Marker, Popup } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
+import { createSquareIcon } from './layerStyles';
 
 interface FacilityLayerProps {
   features: MapFeature[];
@@ -26,21 +27,15 @@ export function FacilityLayer({ features }: FacilityLayerProps) {
   return (
     <LayerGroup>
       {features.map((f) => (
-        <CircleMarker
+        <Marker
           key={f.id}
-          center={f.geometry.coordinates as LatLngExpression}
-          radius={7}
-          pathOptions={{
-            color: getColor(f),
-            fillColor: getColor(f),
-            fillOpacity: 0.7,
-            weight: 2,
-          }}
+          position={f.geometry.coordinates as LatLngExpression}
+          icon={createSquareIcon(getColor(f))}
         >
           <Popup>
             <MapPopupContent feature={f} />
           </Popup>
-        </CircleMarker>
+        </Marker>
       ))}
     </LayerGroup>
   );
