@@ -2,7 +2,7 @@
 
 ![Alt text](./src/assets/sawgraph-explorer-logo.svg)
 
-A web-based interface for querying the [SAWGraph](https://sawgraph.org) knowledge graph — a PFAS contamination dataset linking water samples, industrial facilities, and hydrological features across the United States.
+A web-based interface for querying the [SAWGraph](https://sawgraph.github.io/) knowledge graph — a PFAS contamination dataset linking water samples, industrial facilities, and hydrological features across the United States.
 
 ## What it does
 
