@@ -56,10 +56,10 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
   },
   {
     id: 'waterbodies-near-landfill-dod-penobscot-knox',
-    title: 'Water Bodies Near Landfills & DOD Sites in Penobscot and Knox County',
+    title: 'Surface Water Bodies Near Landfills & DOD Sites in Penobscot and Knox County',
     description:
-      'Locate water bodies (streams, rivers, lakes) near Solid Waste Landfills (NAICS 562212) and National Security / DOD facilities (NAICS 928110) in Penobscot and Knox counties, Maine.',
-    tags: ['Water Bodies', 'Facilities', 'Near', 'Penobscot', 'Knox', 'Landfill'],
+      'Locate surface water bodies (lakes, ponds, reservoirs) near Solid Waste Landfills (NAICS 562212) and National Security / DOD facilities (NAICS 928110) in Penobscot and Knox counties, Maine.',
+    tags: ['Surface Water Bodies', 'Facilities', 'Near', 'Penobscot', 'Knox', 'Landfill'],
     question: {
       blockA: {
         type: 'waterBodies',

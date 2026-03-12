@@ -7,11 +7,9 @@ interface WaterBodyFiltersProps {
 }
 
 const FTYPE_OPTIONS = [
-  { value: 'StreamRiver', label: 'Stream / River' },
   { value: 'LakePond', label: 'Lake / Pond' },
+  { value: 'SwampMarsh', label: 'Swamp / Marsh' },
   { value: 'Reservoir', label: 'Reservoir' },
-  { value: 'Swamp', label: 'Swamp / Marsh' },
-  { value: 'Estuary', label: 'Estuary' },
 ];
 
 export function WaterBodyFilters({ value, onChange }: WaterBodyFiltersProps) {
