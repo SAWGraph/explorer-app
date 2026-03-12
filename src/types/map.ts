@@ -3,7 +3,7 @@ import type { LatLngExpression } from 'leaflet';
 export interface MapLayer {
   id: string;
   label: string;
-  type: 'samples' | 'facilities' | 'waterBodies' | 'regionBoundary';
+  type: 'samples' | 'facilities' | 'waterBodies' | 'wells' | 'regionBoundary';
   visible: boolean;
   data: MapFeature[];
 }

@@ -5,7 +5,7 @@ export interface AnalysisQuestion {
   blockC: EntityBlock;
 }
 
-export type EntityType = 'samples' | 'facilities' | 'waterBodies';
+export type EntityType = 'samples' | 'facilities' | 'waterBodies' | 'wells';
 
 export interface EntityBlock {
   type: EntityType;
@@ -13,6 +13,7 @@ export interface EntityBlock {
   sampleFilters?: SampleFilters;
   facilityFilters?: FacilityFilters;
   waterBodyFilters?: WaterBodyFilters;
+  wellFilters?: WellFilters;
 }
 
 export interface RegionFilter {
@@ -37,6 +38,10 @@ export interface FacilityFilters {
 export interface WaterBodyFilters {
   waterTypes?: string[];
   ftypes?: string[];
+}
+
+export interface WellFilters {
+  wellTypes?: string[];
 }
 
 export interface SpatialRelationship {
