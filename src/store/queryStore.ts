@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from '../types/query';
 import type { StepProgress, PipelineResult } from '../engine/executor';
 
-export type AppView = 'dashboard' | 'editor';
-
 function defaultEntityBlock(type: EntityBlock['type']): EntityBlock {
   return { type };
 }
@@ -17,7 +15,6 @@ function defaultQuestion(): AnalysisQuestion {
 }
 
 interface QueryStore {
-  currentView: AppView;
   activeQueryId: string | null;
   question: AnalysisQuestion;
   stepProgress: StepProgress[];
@@ -27,9 +24,7 @@ interface QueryStore {
   questionSnapshot: AnalysisQuestion | null;
   pendingAutoRun: boolean;
 
-  navigateTo: (view: AppView) => void;
-  loadPrebuiltQuery: (id: string, question: AnalysisQuestion) => void;
-  goToDashboard: () => void;
+  loadQuestion: (id: string, question: AnalysisQuestion) => void;
   clearPendingAutoRun: () => void;
 
   setBlockA: (block: EntityBlock) => void;
@@ -49,7 +44,6 @@ interface QueryStore {
 }
 
 export const useQueryStore = create<QueryStore>((set) => ({
-  currentView: 'dashboard',
   activeQueryId: null,
   question: defaultQuestion(),
   stepProgress: [],
@@ -59,24 +53,15 @@ export const useQueryStore = create<QueryStore>((set) => ({
   questionSnapshot: null,
   pendingAutoRun: false,
 
-  navigateTo: (currentView) => set({ currentView }),
-  loadPrebuiltQuery: (id, question) =>
+  loadQuestion: (id, question) =>
     set({
       activeQueryId: id,
       question,
-      currentView: 'editor',
       stepProgress: [],
       pipelineResult: null,
       pendingAutoRun: true,
     }),
   clearPendingAutoRun: () => set({ pendingAutoRun: false }),
-  goToDashboard: () =>
-    set({
-      currentView: 'dashboard',
-      activeQueryId: null,
-      stepProgress: [],
-      pipelineResult: null,
-    }),
 
   setBlockA: (block) => set((s) => ({ question: { ...s.question, blockA: block } })),
   setBlockC: (block) => set((s) => ({ question: { ...s.question, blockC: block } })),

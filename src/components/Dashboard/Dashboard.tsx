@@ -1,9 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
-import { useQueryStore } from '../../store/queryStore';
 import { PrebuiltQueryCard } from './PrebuiltQueryCard';
 
 export function Dashboard() {
-  const { loadPrebuiltQuery, navigateTo } = useQueryStore();
+  const navigate = useNavigate();
 
   return (
     <div className='dashboard'>
@@ -30,7 +30,7 @@ export function Dashboard() {
             <h3>Choose from the Prebuilt Analysis Questions</h3>
             <button
               className='btn-view-more'
-              onClick={() => navigateTo('editor')}
+              onClick={() => navigate('/q/new')}
             >
               <span className='btn-icon'>&#x2b1c;&#x2b1c;</span>
               View more Available Analysis Questions
@@ -42,7 +42,7 @@ export function Dashboard() {
               <PrebuiltQueryCard
                 key={query.id}
                 query={query}
-                onClick={() => loadPrebuiltQuery(query.id, query.question)}
+                onClick={() => navigate(`/q/${query.id}`)}
               />
             ))}
           </div>

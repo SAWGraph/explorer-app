@@ -62,6 +62,12 @@
   background: var(--color-indigo-100);
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
 /* Question Bar */
 .question-bar {
   display: flex;

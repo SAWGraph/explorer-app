@@ -1,21 +1,25 @@
-import { useQueryStore } from '../../store/queryStore';
+import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../../assets/sawgraph-explorer-logo.svg';
 
 export function Header() {
-  const { currentView, goToDashboard } = useQueryStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isEditor = location.pathname.startsWith('/q');
 
   return (
     <header className='app-header'>
       <div className='header-left'>
-        <button className='header-logo' onClick={goToDashboard}>
+        <button className='header-logo' onClick={() => navigate('/')}>
           <img src={logo} alt='Sawgraph Explorer' width='80' />
         </button>
       </div>
-      {currentView === 'editor' && (
-        <button className='header-back' onClick={goToDashboard}>
-          &larr; Back to Dashboard
-        </button>
-      )}
+      <div className='header-right'>
+        {isEditor && (
+          <button className='header-back' onClick={() => navigate('/')}>
+            &larr; Back to Dashboard
+          </button>
+        )}
+      </div>
     </header>
   );
 }
