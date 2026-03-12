@@ -125,6 +125,21 @@ export function transformWaterBodiesToFeatures(rows: SparqlRow[]): MapFeature[] 
   return features;
 }
 
+export function transformWellsToFeatures(rows: SparqlRow[]): MapFeature[] {
+  return rows
+    .filter((r) => r.wellWKT)
+    .map((row): MapFeature | null => {
+      const coords = parseWKTPoint(row.wellWKT);
+      if (!coords) return null;
+      return {
+        id: row.well,
+        geometry: { type: 'Point', coordinates: coords },
+        properties: { type: 'well', name: row.wellName || '' },
+      };
+    })
+    .filter(nonNull);
+}
+
 export function transformRegionBoundaries(rows: SparqlRow[]): MapFeature[] {
   const features: MapFeature[] = [];
 

@@ -5,6 +5,7 @@ import {
   transformSamplesToFeatures,
   transformFacilitiesToFeatures,
   transformWaterBodiesToFeatures,
+  transformWellsToFeatures,
   transformRegionBoundaries,
 } from '../engine/resultTransformer';
 
@@ -12,6 +13,7 @@ export interface MapLayerData {
   samples: MapFeature[];
   facilities: MapFeature[];
   waterBodies: MapFeature[];
+  wells: MapFeature[];
   regionBoundaries: MapFeature[];
 }
 
@@ -21,6 +23,7 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       samples: [],
       facilities: [],
       waterBodies: [],
+      wells: [],
       regionBoundaries: [],
     };
 
@@ -38,11 +41,13 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
     const sampleRows = allRows.filter((r) => r.spWKT);
     const facilityRows = allRows.filter((r) => r.facWKT);
     const waterBodyRows = allRows.filter((r) => r.wbWKT);
+    const wellRows = allRows.filter((r) => r.wellWKT);
 
     return {
       samples: transformSamplesToFeatures(sampleRows),
       facilities: transformFacilitiesToFeatures(facilityRows),
       waterBodies: transformWaterBodiesToFeatures(waterBodyRows),
+      wells: transformWellsToFeatures(wellRows),
       regionBoundaries: transformRegionBoundaries(boundaryRows),
     };
   }, [result]);

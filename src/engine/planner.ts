@@ -5,6 +5,7 @@ import { s2CellsToValuesString } from '../utils/s2cells';
 import { buildFacilityS2Query, buildFacilityDetailsQuery } from './templates/facilities';
 import { buildSampleS2Query, buildSampleRetrievalQuery } from './templates/samples';
 import { buildWaterBodyS2Query, buildWaterBodyRetrievalQuery } from './templates/waterBodies';
+import { buildWellS2Query, buildWellRetrievalQuery } from './templates/wells';
 import { buildStrictRegionFilterQuery, buildNearExpansionQuery, buildAnchorFilterByTargetProximity, buildRegionBoundaryQuery } from './templates/spatial';
 import { buildDownstreamTraceQuery, buildUpstreamTraceQuery } from './templates/hydrology';
 
@@ -57,6 +58,13 @@ function getS2Step(block: EntityBlock, regionCode?: string): PipelineStep {
         endpoint: 'hydrologykg',
         description: 'Finding S2 cells containing water bodies',
         buildQuery: () => buildWaterBodyS2Query(block.waterBodyFilters, regionCode),
+      };
+    case 'wells':
+      return {
+        type: 'GET_S2_FOR_ANCHOR',
+        endpoint: 'hydrologykg',
+        description: 'Finding S2 cells containing wells',
+        buildQuery: () => buildWellS2Query(block.wellFilters, regionCode),
       };
   }
 }
@@ -152,6 +160,16 @@ function findEntitiesStep(block: EntityBlock): PipelineStep {
           return buildWaterBodyRetrievalQuery(vals, block.waterBodyFilters);
         },
       };
+    case 'wells':
+      return {
+        type: 'FIND_TARGET_ENTITIES',
+        endpoint: 'hydrologykg',
+        description: 'Finding wells in target area',
+        buildQuery: (ctx) => {
+          const vals = s2CellsToValuesString(ctx.s2Cells);
+          return buildWellRetrievalQuery(vals, block.wellFilters);
+        },
+      };
   }
 }
 
@@ -182,6 +200,16 @@ function getDetailsStep(block: EntityBlock): PipelineStep {
         buildQuery: (ctx) => {
           const vals = s2CellsToValuesString(ctx.anchorS2Cells);
           return buildWaterBodyRetrievalQuery(vals, block.waterBodyFilters);
+        },
+      };
+    case 'wells':
+      return {
+        type: 'GET_ANCHOR_DETAILS',
+        endpoint: 'hydrologykg',
+        description: 'Getting well details for map',
+        buildQuery: (ctx) => {
+          const vals = s2CellsToValuesString(ctx.anchorS2Cells);
+          return buildWellRetrievalQuery(vals, block.wellFilters);
         },
       };
   }
