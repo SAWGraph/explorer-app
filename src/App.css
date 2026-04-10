@@ -912,10 +912,16 @@
   font-style: italic;
 }
 
-/* Map Popup */
+/* Map Tooltip */
+.leaflet-tooltip {
+  max-width: 300px;
+}
+
 .map-popup {
   font-size: var(--text-base);
   line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .map-popup strong {
@@ -1089,10 +1095,15 @@
 .query-tag {
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--tag-color, var(--color-gray-400));
+  background-color: color-mix(in srgb, var(--tag-color, var(--color-gray-400)) 12%, transparent);
+  color: var(--tag-color, var(--color-gray-600));
 }
 
 .query-tag-more {
-  color: var(--color-gray-500);
+  --tag-color: var(--color-gray-500);
   font-weight: var(--font-semibold);
 }
 
@@ -1163,6 +1174,70 @@
 }
 
 .custom-layer-panel__label {
+  color: #333;
+  user-select: none;
+}
+
+/* ===== Basemap Selector ===== */
+.basemap-selector {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: default;
+}
+
+.basemap-selector__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: #333;
+  cursor: pointer;
+}
+
+.basemap-selector__body {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 8px 8px;
+  min-width: 140px;
+  border-top: 1px solid #ddd;
+}
+
+.basemap-selector:hover .basemap-selector__toggle {
+  border-bottom: 1px solid #ddd;
+}
+
+.basemap-selector:hover .basemap-selector__body {
+  display: flex;
+}
+
+.basemap-selector__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.basemap-selector__row:hover {
+  background: #f5f5f5;
+}
+
+.basemap-selector__row input[type='radio'] {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--color-primary, #4f46e5);
+}
+
+.basemap-selector__label {
   color: #333;
   user-select: none;
 }

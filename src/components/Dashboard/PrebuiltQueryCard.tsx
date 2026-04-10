@@ -52,7 +52,7 @@ export function PrebuiltQueryCard({ query, onClick }: PrebuiltQueryCardProps) {
           <span
             key={tag}
             className='query-tag'
-            style={{ color: getTagColor(tag) }}
+            style={{ '--tag-color': getTagColor(tag) } as React.CSSProperties}
           >
             {tag}
           </span>

@@ -1,8 +1,9 @@
-import { LayerGroup, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
+import { LayerGroup, Polyline, Polygon, Marker, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
 import { triangleIcon } from './layerStyles';
+import { WATER_COLORS } from './mapColors';
 
 interface WaterBodyLayerProps {
   features: MapFeature[];
@@ -19,9 +20,9 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               position={f.geometry.coordinates as LatLngExpression}
               icon={triangleIcon}
             >
-              <Popup>
+              <Tooltip>
                 <MapPopupContent feature={f} />
-              </Popup>
+              </Tooltip>
             </Marker>
           );
         }
@@ -30,11 +31,11 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
             <Polyline
               key={f.id}
               positions={f.geometry.coordinates as LatLngExpression[]}
-              pathOptions={{ color: '#3498db', weight: 3, opacity: 0.8 }}
+              pathOptions={{ color: WATER_COLORS.well, weight: 3, opacity: 0.8 }}
             >
-              <Popup>
+              <Tooltip sticky>
                 <MapPopupContent feature={f} />
-              </Popup>
+              </Tooltip>
             </Polyline>
           );
         }
@@ -43,11 +44,11 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
             <Polygon
               key={f.id}
               positions={f.geometry.coordinates as LatLngExpression[][]}
-              pathOptions={{ color: '#2980b9', fillColor: '#3498db', fillOpacity: 0.3 }}
+              pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.watershed, fillOpacity: 0.3, weight: 2 }}
             >
-              <Popup>
+              <Tooltip sticky>
                 <MapPopupContent feature={f} />
-              </Popup>
+              </Tooltip>
             </Polygon>
           );
         }

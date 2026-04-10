@@ -1,5 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { LAYER_REGISTRY } from '../Map/layerStyles';
+import {
+  WATER_COLORS, SAMPLE_PUOR, SAMPLE_STROKE, FACILITY_REDS,
+  FACILITY_PURPLES, INDUSTRY_STROKE_MAP, FACILITY_STROKE_DEFAULT,
+} from '../Map/mapColors';
 import './DesignSystem.css';
 
 const COLOR_PALETTES = [
@@ -64,27 +68,56 @@ const COLOR_PALETTES = [
 ];
 
 const SEMANTIC_TAGS = [
-  { variable: '--color-tag-facilities', hex: '#2f855a', label: 'Facilities' },
-  { variable: '--color-tag-samples', hex: '#2b6cb0', label: 'Samples' },
-  { variable: '--color-tag-water-bodies', hex: '#2b6cb0', label: 'Water Bodies' },
+  { variable: '--color-tag-facilities', hex: '#cb181d', label: 'Facilities' },
+  { variable: '--color-tag-samples', hex: '#b35806', label: 'Samples' },
+  { variable: '--color-tag-water-bodies', hex: '#2b8cbe', label: 'Water Bodies' },
   { variable: '--color-tag-near', hex: '#805ad5', label: 'Near' },
   { variable: '--color-tag-downstream', hex: '#d69e2e', label: 'Downstream' },
   { variable: '--color-tag-upstream', hex: '#dd6b20', label: 'Upstream' },
 ];
 
 const INDUSTRY_COLORS = [
-  { code: '5622', hex: '#e74c3c', label: 'Waste Treatment & Disposal' },
-  { code: '3253', hex: '#9b59b6', label: 'Pesticide & Chemical Mfg' },
-  { code: '9281', hex: '#2ecc71', label: 'National Security' },
-  { code: '3328', hex: '#3498db', label: 'Coating & Engraving' },
-  { code: '3221', hex: '#1abc9c', label: 'Pulp & Paper Mills' },
+  { code: '5622', hex: '#cb181d', label: 'Waste Treatment & Disposal' },
+  { code: '3253', hex: '#ef3b2c', label: 'Pesticide & Chemical Mfg' },
+  { code: '9281', hex: '#fb6a4a', label: 'National Security' },
+  { code: '3328', hex: '#fc9272', label: 'Coating & Engraving' },
+  { code: '3221', hex: '#fcbba1', label: 'Pulp & Paper Mills' },
 ];
 
 const MAP_COLORS = [
-  { hex: '#f39c12', stroke: '#e67e22', label: 'Samples', shape: 'circle' as const },
-  { hex: '#e74c3c', stroke: '#c0392b', label: 'Facilities', shape: 'square' as const },
-  { hex: '#3498db', stroke: '#2980b9', label: 'Water Bodies', shape: 'triangle' as const },
-  { hex: '#7f8c8d', stroke: '#7f8c8d', label: 'Region Boundaries', shape: 'dashed-square' as const },
+  { hex: '#f1a340', stroke: '#96600a', label: 'Samples', shape: 'circle' as const },
+  { hex: '#cb181d', stroke: '#7a0e11', label: 'Facilities', shape: 'square' as const },
+  { hex: '#a6bddb', stroke: '#045a8d', label: 'Water Bodies', shape: 'triangle' as const },
+  { hex: '#74a9cf', stroke: '#045a8d', label: 'Wells', shape: 'circle' as const },
+  { hex: '#4a5568', stroke: '#4a5568', label: 'Region Boundaries', shape: 'dashed-square' as const },
+];
+
+const COLORBREWER_PALETTES = [
+  {
+    name: 'Water Features (Sequential Blues)',
+    colors: Object.values(WATER_COLORS),
+  },
+  {
+    name: 'Sample Points (Diverging PuOr)',
+    colors: SAMPLE_PUOR,
+  },
+  {
+    name: 'Facilities (Sequential Reds)',
+    colors: FACILITY_REDS,
+  },
+  {
+    name: 'Facilities (Sequential Purples)',
+    colors: FACILITY_PURPLES,
+  },
+];
+
+const CONCENTRATION_SCALE = [
+  { range: '0 ng/L', color: SAMPLE_PUOR[0] },
+  { range: '10 ng/L', color: SAMPLE_PUOR[1] },
+  { range: '50 ng/L', color: SAMPLE_PUOR[2] },
+  { range: '100 ng/L', color: SAMPLE_PUOR[3] },
+  { range: '500 ng/L', color: SAMPLE_PUOR[4] },
+  { range: '5000+ ng/L', color: SAMPLE_PUOR[5] },
 ];
 
 function ColorSwatch({ hex, label, variable }: { hex: string; label?: string; variable?: string }) {
@@ -109,6 +142,78 @@ function isColorDark(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 < 150;
 }
 
+function relativeLuminance(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const [rs, gs, bs] = [r, g, b].map((c) => {
+    const s = c / 255;
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+function contrastRatio(hex1: string, hex2: string): number {
+  const l1 = relativeLuminance(hex1);
+  const l2 = relativeLuminance(hex2);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+const TILE_BACKGROUNDS = [
+  { name: 'Land (cream)', hex: '#f2efe9' },
+  { name: 'Vegetation',   hex: '#c8df9f' },
+  { name: 'Water (blue)', hex: '#aad3df' },
+  { name: 'White',        hex: '#ffffff' },
+];
+
+interface ContrastEntry {
+  layer: string;
+  role: string;
+  color: string;
+  bg: string;
+  bgName: string;
+  ratio: number;
+  pass: boolean;
+}
+
+function buildContrastEntries(): ContrastEntry[] {
+  const markers: { layer: string; role: string; hex: string }[] = [
+    { layer: 'Samples', role: 'stroke', hex: '#96600a' },
+    { layer: 'Facilities', role: 'fill', hex: '#cb181d' },
+    { layer: 'Facilities', role: 'stroke', hex: FACILITY_STROKE_DEFAULT },
+    { layer: 'Water Bodies', role: 'stroke', hex: '#045a8d' },
+    { layer: 'Wells', role: 'stroke', hex: '#045a8d' },
+    { layer: 'Region Boundaries', role: 'stroke', hex: '#4a5568' },
+  ];
+  // Add NAICS strokes
+  for (const [code, stroke] of Object.entries(INDUSTRY_STROKE_MAP)) {
+    markers.push({ layer: `NAICS ${code}`, role: 'stroke', hex: stroke });
+  }
+  // PuOr strokes
+  SAMPLE_STROKE.forEach((hex, i) => {
+    markers.push({ layer: `PuOr[${i}]`, role: 'stroke', hex });
+  });
+
+  const entries: ContrastEntry[] = [];
+  for (const m of markers) {
+    for (const bg of TILE_BACKGROUNDS) {
+      const ratio = contrastRatio(m.hex, bg.hex);
+      entries.push({
+        layer: m.layer,
+        role: m.role,
+        color: m.hex,
+        bg: bg.hex,
+        bgName: bg.name,
+        ratio,
+        pass: ratio >= 3.0,
+      });
+    }
+  }
+  return entries;
+}
+
 function MapShapeIcon({ shape, fill, stroke }: { shape: string; fill: string; stroke: string }) {
   return (
     <svg width="32" height="32" viewBox="0 0 32 32">
@@ -128,6 +233,52 @@ function MapShapeIcon({ shape, fill, stroke }: { shape: string; fill: string; st
         />
       )}
     </svg>
+  );
+}
+
+function ContrastTable() {
+  const entries = buildContrastEntries();
+  const passed = entries.filter((e) => e.pass);
+  const failed = entries.filter((e) => !e.pass);
+
+  return (
+    <div className="ds-contrast">
+      <div className="ds-contrast-summary">
+        <span className="ds-contrast-pass">{passed.length} passed</span>
+        <span className="ds-contrast-fail">{failed.length} failed</span>
+        <span className="ds-contrast-total">of {entries.length} checks</span>
+      </div>
+      <table className="ds-contrast-table">
+        <thead>
+          <tr>
+            <th>Layer</th>
+            <th>Role</th>
+            <th>Color</th>
+            <th>Background</th>
+            <th>Ratio</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e, i) => (
+            <tr key={i} className={e.pass ? '' : 'ds-contrast-row--fail'}>
+              <td>{e.layer}</td>
+              <td>{e.role}</td>
+              <td>
+                <span className="ds-contrast-chip" style={{ backgroundColor: e.color }} />
+                {e.color}
+              </td>
+              <td>
+                <span className="ds-contrast-chip" style={{ backgroundColor: e.bg }} />
+                {e.bgName}
+              </td>
+              <td>{e.ratio.toFixed(2)}</td>
+              <td>{e.pass ? 'Pass' : 'Fail'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -213,6 +364,37 @@ export function DesignSystem() {
           </div>
         </section>
 
+        {/* ColorBrewer Map Palettes */}
+        <section className="ds-section">
+          <h2>ColorBrewer Map Palettes</h2>
+          <p className="ds-description">
+            Palettes sourced from <a href="https://colorbrewer2.org" target="_blank" rel="noopener noreferrer">ColorBrewer2.org</a> (Brewer, Harrower &amp; Penn State). Data conventions follow EPA and USGS standards.
+          </p>
+          {COLORBREWER_PALETTES.map((palette) => (
+            <div key={palette.name} className="ds-palette">
+              <h3>{palette.name}</h3>
+              <div className="ds-swatch-row">
+                {palette.colors.map((hex, i) => (
+                  <ColorSwatch key={`${palette.name}-${i}`} hex={hex} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* Concentration Scale */}
+        <section className="ds-section">
+          <h2>Concentration Scale (PuOr)</h2>
+          <p className="ds-description">
+            Sample points are colored by max PFAS concentration using log-scale breakpoints.
+          </p>
+          <div className="ds-swatch-row">
+            {CONCENTRATION_SCALE.map((step) => (
+              <ColorSwatch key={step.range} hex={step.color} label={step.range} />
+            ))}
+          </div>
+        </section>
+
         {/* Facility Industry Colors */}
         <section className="ds-section">
           <h2>Facility Industry Colors</h2>
@@ -290,6 +472,20 @@ export function DesignSystem() {
               <span className="ds-shadow-value">0 4px 12px rgba(90,103,216,0.12)</span>
             </div>
           </div>
+        </section>
+
+        {/* Contrast Checks */}
+        <section className="ds-section">
+          <h2>Contrast Ratio Checks</h2>
+          <p className="ds-description">
+            Map marker strokes are tested against dominant OpenStreetMap tile colors per{' '}
+            <a href="https://webaim.org/resources/contrastchecker/" target="_blank" rel="noopener noreferrer">
+              WCAG 2.1 SC 1.4.11
+            </a>{' '}
+            (Non-text Contrast). Minimum required ratio: <strong>3:1</strong>.
+            Fill colors may not independently pass since strokes carry the contrast.
+          </p>
+          <ContrastTable />
         </section>
       </div>
     </div>

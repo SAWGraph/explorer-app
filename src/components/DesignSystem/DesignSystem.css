@@ -359,3 +359,67 @@
   font-family: monospace;
   color: var(--color-gray-400);
 }
+
+/* ===== Contrast Checks ===== */
+.ds-contrast-summary {
+  display: flex;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  font-size: var(--text-md);
+}
+
+.ds-contrast-pass {
+  color: var(--color-green-700);
+  font-weight: var(--font-semibold);
+}
+
+.ds-contrast-fail {
+  color: var(--color-red-600);
+  font-weight: var(--font-semibold);
+}
+
+.ds-contrast-total {
+  color: var(--color-gray-500);
+}
+
+.ds-contrast-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.ds-contrast-table th {
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 2px solid var(--color-gray-200);
+  font-weight: var(--font-semibold);
+  color: var(--color-gray-700);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ds-contrast-table td {
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 1px solid var(--color-gray-100);
+  color: var(--color-gray-800);
+}
+
+.ds-contrast-row--fail {
+  background: #fff5f5;
+}
+
+.ds-contrast-row--fail td:last-child {
+  color: var(--color-red-600);
+  font-weight: var(--font-semibold);
+}
+
+.ds-contrast-chip {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid var(--color-gray-300);
+  vertical-align: middle;
+  margin-right: 6px;
+}

@@ -1,26 +1,26 @@
-import { LayerGroup, Marker, Popup } from 'react-leaflet';
+import { LayerGroup, Marker, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
 import { createSquareIcon } from './layerStyles';
+import { INDUSTRY_COLOR_MAP, INDUSTRY_STROKE_MAP, FACILITY_DEFAULT, FACILITY_STROKE_DEFAULT } from './mapColors';
 
 interface FacilityLayerProps {
   features: MapFeature[];
 }
 
-const INDUSTRY_COLORS: Record<string, string> = {
-  '5622': '#e74c3c',
-  '3253': '#9b59b6',
-  '9281': '#2ecc71',
-  '3328': '#3498db',
-  '3221': '#1abc9c',
-};
-
-function getColor(feature: MapFeature): string {
+function getNaicsPrefix(feature: MapFeature): string {
   const code = String(feature.properties.industryCode || '');
   const lastPart = code.split('/').pop() || '';
-  const prefix = lastPart.replace(/^NAICS-/, '').slice(0, 4);
-  return INDUSTRY_COLORS[prefix] || '#e74c3c';
+  return lastPart.replace(/^NAICS-/, '').slice(0, 4);
+}
+
+function getColor(feature: MapFeature): string {
+  return INDUSTRY_COLOR_MAP[getNaicsPrefix(feature)] || FACILITY_DEFAULT;
+}
+
+function getStroke(feature: MapFeature): string {
+  return INDUSTRY_STROKE_MAP[getNaicsPrefix(feature)] || FACILITY_STROKE_DEFAULT;
 }
 
 export function FacilityLayer({ features }: FacilityLayerProps) {
@@ -30,11 +30,11 @@ export function FacilityLayer({ features }: FacilityLayerProps) {
         <Marker
           key={f.id}
           position={f.geometry.coordinates as LatLngExpression}
-          icon={createSquareIcon(getColor(f))}
+          icon={createSquareIcon(getColor(f), getStroke(f))}
         >
-          <Popup>
+          <Tooltip>
             <MapPopupContent feature={f} />
-          </Popup>
+          </Tooltip>
         </Marker>
       ))}
     </LayerGroup>

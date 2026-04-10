@@ -9,7 +9,9 @@ import { WellLayer } from './WellLayer';
 import { RegionBoundaryLayer } from './RegionBoundaryLayer';
 import { MapCenterController } from './MapCenterController';
 import { LayerPanel } from './LayerPanel';
+import { BasemapSelector } from './BasemapSelector';
 import { LAYER_REGISTRY, getDefaultVisibility } from './layerStyles';
+import { BASEMAPS, DEFAULT_BASEMAP } from './basemaps';
 import 'leaflet/dist/leaflet.css';
 
 interface ResultsMapProps {
@@ -26,6 +28,7 @@ const LAYER_COMPONENTS: Record<string, ComponentType<{ features: MapFeature[] }>
 
 export function ResultsMap({ layers }: ResultsMapProps) {
   const [visibility, setVisibility] = useState(getDefaultVisibility);
+  const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
 
   const hasData =
     layers.samples.length > 0 ||
@@ -44,8 +47,9 @@ export function ResultsMap({ layers }: ResultsMapProps) {
       style={{ height: '100%', width: '100%' }}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        key={basemapKey}
+        attribution={BASEMAPS.find((b) => b.key === basemapKey)!.attribution}
+        url={BASEMAPS.find((b) => b.key === basemapKey)!.url}
       />
 
       <MapCenterController layers={layers} />
@@ -76,6 +80,8 @@ export function ResultsMap({ layers }: ResultsMapProps) {
           layers={layers}
         />
       )}
+
+      <BasemapSelector current={basemapKey} onChange={setBasemapKey} />
     </MapContainer>
   );
 }

@@ -1,7 +1,8 @@
-import { CircleMarker, LayerGroup, Popup } from 'react-leaflet';
+import { CircleMarker, LayerGroup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
+import { WATER_COLORS } from './mapColors';
 
 interface WellLayerProps {
   features: MapFeature[];
@@ -17,11 +18,11 @@ export function WellLayer({ features }: WellLayerProps) {
             key={f.id}
             center={f.geometry.coordinates as LatLngExpression}
             radius={4}
-            pathOptions={{ color: '#8B4513', fillColor: '#A0522D', fillOpacity: 0.7, weight: 1 }}
+            pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.aquifer, fillOpacity: 0.7, weight: 2 }}
           >
-            <Popup>
+            <Tooltip>
               <MapPopupContent feature={f} />
-            </Popup>
+            </Tooltip>
           </CircleMarker>
         );
       })}

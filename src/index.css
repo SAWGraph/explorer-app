@@ -70,10 +70,20 @@
   --color-yellow-400: #ecc94b;
   --color-yellow-100: #fefcbf;
 
+  /* Map palettes — ColorBrewer */
+  --color-water-lightest: #f1eef6;
+  --color-water-watershed: #d0d1e6;
+  --color-water-mid: #a6bddb;
+  --color-water-aquifer: #74a9cf;
+  --color-water-flowline: #2b8cbe;
+  --color-water-well: #045a8d;
+  --color-sample-default: #f1a340;
+  --color-facility-primary: #cb181d;
+
   /* Semantic tag colors */
-  --color-tag-facilities: #2f855a;
-  --color-tag-samples: #2b6cb0;
-  --color-tag-water-bodies: #2b6cb0;
+  --color-tag-facilities: #cb181d;
+  --color-tag-samples: #b35806;
+  --color-tag-water-bodies: #2b8cbe;
   --color-tag-near: #805ad5;
   --color-tag-downstream: #d69e2e;
   --color-tag-upstream: #dd6b20;

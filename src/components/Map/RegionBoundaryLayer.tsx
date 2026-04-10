@@ -1,7 +1,8 @@
-import { LayerGroup, Polygon, Popup } from 'react-leaflet';
+import { LayerGroup, Polygon, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
+import { REGION } from './mapColors';
 
 interface RegionBoundaryLayerProps {
   features: MapFeature[];
@@ -17,16 +18,16 @@ export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
             key={f.id}
             positions={f.geometry.coordinates as LatLngExpression[][]}
             pathOptions={{
-              color: '#7f8c8d',
-              fillColor: '#bdc3c7',
+              color: REGION.border,
+              fillColor: REGION.fill,
               fillOpacity: 0.1,
               weight: 2,
               dashArray: '5, 5',
             }}
           >
-            <Popup>
+            <Tooltip sticky>
               <MapPopupContent feature={f} />
-            </Popup>
+            </Tooltip>
           </Polygon>
         );
       })}
