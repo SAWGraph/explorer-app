@@ -40,6 +40,8 @@ export function ResultsMap({ layers }: ResultsMapProps) {
     setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const basemap = BASEMAPS.find((b) => b.key === basemapKey)!;
+
   return (
     <MapContainer
       center={[44.0, -69.0]}
@@ -48,9 +50,20 @@ export function ResultsMap({ layers }: ResultsMapProps) {
     >
       <TileLayer
         key={basemapKey}
-        attribution={BASEMAPS.find((b) => b.key === basemapKey)!.attribution}
-        url={BASEMAPS.find((b) => b.key === basemapKey)!.url}
+        attribution={basemap.attribution}
+        url={basemap.url}
+        maxNativeZoom={basemap.maxNativeZoom}
+        maxZoom={20}
       />
+      {basemap.overlayUrl && (
+        <TileLayer
+          key={`${basemapKey}-overlay`}
+          url={basemap.overlayUrl}
+          maxNativeZoom={basemap.maxNativeZoom}
+          maxZoom={20}
+          opacity={0.7}
+        />
+      )}
 
       <MapCenterController layers={layers} />
 
