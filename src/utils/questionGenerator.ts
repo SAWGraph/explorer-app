@@ -51,8 +51,8 @@ function describeEntity(block: EntityBlock): string {
 function describeRelationship(rel: SpatialRelationship): string {
   switch (rel.type) {
     case 'near':
-      // Each hop adds ~1-2km (touching S2 neighbors at Level 13)
-      return `near (~${(rel.hops || 1) * 2}km)`;
+      // Each hop adds ~1.6km (Level 13 S2 cell diagonal ≈ 1.593 km)
+      return `near (~${((rel.hops || 1) * 1.6).toFixed(1)} km)`;
     case 'downstream':
       return 'downstream of';
     case 'upstream':
@@ -64,12 +64,21 @@ function describeRelationship(rel: SpatialRelationship): string {
 
 function describeRegion(region?: RegionFilter): string {
   if (!region) return '';
-  const parts: string[] = [];
+
+  // Show county names if available, otherwise state name
+  if (region.countyCodes?.length && region.countyLabels) {
+    const countyNames = region.countyCodes
+      .map((c) => region.countyLabels?.[c])
+      .filter(Boolean);
+    if (countyNames.length) return ` in ${countyNames.join(' & ')}`;
+  }
+
   if (region.stateCode) {
     const state = ALL_US_STATES.find((s) => s.fips === region.stateCode);
-    if (state) parts.push(state.name);
+    if (state) return ` in ${state.name}`;
   }
-  return parts.length ? ` in ${parts.join(', ')}` : '';
+
+  return '';
 }
 
 function extractLabel(uri: string): string {

@@ -1,13 +1,15 @@
 import { PREFIXES } from '../../constants/prefixes';
+import { buildRegionFilterClause } from './shared';
 
 export function buildRegionFilterQuery(
   s2ValuesString: string,
-  regionCode: string
+  regionCodes: string[]
 ): string {
+  const regionClause = buildRegionFilterClause(regionCodes, '?s2neighbor');
   return `
     ${PREFIXES}
     SELECT ?s2cell WHERE {
-      ?s2neighbor spatial:connectedTo kwgr:administrativeRegion.USA.${regionCode} .
+      ${regionClause}
       VALUES ?s2neighbor { ${s2ValuesString} }
       ?s2neighbor kwg-ont:sfTouches | owl:sameAs ?s2cell .
     }
@@ -16,13 +18,14 @@ export function buildRegionFilterQuery(
 
 export function buildStrictRegionFilterQuery(
   s2ValuesString: string,
-  regionCode: string
+  regionCodes: string[]
 ): string {
+  const regionClause = buildRegionFilterClause(regionCodes);
   return `
     ${PREFIXES}
     SELECT DISTINCT ?s2cell WHERE {
       VALUES ?s2cell { ${s2ValuesString} }
-      ?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.${regionCode} .
+      ${regionClause}
     }
   `;
 }

@@ -1,4 +1,5 @@
 import { PREFIXES } from '../../constants/prefixes';
+import { buildRegionFilterClause } from './shared';
 import type { SampleFilters } from '../../types/query';
 
 function wrapUri(uri: string): string {
@@ -25,15 +26,10 @@ function buildSampleFilterClauses(filters?: SampleFilters): string {
   return clauses;
 }
 
-export function buildSampleS2Query(filters?: SampleFilters, regionCode?: string): string {
+export function buildSampleS2Query(filters?: SampleFilters, regionCodes?: string[]): string {
   const filterClauses = buildSampleFilterClauses(filters);
 
-  // Note: sawgraph may not have spatial:connectedTo links for S2→region
-  // The region filter will be applied in a separate step via spatialkg
-  // But we include the clause here in case the data exists
-  const regionFilterClause = regionCode
-    ? `?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.${regionCode} .`
-    : '';
+  const regionFilterClause = buildRegionFilterClause(regionCodes);
 
   return `
     ${PREFIXES}

@@ -47,12 +47,17 @@ export function RegionSelector({ value, onChange }: RegionSelectorProps) {
           <FlatSelect
             options={countyOptions}
             selectedValues={value?.countyCodes ?? []}
-            onChange={(vals) =>
+            onChange={(vals) => {
+              const labels: Record<string, string> = {};
+              for (const c of counties) {
+                if (vals.includes(c.code)) labels[c.code] = c.name;
+              }
               onChange({
                 ...value,
                 countyCodes: vals,
-              })
-            }
+                countyLabels: vals.length ? labels : undefined,
+              });
+            }}
             isMulti={true}
             isLoading={countiesLoading}
             placeholder="All counties..."
