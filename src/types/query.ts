@@ -19,6 +19,7 @@ export interface EntityBlock {
 export interface RegionFilter {
   stateCode?: string;
   countyCodes?: string[];
+  countyLabels?: Record<string, string>; // code → name for display
   countySubdivisionURIs?: string[];
 }
 

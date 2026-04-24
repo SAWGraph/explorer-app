@@ -1,10 +1,9 @@
 import { PREFIXES } from '../../constants/prefixes';
+import { buildRegionFilterClause } from './shared';
 import type { WellFilters } from '../../types/query';
 
-export function buildWellS2Query(filters?: WellFilters, regionCode?: string): string {
-  const regionFilterClause = regionCode
-    ? `?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.${regionCode} .`
-    : '';
+export function buildWellS2Query(filters?: WellFilters, regionCodes?: string[]): string {
+  const regionFilterClause = buildRegionFilterClause(regionCodes);
 
   const typeFilter = buildTypeFilter(filters);
 

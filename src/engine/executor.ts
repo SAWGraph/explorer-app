@@ -41,6 +41,11 @@ const S2_PRODUCING_STEPS = new Set([
   'FILTER_S2_POST_SPATIAL',
 ]);
 
+// Steps that expand target S2 cells (for multi-hop reverse proximity checks)
+const TARGET_S2_EXPANDING_STEPS = new Set([
+  'EXPAND_TARGET_S2_NEAR',
+]);
+
 // Steps that produce filtered anchor S2 cells (stored separately from s2Cells)
 const ANCHOR_FILTER_STEPS = new Set([
   'FILTER_ANCHOR_TO_NEARBY_TARGETS',
@@ -108,6 +113,14 @@ export async function executePipeline(
             failedAtStep: i,
             message: `No results at step: ${step.description}`,
           };
+        }
+      }
+
+      // EXPAND_TARGET_S2_NEAR expands target S2 cells by one hop (for multi-hop
+      // reverse proximity checks). Writes back to targetS2Cells.
+      if (TARGET_S2_EXPANDING_STEPS.has(step.type)) {
+        if (results.length > 0 && results[0].s2cell) {
+          context.targetS2Cells = results.map((r) => shortenS2URI(r.s2cell));
         }
       }
 

@@ -39,7 +39,7 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
     question: {
       blockA: {
         type: 'samples',
-        region: { stateCode: '23', countyCodes: ['23019', '23013'] },
+        region: { stateCode: '23', countyCodes: ['23019', '23013'], countyLabels: { '23019': 'Penobscot County, Maine', '23013': 'Knox County, Maine' } },
       },
       relationship: { type: 'near', hops: 1 },
       blockC: {
@@ -63,7 +63,7 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
     question: {
       blockA: {
         type: 'waterBodies',
-        region: { stateCode: '23', countyCodes: ['23019', '23013'] },
+        region: { stateCode: '23', countyCodes: ['23019', '23013'], countyLabels: { '23019': 'Penobscot County, Maine', '23013': 'Knox County, Maine' } },
       },
       relationship: { type: 'near', hops: 1 },
       blockC: {
@@ -114,7 +114,7 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
           minConcentration: 10,
           maxConcentration: 1000,
         },
-        region: { stateCode: '23', countyCodes: ['23005'] },
+        region: { stateCode: '23', countyCodes: ['23005'], countyLabels: { '23005': 'Cumberland County, Maine' } },
       },
       relationship: { type: 'upstream' },
       blockC: {

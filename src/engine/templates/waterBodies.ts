@@ -1,7 +1,8 @@
 import { PREFIXES } from '../../constants/prefixes';
+import { buildRegionFilterClause } from './shared';
 import type { WaterBodyFilters } from '../../types/query';
 
-export function buildWaterBodyS2Query(filters?: WaterBodyFilters, regionCode?: string): string {
+export function buildWaterBodyS2Query(filters?: WaterBodyFilters, regionCodes?: string[]): string {
   let filterClauses = '';
   if (filters?.ftypes?.length) {
     const ftypeValues = filters.ftypes.map(f => `"${f}"`).join(' ');
@@ -9,9 +10,7 @@ export function buildWaterBodyS2Query(filters?: WaterBodyFilters, regionCode?: s
     filterClauses += `VALUES ?ftype { ${ftypeValues} }\n      `;
   }
 
-  const regionFilterClause = regionCode
-    ? `?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.${regionCode} .`
-    : '';
+  const regionFilterClause = buildRegionFilterClause(regionCodes);
 
   return `
     ${PREFIXES}

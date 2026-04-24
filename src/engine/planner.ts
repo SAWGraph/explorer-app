@@ -13,6 +13,7 @@ export type PipelineStepType =
   | 'GET_S2_FOR_ANCHOR'
   | 'FILTER_S2_TO_REGION'
   | 'EXPAND_S2_NEAR'
+  | 'EXPAND_TARGET_S2_NEAR'
   | 'TRACE_DOWNSTREAM'
   | 'TRACE_UPSTREAM'
   | 'FILTER_S2_POST_SPATIAL'
@@ -36,48 +37,48 @@ export interface PipelineContext {
   results: Record<string, SparqlRow[]>;
 }
 
-function getS2Step(block: EntityBlock, regionCode?: string): PipelineStep {
+function getS2Step(block: EntityBlock, regionCodes?: string[]): PipelineStep {
   switch (block.type) {
     case 'facilities':
       return {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'federation',
         description: 'Finding S2 cells containing matching facilities',
-        buildQuery: () => buildFacilityS2Query(block.facilityFilters, regionCode),
+        buildQuery: () => buildFacilityS2Query(block.facilityFilters, regionCodes),
       };
     case 'samples':
       return {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'sawgraph',
         description: 'Finding S2 cells containing matching samples',
-        buildQuery: () => buildSampleS2Query(block.sampleFilters, regionCode),
+        buildQuery: () => buildSampleS2Query(block.sampleFilters, regionCodes),
       };
     case 'waterBodies':
       return {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'hydrologykg',
         description: 'Finding S2 cells containing water bodies',
-        buildQuery: () => buildWaterBodyS2Query(block.waterBodyFilters, regionCode),
+        buildQuery: () => buildWaterBodyS2Query(block.waterBodyFilters, regionCodes),
       };
     case 'wells':
       return {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'hydrologykg',
         description: 'Finding S2 cells containing wells',
-        buildQuery: () => buildWellS2Query(block.wellFilters, regionCode),
+        buildQuery: () => buildWellS2Query(block.wellFilters, regionCodes),
       };
   }
 }
 
 
-function strictRegionFilterStep(regionCode: string): PipelineStep {
+function strictRegionFilterStep(regionCodes: string[]): PipelineStep {
   return {
     type: 'FILTER_S2_POST_SPATIAL',
     endpoint: 'spatialkg',
-    description: `Filtering to region ${regionCode}`,
+    description: `Filtering to region ${regionCodes.join(', ')}`,
     buildQuery: (ctx) => {
       const vals = s2CellsToValuesString(ctx.s2Cells);
-      return buildStrictRegionFilterQuery(vals, regionCode);
+      return buildStrictRegionFilterQuery(vals, regionCodes);
     },
   };
 }
@@ -89,6 +90,18 @@ function expandNearStep(): PipelineStep {
     description: 'Expanding to neighboring S2 cells (touching neighbors)',
     buildQuery: (ctx) => {
       const vals = s2CellsToValuesString(ctx.s2Cells);
+      return buildNearExpansionQuery(vals);
+    },
+  };
+}
+
+function expandTargetNearStep(): PipelineStep {
+  return {
+    type: 'EXPAND_TARGET_S2_NEAR',
+    endpoint: 'spatialkg',
+    description: 'Expanding target S2 cells to neighbors',
+    buildQuery: (ctx) => {
+      const vals = s2CellsToValuesString(ctx.targetS2Cells);
       return buildNearExpansionQuery(vals);
     },
   };
@@ -215,11 +228,12 @@ function getDetailsStep(block: EntityBlock): PipelineStep {
   }
 }
 
-function getRegionCode(block: EntityBlock): string | undefined {
+function getRegionCodes(block: EntityBlock): string[] {
   const region = block.region;
-  if (!region) return undefined;
-  if (region.countyCodes?.length) return region.countyCodes[0];
-  return region.stateCode;
+  if (!region) return [];
+  if (region.countyCodes?.length) return region.countyCodes;
+  if (region.stateCode) return [region.stateCode];
+  return [];
 }
 
 export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
@@ -230,24 +244,33 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     // Start from Block C (the anchor entity), find Block A nearby.
     // Step 1 filters to region directly in SPARQL, so no separate region filter
     // step is needed — that would cause a double expansion (wrong search radius).
-    const regionCodeC = getRegionCode(blockC);
-    const regionCodeA = getRegionCode(blockA);
-    const preExpandRegion = regionCodeC || regionCodeA;
+    const regionCodesC = getRegionCodes(blockC);
+    const regionCodesA = getRegionCodes(blockA);
+    const preExpandRegion = regionCodesC.length ? regionCodesC : regionCodesA.length ? regionCodesA : undefined;
 
     steps.push(getS2Step(blockC, preExpandRegion));  // anchorS2Cells saved here
 
-    // Single expansion hop (~1-2km), matching the notebook approach
-    steps.push(expandNearStep());
+    // Expand to neighboring S2 cells. Each hop adds ~1.6 km radius.
+    const hops = relationship.hops || 1;
+    for (let i = 0; i < hops; i++) {
+      steps.push(expandNearStep());
+    }
 
     // Clip to Block A's region after expansion to avoid cross-border targets
-    if (regionCodeA) {
+    if (regionCodesA.length) {
       steps.push({
-        ...strictRegionFilterStep(regionCodeA),
+        ...strictRegionFilterStep(regionCodesA),
         type: 'FILTER_S2_POST_SPATIAL',
       });
     }
 
     steps.push(findEntitiesStep(blockA));  // targetS2Cells extracted here by executor
+
+    // For multi-hop, expand target S2 cells so the reverse filter matches
+    // the same radius used for forward expansion.
+    for (let i = 0; i < hops - 1; i++) {
+      steps.push(expandTargetNearStep());
+    }
 
     // Reverse-lookup: only show anchor entities that are near the found targets
     steps.push(filterAnchorToNearbyTargetsStep());  // updates anchorS2Cells
@@ -258,9 +281,9 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     // Expand 1 hop before tracing to capture flow paths near the anchor cells.
     // Step 1 already filters to region, so we use expandNearStep (not filterS2ToRegionStep)
     // to avoid a redundant region filter.
-    const regionCodeC = getRegionCode(blockC);
-    const regionCodeA = getRegionCode(blockA);
-    const preTraceRegion = regionCodeC || regionCodeA;
+    const regionCodesC = getRegionCodes(blockC);
+    const regionCodesA = getRegionCodes(blockA);
+    const preTraceRegion = regionCodesC.length ? regionCodesC : regionCodesA.length ? regionCodesA : undefined;
 
     steps.push(getS2Step(blockC, preTraceRegion));  // anchorS2Cells saved here
 
@@ -270,8 +293,8 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     steps.push(traceDownstreamStep());
 
     // Strict region filter on Block A's region after tracing (no expansion)
-    if (regionCodeA) {
-      steps.push(strictRegionFilterStep(regionCodeA));
+    if (regionCodesA.length) {
+      steps.push(strictRegionFilterStep(regionCodesA));
     }
 
     steps.push(findEntitiesStep(blockA));
@@ -279,9 +302,9 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
   } else if (relationship.type === 'upstream') {
     // Start from Block A (anchor), trace upstream, find Block C (targets).
     // Expand 1 hop before tracing to capture flow paths near the anchor cells.
-    const regionCodeA = getRegionCode(blockA);
+    const regionCodesA = getRegionCodes(blockA);
 
-    steps.push(getS2Step(blockA, regionCodeA));  // anchorS2Cells saved here
+    steps.push(getS2Step(blockA, regionCodesA.length ? regionCodesA : undefined));  // anchorS2Cells saved here
 
     // Expand to capture flow paths in adjacent cells before tracing upstream
     steps.push(expandNearStep());
@@ -293,10 +316,10 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
   }
 
   // Region boundaries
-  const regionA = getRegionCode(blockA);
-  const regionC = getRegionCode(blockC);
-  const boundaryRegion = regionA || regionC;
-  if (boundaryRegion) {
+  const regionCodesA = getRegionCodes(blockA);
+  const regionCodesC = getRegionCodes(blockC);
+  const hasBoundaryRegion = regionCodesA.length > 0 || regionCodesC.length > 0;
+  if (hasBoundaryRegion) {
     // Use state code for boundaries
     const stateCode = blockA.region?.stateCode || blockC.region?.stateCode;
     if (stateCode) {
