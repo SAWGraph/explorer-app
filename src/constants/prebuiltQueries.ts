@@ -109,8 +109,8 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
       blockA: {
         type: 'samples',
         sampleFilters: {
-          substances: ['me_egad_data:parameter.PFHPA_A'],
-          materialTypes: ['me_egad_data:sampleMaterialType.GW'],
+          substances: ['http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFHPA_A'],
+          materialTypes: ['http://w3id.org/sawgraph/v1/me-egad-data#sampleMaterialType.GW'],
           minConcentration: 10,
           maxConcentration: 1000,
         },
