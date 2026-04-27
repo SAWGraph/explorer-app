@@ -5,11 +5,11 @@ export interface Substance {
 
 // Fallback substances if discovery query fails
 export const FALLBACK_SUBSTANCES: Substance[] = [
-  { uri: 'me_egad:parameter.PFOS_A', label: 'PFOS' },
-  { uri: 'me_egad:parameter.PFOA_A', label: 'PFOA' },
-  { uri: 'me_egad:parameter.PFHPA_A', label: 'PFHpA' },
-  { uri: 'me_egad:parameter.PFHXS_A', label: 'PFHxS' },
-  { uri: 'me_egad:parameter.PFNA_A', label: 'PFNA' },
-  { uri: 'me_egad:parameter.PFDA_A', label: 'PFDA' },
-  { uri: 'me_egad:parameter.PFBS_A', label: 'PFBS' },
+  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFOS_A', label: 'PFOS' },
+  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFOA_A', label: 'PFOA' },
+  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFHPA_A', label: 'PFHpA' },
+  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFHXS_A', label: 'PFHxS' },
+  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFNA_A', label: 'PFNA' },
+  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFDA_A', label: 'PFDA' },
+  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFBS_A', label: 'PFBS' },
 ];

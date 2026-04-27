@@ -2,12 +2,30 @@ import type { AnalysisQuestion, EntityBlock } from '../types/query';
 import type { EndpointKey } from '../constants/endpoints';
 import type { SparqlRow } from '../types/sparql';
 import { s2CellsToValuesString } from '../utils/s2cells';
-import { buildFacilityS2Query, buildFacilityDetailsQuery } from './templates/facilities';
-import { buildSampleS2Query, buildSampleRetrievalQuery, buildSampleDetailQuery } from './templates/samples';
-import { buildWaterBodyS2Query, buildWaterBodyRetrievalQuery } from './templates/waterBodies';
+import {
+  buildFacilityS2Query,
+  buildFacilityDetailsQuery,
+} from './templates/facilities';
+import {
+  buildSampleS2Query,
+  buildSampleRetrievalQuery,
+  buildSampleDetailQuery,
+} from './templates/samples';
+import {
+  buildWaterBodyS2Query,
+  buildWaterBodyRetrievalQuery,
+} from './templates/waterBodies';
 import { buildWellS2Query, buildWellRetrievalQuery } from './templates/wells';
-import { buildStrictRegionFilterQuery, buildNearExpansionQuery, buildAnchorFilterByTargetProximity, buildRegionBoundaryQuery } from './templates/spatial';
-import { buildDownstreamTraceQuery, buildUpstreamTraceQuery } from './templates/hydrology';
+import {
+  buildStrictRegionFilterQuery,
+  buildNearExpansionQuery,
+  buildAnchorFilterByTargetProximity,
+  buildRegionBoundaryQuery,
+} from './templates/spatial';
+import {
+  buildDownstreamTraceQuery,
+  buildUpstreamTraceQuery,
+} from './templates/hydrology';
 
 export type PipelineStepType =
   | 'GET_S2_FOR_ANCHOR'
@@ -46,7 +64,8 @@ function getS2Step(block: EntityBlock, regionCodes?: string[]): PipelineStep {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'federation',
         description: 'Finding S2 cells containing matching facilities',
-        buildQuery: () => buildFacilityS2Query(block.facilityFilters, regionCodes),
+        buildQuery: () =>
+          buildFacilityS2Query(block.facilityFilters, regionCodes),
       };
     case 'samples':
       return {
@@ -60,7 +79,8 @@ function getS2Step(block: EntityBlock, regionCodes?: string[]): PipelineStep {
         type: 'GET_S2_FOR_ANCHOR',
         endpoint: 'hydrologykg',
         description: 'Finding S2 cells containing water bodies',
-        buildQuery: () => buildWaterBodyS2Query(block.waterBodyFilters, regionCodes),
+        buildQuery: () =>
+          buildWaterBodyS2Query(block.waterBodyFilters, regionCodes),
       };
     case 'wells':
       return {
@@ -71,7 +91,6 @@ function getS2Step(block: EntityBlock, regionCodes?: string[]): PipelineStep {
       };
   }
 }
-
 
 function strictRegionFilterStep(regionCodes: string[]): PipelineStep {
   return {
@@ -163,7 +182,8 @@ function findEntitiesStep(block: EntityBlock): PipelineStep {
         type: 'FIND_TARGET_ENTITIES',
         endpoint: 'federation',
         description: 'Finding facilities in target area',
-        buildQuery: (ctx) => buildFacilityDetailsQuery(block.facilityFilters, ctx.s2Cells),
+        buildQuery: (ctx) =>
+          buildFacilityDetailsQuery(block.facilityFilters, ctx.s2Cells),
       };
     case 'waterBodies':
       return {
@@ -195,7 +215,8 @@ function getDetailsStep(block: EntityBlock): PipelineStep {
         type: 'GET_ANCHOR_DETAILS',
         endpoint: 'federation',
         description: 'Getting facility details for map',
-        buildQuery: (ctx) => buildFacilityDetailsQuery(block.facilityFilters, ctx.anchorS2Cells),
+        buildQuery: (ctx) =>
+          buildFacilityDetailsQuery(block.facilityFilters, ctx.anchorS2Cells),
       };
     case 'samples':
       return {
@@ -248,9 +269,13 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     // step is needed — that would cause a double expansion (wrong search radius).
     const regionCodesC = getRegionCodes(blockC);
     const regionCodesA = getRegionCodes(blockA);
-    const preExpandRegion = regionCodesC.length ? regionCodesC : regionCodesA.length ? regionCodesA : undefined;
+    const preExpandRegion = regionCodesC.length
+      ? regionCodesC
+      : regionCodesA.length
+        ? regionCodesA
+        : undefined;
 
-    steps.push(getS2Step(blockC, preExpandRegion));  // anchorS2Cells saved here
+    steps.push(getS2Step(blockC, preExpandRegion)); // anchorS2Cells saved here
 
     // Expand to neighboring S2 cells. Each hop adds ~1.6 km radius.
     const hops = relationship.hops || 1;
@@ -266,7 +291,7 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
       });
     }
 
-    steps.push(findEntitiesStep(blockA));  // targetS2Cells extracted here by executor
+    steps.push(findEntitiesStep(blockA)); // targetS2Cells extracted here by executor
 
     // For multi-hop, expand target S2 cells so the reverse filter matches
     // the same radius used for forward expansion.
@@ -275,7 +300,7 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     }
 
     // Reverse-lookup: only show anchor entities that are near the found targets
-    steps.push(filterAnchorToNearbyTargetsStep());  // updates anchorS2Cells
+    steps.push(filterAnchorToNearbyTargetsStep()); // updates anchorS2Cells
 
     steps.push(getDetailsStep(blockC));
   } else if (relationship.type === 'downstream') {
@@ -283,7 +308,11 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     // Expand 1 hop before tracing to capture flow paths near the anchor cells.
     const regionCodesC = getRegionCodes(blockC);
     const regionCodesA = getRegionCodes(blockA);
-    const anchorRegion = regionCodesC.length ? regionCodesC : regionCodesA.length ? regionCodesA : undefined;
+    const anchorRegion = regionCodesC.length
+      ? regionCodesC
+      : regionCodesA.length
+        ? regionCodesA
+        : undefined;
 
     steps.push(getS2Step(blockC));
     if (anchorRegion) {
@@ -294,7 +323,6 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     }
     steps.push(expandNearStep());
     steps.push(traceDownstreamStep());
-
 
     // Strict region filter on Block A's region after tracing (no expansion)
     if (regionCodesA.length) {
@@ -308,7 +336,11 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     const regionCodesA = getRegionCodes(blockA);
     const regionCodesC = getRegionCodes(blockC);
     const anchorRegion = regionCodesA.length ? regionCodesA : undefined;
-    const targetRegion = regionCodesC.length ? regionCodesC : regionCodesA.length ? regionCodesA : undefined;
+    const targetRegion = regionCodesC.length
+      ? regionCodesC
+      : regionCodesA.length
+        ? regionCodesA
+        : undefined;
 
     steps.push(getS2Step(blockA));
     if (anchorRegion) {
@@ -335,9 +367,21 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
       description: 'Loading sample observation details',
       buildQuery: (ctx) => {
         // Combine S2 cells from both target and anchor results to cover all samples
-        const allCells = [...new Set([...ctx.targetS2Cells, ...ctx.anchorS2Cells])];
-        const vals = s2CellsToValuesString(allCells.length > 0 ? allCells : ctx.s2Cells);
-        return buildSampleDetailQuery(vals, sampleBlock.sampleFilters);
+        const allCells = [
+          ...new Set([...ctx.targetS2Cells, ...ctx.anchorS2Cells]),
+        ];
+        const vals = s2CellsToValuesString(
+          allCells.length > 0 ? allCells : ctx.s2Cells,
+        );
+        // Don't pass substance/materialType filters — ?substance in the detail
+        // query is bound to a label (skos:altLabel), not a URI, so a VALUES
+        // filter on URIs returns 0 rows. S2 cells already constrain scope.
+        const { substances: _s, materialTypes: _m, ...displayFilters } =
+          sampleBlock.sampleFilters ?? {};
+        return buildSampleDetailQuery(
+          vals,
+          Object.keys(displayFilters).length ? displayFilters : undefined,
+        );
       },
     });
   }
