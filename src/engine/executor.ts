@@ -39,6 +39,7 @@ const S2_PRODUCING_STEPS = new Set([
   'TRACE_DOWNSTREAM',
   'TRACE_UPSTREAM',
   'FILTER_S2_POST_SPATIAL',
+  'FILTER_ANCHOR_TO_REGION',
 ]);
 
 // Steps that expand target S2 cells (for multi-hop reverse proximity checks)
@@ -84,6 +85,9 @@ export async function executePipeline(
         // only the facilities/samples that were directly queried, not the
         // inflated set produced by region filter expansion.
         if (step.type === 'GET_S2_FOR_ANCHOR') {
+          context.anchorS2Cells = [...context.s2Cells];
+        }
+        if (step.type === 'FILTER_ANCHOR_TO_REGION') {
           context.anchorS2Cells = [...context.s2Cells];
         }
       }
