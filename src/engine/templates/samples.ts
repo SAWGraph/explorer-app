@@ -91,3 +91,46 @@ export function buildSampleRetrievalQuery(
     } GROUP BY ?sp ?spWKT ?s2cell
   `;
 }
+
+export function buildSampleDetailQuery(
+  s2ValuesString: string,
+  filters?: SampleFilters
+): string {
+  const filterClauses = buildSampleFilterClauses(filters);
+
+  return `
+    ${PREFIXES}
+    SELECT DISTINCT
+      ?sp ?spWKT
+      (SAMPLE(?spName) as ?samplePointName)
+      ?sample
+      (GROUP_CONCAT(DISTINCT ?sampleId; separator="; ") as ?sampleIdentifier)
+      ?observation
+      ?date
+      ?substance
+      ?result_value
+      ?unit_sym
+      (GROUP_CONCAT(DISTINCT ?matTypeLabel; separator=", ") as ?sampleType)
+    WHERE {
+      ?sp rdf:type coso:SamplePoint ;
+          spatial:connectedTo ?s2cell ;
+          geo:hasGeometry/geo:asWKT ?spWKT .
+      VALUES ?s2cell { ${s2ValuesString} }
+      OPTIONAL { ?sp rdfs:label ?spName }
+      ?sample coso:fromSamplePoint ?sp ;
+          coso:sampleOfMaterialType ?matType .
+      ?matType rdfs:label ?matTypeLabel .
+      ?observation rdf:type coso:ContaminantObservation ;
+          coso:analyzedSample ?sample ;
+          coso:observedAtSamplePoint ?sp ;
+          coso:ofDSSToxSubstance/skos:altLabel ?substance ;
+          coso:hasResult/coso:measurementValue ?result_value ;
+          coso:hasResult/coso:measurementUnit/qudt:symbol ?unit_sym .
+      OPTIONAL { ?observation sosa:resultTime ?date }
+      OPTIONAL { ?sample dcterms:identifier ?sampleId }
+      ${filterClauses}
+    }
+    GROUP BY ?sp ?spWKT ?sample ?observation ?date ?substance ?result_value ?unit_sym
+    ORDER BY ?sp ?sample ?substance DESC(?date)
+  `;
+}

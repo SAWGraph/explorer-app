@@ -20,4 +20,6 @@ PREFIX nhdplusv2: <http://nhdplusv2.spatialai.org/v1/nhdplusv2#>
 PREFIX il_isgs: <http://sawgraph.spatialai.org/v1/il-isgs#>
 PREFIX me_mgs: <http://sawgraph.spatialai.org/v1/me-mgs#>
 PREFIX schema: <https://schema.org/>
+PREFIX sosa: <http://www.w3.org/ns/sosa/>
+PREFIX dcterms: <http://purl.org/dc/terms/>
 `.trim();

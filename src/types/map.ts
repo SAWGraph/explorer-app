@@ -12,6 +12,27 @@ export interface MapFeature {
   id: string;
   geometry: PointGeometry | LineGeometry | PolygonGeometry;
   properties: Record<string, string | number>;
+  sampleDetails?: SamplePointDetail;
+}
+
+export interface SampleObservation {
+  substance: string;
+  result: number;
+  unit: string;
+}
+
+export interface SampleRecord {
+  sampleUri: string;
+  sampleId: string;
+  date: string;
+  sampleType: string;
+  observations: SampleObservation[];
+}
+
+export interface SamplePointDetail {
+  samplePointName: string;
+  maxResult: { substance: string; value: number; unit: string; sampleId: string; date: string } | null;
+  samples: SampleRecord[];
 }
 
 export interface PointGeometry {

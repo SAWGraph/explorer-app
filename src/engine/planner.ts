@@ -3,7 +3,7 @@ import type { EndpointKey } from '../constants/endpoints';
 import type { SparqlRow } from '../types/sparql';
 import { s2CellsToValuesString } from '../utils/s2cells';
 import { buildFacilityS2Query, buildFacilityDetailsQuery } from './templates/facilities';
-import { buildSampleS2Query, buildSampleRetrievalQuery } from './templates/samples';
+import { buildSampleS2Query, buildSampleRetrievalQuery, buildSampleDetailQuery } from './templates/samples';
 import { buildWaterBodyS2Query, buildWaterBodyRetrievalQuery } from './templates/waterBodies';
 import { buildWellS2Query, buildWellRetrievalQuery } from './templates/wells';
 import { buildStrictRegionFilterQuery, buildNearExpansionQuery, buildAnchorFilterByTargetProximity, buildRegionBoundaryQuery } from './templates/spatial';
@@ -19,6 +19,7 @@ export type PipelineStepType =
   | 'FIND_TARGET_ENTITIES'
   | 'FILTER_ANCHOR_TO_NEARBY_TARGETS'
   | 'GET_ANCHOR_DETAILS'
+  | 'GET_SAMPLE_DETAILS'
   | 'GET_REGION_BOUNDARIES';
 
 export interface PipelineStep {
@@ -290,6 +291,22 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
 
     steps.push(findEntitiesStep(blockC));
     steps.push(getDetailsStep(blockA));
+  }
+
+  // Sample detail query — fetch per-observation data for richer popups
+  if (blockA.type === 'samples' || blockC.type === 'samples') {
+    const sampleBlock = blockA.type === 'samples' ? blockA : blockC;
+    steps.push({
+      type: 'GET_SAMPLE_DETAILS',
+      endpoint: 'sawgraph',
+      description: 'Loading sample observation details',
+      buildQuery: (ctx) => {
+        // Combine S2 cells from both target and anchor results to cover all samples
+        const allCells = [...new Set([...ctx.targetS2Cells, ...ctx.anchorS2Cells])];
+        const vals = s2CellsToValuesString(allCells.length > 0 ? allCells : ctx.s2Cells);
+        return buildSampleDetailQuery(vals, sampleBlock.sampleFilters);
+      },
+    });
   }
 
   // Region boundaries
