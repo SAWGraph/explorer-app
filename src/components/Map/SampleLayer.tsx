@@ -1,4 +1,4 @@
-import { LayerGroup, CircleMarker, Tooltip } from 'react-leaflet';
+import { LayerGroup, CircleMarker, Popup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -23,8 +23,11 @@ export function SampleLayer({ features }: SampleLayerProps) {
             weight: 2,
           }}
         >
-          <Tooltip>
+          <Popup maxWidth={500} maxHeight={400}>
             <MapPopupContent feature={f} />
+          </Popup>
+          <Tooltip>
+            <strong>{f.sampleDetails?.samplePointName || 'Sample Point'}</strong>
           </Tooltip>
         </CircleMarker>
       ))}

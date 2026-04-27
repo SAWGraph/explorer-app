@@ -1,5 +1,5 @@
 import type { SparqlRow } from '../types/sparql';
-import type { MapFeature } from '../types/map';
+import type { MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from '../types/map';
 import type { LatLngExpression } from 'leaflet';
 
 function parseWKTPoint(wkt: string): LatLngExpression | null {
@@ -163,4 +163,86 @@ export function transformRegionBoundaries(rows: SparqlRow[]): MapFeature[] {
   }
 
   return features;
+}
+
+/**
+ * Enrich existing sample MapFeatures with per-observation detail data
+ * from the detail query rows.
+ */
+export function enrichSampleFeaturesWithDetails(
+  features: MapFeature[],
+  detailRows: SparqlRow[]
+): void {
+  // Group detail rows by sample point URI
+  const bySp = new Map<string, SparqlRow[]>();
+  for (const row of detailRows) {
+    const sp = row.sp;
+    if (!sp) continue;
+    let arr = bySp.get(sp);
+    if (!arr) {
+      arr = [];
+      bySp.set(sp, arr);
+    }
+    arr.push(row);
+  }
+
+  for (const feature of features) {
+    const rows = bySp.get(feature.id);
+    if (!rows || rows.length === 0) continue;
+
+    const samplePointName = rows[0].samplePointName || '';
+
+    // Group by sample URI
+    const bySample = new Map<string, SparqlRow[]>();
+    for (const row of rows) {
+      const sampleUri = row.sample || '';
+      let arr = bySample.get(sampleUri);
+      if (!arr) {
+        arr = [];
+        bySample.set(sampleUri, arr);
+      }
+      arr.push(row);
+    }
+
+    // Build sample records
+    const samples: SampleRecord[] = [];
+    let maxResult: SamplePointDetail['maxResult'] = null;
+
+    for (const [sampleUri, sampleRows] of bySample) {
+      const first = sampleRows[0];
+      const observations: SampleObservation[] = [];
+
+      for (const r of sampleRows) {
+        const val = parseFloat(r.result_value);
+        if (isNaN(val)) continue;
+
+        observations.push({
+          substance: r.substance || '',
+          result: val,
+          unit: r.unit_sym || '',
+        });
+
+        // Track overall max
+        if (!maxResult || val > maxResult.value) {
+          maxResult = {
+            substance: r.substance || '',
+            value: val,
+            unit: r.unit_sym || '',
+            sampleId: first.sampleIdentifier || '',
+            date: (r.date || '').slice(0, 10),
+          };
+        }
+      }
+
+      samples.push({
+        sampleUri,
+        sampleId: first.sampleIdentifier || '',
+        date: (first.date || '').slice(0, 10),
+        sampleType: first.sampleType || '',
+        observations,
+      });
+    }
+
+    feature.sampleDetails = { samplePointName, maxResult, samples };
+  }
 }
