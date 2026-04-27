@@ -99,7 +99,7 @@ export function MapPopupContent({ feature }: MapPopupProps) {
       <div className="map-popup">
         <strong>{props.name || 'Facility'}</strong>
         {props.industryName && <div>Industry: {props.industryName}</div>}
-        {props.industryCode && <div>NAICS: {String(props.industryCode).split('/').pop()}</div>}
+        {props.industryCode && <div>NAICS: {String(props.industryCode).split('#').pop()?.replace('NAICS-', '')}</div>}
       </div>
     );
   }
