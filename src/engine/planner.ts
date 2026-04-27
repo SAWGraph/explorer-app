@@ -21,6 +21,7 @@ export type PipelineStepType =
   | 'FILTER_ANCHOR_TO_NEARBY_TARGETS'
   | 'GET_ANCHOR_DETAILS'
   | 'GET_SAMPLE_DETAILS'
+  | 'FILTER_ANCHOR_TO_REGION'
   | 'GET_REGION_BOUNDARIES';
 
 export interface PipelineStep {
@@ -280,38 +281,47 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
   } else if (relationship.type === 'downstream') {
     // Start from Block C (anchor), trace downstream, find Block A (targets).
     // Expand 1 hop before tracing to capture flow paths near the anchor cells.
-    // Step 1 already filters to region, so we use expandNearStep (not filterS2ToRegionStep)
-    // to avoid a redundant region filter.
     const regionCodesC = getRegionCodes(blockC);
     const regionCodesA = getRegionCodes(blockA);
-    const preTraceRegion = regionCodesC.length ? regionCodesC : regionCodesA.length ? regionCodesA : undefined;
+    const anchorRegion = regionCodesC.length ? regionCodesC : regionCodesA.length ? regionCodesA : undefined;
 
-    steps.push(getS2Step(blockC, preTraceRegion));  // anchorS2Cells saved here
-
-    // Expand to capture flow paths in adjacent cells before tracing downstream
+    steps.push(getS2Step(blockC));
+    if (anchorRegion) {
+      steps.push({
+        ...strictRegionFilterStep(anchorRegion),
+        type: 'FILTER_ANCHOR_TO_REGION',
+      });
+    }
     steps.push(expandNearStep());
-
     steps.push(traceDownstreamStep());
+
 
     // Strict region filter on Block A's region after tracing (no expansion)
     if (regionCodesA.length) {
       steps.push(strictRegionFilterStep(regionCodesA));
     }
-
     steps.push(findEntitiesStep(blockA));
     steps.push(getDetailsStep(blockC));
   } else if (relationship.type === 'upstream') {
     // Start from Block A (anchor), trace upstream, find Block C (targets).
     // Expand 1 hop before tracing to capture flow paths near the anchor cells.
     const regionCodesA = getRegionCodes(blockA);
+    const regionCodesC = getRegionCodes(blockC);
+    const anchorRegion = regionCodesA.length ? regionCodesA : undefined;
+    const targetRegion = regionCodesC.length ? regionCodesC : regionCodesA.length ? regionCodesA : undefined;
 
-    steps.push(getS2Step(blockA, regionCodesA.length ? regionCodesA : undefined));  // anchorS2Cells saved here
-
-    // Expand to capture flow paths in adjacent cells before tracing upstream
+    steps.push(getS2Step(blockA));
+    if (anchorRegion) {
+      steps.push({
+        ...strictRegionFilterStep(anchorRegion),
+        type: 'FILTER_ANCHOR_TO_REGION',
+      });
+    }
     steps.push(expandNearStep());
-
     steps.push(traceUpstreamStep());
-
+    if (targetRegion) {
+      steps.push(strictRegionFilterStep(targetRegion));
+    }
     steps.push(findEntitiesStep(blockC));
     steps.push(getDetailsStep(blockA));
   }
