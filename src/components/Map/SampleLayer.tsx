@@ -2,7 +2,7 @@ import { LayerGroup, CircleMarker, Popup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
-import { getSampleColor, getSampleStroke, getSampleRadius } from './mapColors';
+import { SAMPLE_DEFAULT, SAMPLE_STROKE_DEFAULT, getSampleRadius } from './mapColors';
 
 interface SampleLayerProps {
   features: MapFeature[];
@@ -17,8 +17,8 @@ export function SampleLayer({ features }: SampleLayerProps) {
           center={f.geometry.coordinates as LatLngExpression}
           radius={getSampleRadius(f.properties.maxConcentration)}
           pathOptions={{
-            color: getSampleStroke(f.properties.maxConcentration),
-            fillColor: getSampleColor(f.properties.maxConcentration),
+            color: SAMPLE_STROKE_DEFAULT,
+            fillColor: SAMPLE_DEFAULT,
             fillOpacity: 0.8,
             weight: 2,
           }}
