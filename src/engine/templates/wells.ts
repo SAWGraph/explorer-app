@@ -26,12 +26,23 @@ export function buildWellRetrievalQuery(
 
   return `
     ${PREFIXES}
-    SELECT DISTINCT ?well ?wellWKT ?wellName ?s2cell WHERE {
+    SELECT DISTINCT ?well ?wellWKT ?wellName ?s2cell
+      ?meUse ?meWellType ?meDepth ?meOverburden
+      ?ilOwner ?ilDepth ?ilPurpose ?ilYield
+    WHERE {
       VALUES ?s2cell { ${s2ValuesString} }
       ?s2cell spatial:connectedTo ?well .
       ${typeFilter}
       ?well geo:hasGeometry/geo:asWKT ?wellWKT .
       OPTIONAL { ?well rdfs:label ?wellName . }
+      OPTIONAL { ?well me_mgs:hasUse ?meUse . }
+      OPTIONAL { ?well me_mgs:ofWellType ?meWellType . }
+      OPTIONAL { ?well me_mgs:wellDepth/qudt:numericValue ?meDepth . }
+      OPTIONAL { ?well me_mgs:wellOverburden/qudt:numericValue ?meOverburden . }
+      OPTIONAL { ?well il_isgs:hasOwner ?ilOwner . }
+      OPTIONAL { ?well il_isgs:wellDepth/qudt:numericValue ?ilDepth . }
+      OPTIONAL { ?well il_isgs:wellPurpose ?ilPurpose . }
+      OPTIONAL { ?well il_isgs:wellYield/qudt:numericValue ?ilYield . }
     }
   `;
 }

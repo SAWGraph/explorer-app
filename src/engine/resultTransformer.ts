@@ -94,7 +94,14 @@ export function transformWaterBodiesToFeatures(rows: SparqlRow[]): MapFeature[] 
   for (const row of rows) {
     if (!row.wbWKT) continue;
     const wkt = row.wbWKT;
-    const props = { type: 'waterBody', name: row.wbName || 'Unknown Water Body' };
+    const props = {
+      type: 'waterBody',
+      name: row.wbName || 'Unknown Water Body',
+      ftype: row.ftype || '',
+      comid: row.comid || '',
+      reachcode: row.reachcode || '',
+      fcode: row.fcode || '',
+    };
 
     const pointCoords = parseWKTPoint(wkt);
     if (pointCoords) {
@@ -134,7 +141,17 @@ export function transformWellsToFeatures(rows: SparqlRow[]): MapFeature[] {
       return {
         id: row.well,
         geometry: { type: 'Point', coordinates: coords },
-        properties: { type: 'well', name: row.wellName || '' },
+        properties: {
+          type: 'well',
+          name: row.wellName || '',
+          wellUse: row.meUse ? String(row.meUse).split('.').pop() || '' : '',
+          wellType: row.meWellType ? String(row.meWellType).split('.').pop() || '' : '',
+          depth: row.meDepth || row.ilDepth || '',
+          overburden: row.meOverburden || '',
+          owner: row.ilOwner || '',
+          purpose: row.ilPurpose ? String(row.ilPurpose).split('.').pop() || '' : '',
+          wellYield: row.ilYield || '',
+        },
       };
     })
     .filter(nonNull);

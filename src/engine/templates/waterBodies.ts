@@ -37,12 +37,16 @@ export function buildWaterBodyRetrievalQuery(
 
   return `
     ${PREFIXES}
-    SELECT DISTINCT ?waterBody ?wbWKT ?wbName ?s2cell WHERE {
+    SELECT DISTINCT ?waterBody ?wbWKT ?wbName ?ftype ?comid ?reachcode ?fcode ?s2cell WHERE {
       VALUES ?s2cell { ${s2ValuesString} }
       ?s2cell spatial:connectedTo ?waterBody .
       ?waterBody rdf:type hyf:HY_WaterBody ;
                  geo:hasGeometry/geo:asWKT ?wbWKT .
       OPTIONAL { ?waterBody schema:name ?wbName . }
+      OPTIONAL { ?waterBody nhdplusv2:hasFTYPE ?ftype . }
+      OPTIONAL { ?waterBody nhdplusv2:hasCOMID ?comid . }
+      OPTIONAL { ?waterBody nhdplusv2:hasReachCode ?reachcode . }
+      OPTIONAL { ?waterBody nhdplusv2:hasFCODE ?fcode . }
       ${filterClauses}
     }
   `;

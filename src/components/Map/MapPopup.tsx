@@ -74,6 +74,11 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
   );
 }
 
+function extractIlWellId(uri: string): string | null {
+  const match = uri.match(/ISGS-Well\.(\d{12})/);
+  return match ? match[1] : null;
+}
+
 export function MapPopupContent({ feature }: MapPopupProps) {
   const props = feature.properties;
 
@@ -108,14 +113,32 @@ export function MapPopupContent({ feature }: MapPopupProps) {
     return (
       <div className="map-popup">
         <strong>{props.name || 'Surface Water Body'}</strong>
+        {props.ftype && <div>Type: {props.ftype}</div>}
+        {props.comid && <div>COMID: {props.comid}</div>}
+        {props.reachcode && <div>Reach Code: {props.reachcode}</div>}
+        {props.fcode && <div>FCODE: {props.fcode}</div>}
       </div>
     );
   }
 
   if (props.type === 'well') {
+    const ilId = extractIlWellId(feature.id);
     return (
       <div className="map-popup">
         <strong>{props.name || 'Well'}</strong>
+        {props.wellType && <div>Type: {props.wellType}</div>}
+        {props.wellUse && <div>Use: {props.wellUse}</div>}
+        {props.purpose && <div>Purpose: {props.purpose}</div>}
+        {props.owner && <div>Owner: {props.owner}</div>}
+        {props.depth && <div>Depth: {props.depth} ft</div>}
+        {props.overburden && <div>Overburden: {props.overburden} ft</div>}
+        {props.wellYield && <div>Yield: {props.wellYield}</div>}
+        {ilId && (
+          <div>
+            <a href={`https://data.prairie.illinois.edu/GEOPROD/water_summary.aspx?api10=${ilId.slice(0, 10)}&wo=${ilId.slice(10)}`}
+              target="_blank" rel="noopener noreferrer">Data Summary Sheet</a>
+          </div>
+        )}
       </div>
     );
   }
