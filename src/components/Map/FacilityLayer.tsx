@@ -35,7 +35,7 @@ export function FacilityLayer({ features }: FacilityLayerProps) {
           <Popup maxWidth={600}>
             <MapPopupContent feature={f} />
           </Popup>
-          <Tooltip>
+          <Tooltip pane="tooltipPane">
             <strong>{f.properties.name || 'Facility'}</strong>
             {f.properties.industryName && <div>{f.properties.industryName}</div>}
           </Tooltip>

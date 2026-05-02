@@ -19,7 +19,7 @@ export function StreamLayer({ features }: StreamLayerProps) {
             positions={f.geometry.coordinates as LatLngExpression[]}
             pathOptions={{ color: WATER_COLORS.flowline, weight: 2, opacity: 0.7 }}
           >
-            <Tooltip sticky>
+            <Tooltip sticky pane="tooltipPane">
               <MapPopupContent feature={f} />
             </Tooltip>
           </Polyline>

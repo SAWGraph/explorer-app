@@ -17,6 +17,7 @@ export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
           <Polygon
             key={f.id}
             positions={f.geometry.coordinates as LatLngExpression[][]}
+            bubblingMouseEvents
             pathOptions={{
               color: REGION.border,
               fillColor: REGION.fill,
@@ -25,7 +26,7 @@ export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
               dashArray: '5, 5',
             }}
           >
-            <Tooltip sticky>
+            <Tooltip sticky pane="tooltipPane">
               <MapPopupContent feature={f} />
             </Tooltip>
           </Polygon>

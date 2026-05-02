@@ -26,7 +26,7 @@ export function SampleLayer({ features }: SampleLayerProps) {
           <Popup maxWidth={500} maxHeight={400}>
             <MapPopupContent feature={f} />
           </Popup>
-          <Tooltip>
+          <Tooltip pane="tooltipPane">
             <strong>{f.sampleDetails?.samplePointName || 'Sample Point'}</strong>
           </Tooltip>
         </CircleMarker>

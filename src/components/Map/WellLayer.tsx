@@ -20,7 +20,7 @@ export function WellLayer({ features }: WellLayerProps) {
             radius={4}
             pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.aquifer, fillOpacity: 0.7, weight: 2 }}
           >
-            <Tooltip>
+            <Tooltip pane="tooltipPane">
               <MapPopupContent feature={f} />
             </Tooltip>
           </CircleMarker>

@@ -20,7 +20,7 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               position={f.geometry.coordinates as LatLngExpression}
               icon={triangleIcon}
             >
-              <Tooltip>
+              <Tooltip pane="tooltipPane">
                 <MapPopupContent feature={f} />
               </Tooltip>
             </Marker>
@@ -33,7 +33,7 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               positions={f.geometry.coordinates as LatLngExpression[]}
               pathOptions={{ color: WATER_COLORS.well, weight: 3, opacity: 0.8 }}
             >
-              <Tooltip sticky>
+              <Tooltip sticky pane="tooltipPane">
                 <MapPopupContent feature={f} />
               </Tooltip>
             </Polyline>
@@ -46,7 +46,7 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               positions={f.geometry.coordinates as LatLngExpression[][]}
               pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.watershed, fillOpacity: 0.3, weight: 2 }}
             >
-              <Tooltip sticky>
+              <Tooltip sticky pane="tooltipPane">
                 <MapPopupContent feature={f} />
               </Tooltip>
             </Polygon>
