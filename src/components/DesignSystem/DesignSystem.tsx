@@ -89,6 +89,7 @@ const MAP_COLORS = [
   { hex: '#cb181d', stroke: '#7a0e11', label: 'Facilities', shape: 'square' as const },
   { hex: '#a6bddb', stroke: '#045a8d', label: 'Water Bodies', shape: 'triangle' as const },
   { hex: '#74a9cf', stroke: '#045a8d', label: 'Wells', shape: 'circle' as const },
+  { hex: '#1b6d9e', stroke: '#1b6d9e', label: 'Streams', shape: 'line' as const },
   { hex: '#4a5568', stroke: '#4a5568', label: 'Region Boundaries', shape: 'dashed-square' as const },
 ];
 
@@ -231,6 +232,9 @@ function MapShapeIcon({ shape, fill, stroke }: { shape: string; fill: string; st
           x="5" y="5" width="22" height="22" rx="2"
           fill="none" stroke={stroke} strokeWidth="2" strokeDasharray="4,3"
         />
+      )}
+      {shape === 'line' && (
+        <polyline points="3,26 14,8 29,16" fill="none" stroke={stroke} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       )}
     </svg>
   );

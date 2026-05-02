@@ -7,7 +7,7 @@ export const WATER_COLORS = {
   watershed: '#d0d1e6',
   mid: '#a6bddb',
   aquifer: '#74a9cf',
-  flowline: '#2b8cbe',
+  flowline: '#1b6d9e',
   well: '#045a8d',
 };
 

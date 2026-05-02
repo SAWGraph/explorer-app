@@ -43,6 +43,16 @@ function calculateBounds(layers: MapLayerData): L.LatLngBounds | null {
     }
   }
 
+  // Streams (LineString) — use only endpoints to avoid spreading thousands of coords
+  for (const feature of layers.streams) {
+    if (feature.geometry.type === 'LineString') {
+      const coords = feature.geometry.coordinates as [number, number][];
+      if (coords.length > 0) {
+        allCoordinates.push(coords[0], coords[coords.length - 1]);
+      }
+    }
+  }
+
   // Region boundaries ONLY if no data features
   if (allCoordinates.length === 0) {
     for (const feature of layers.regionBoundaries) {

@@ -157,6 +157,27 @@ export function transformWellsToFeatures(rows: SparqlRow[]): MapFeature[] {
     .filter(nonNull);
 }
 
+export function transformFlowlinesToFeatures(rows: SparqlRow[]): MapFeature[] {
+  const seen = new Set<string>();
+  const features: MapFeature[] = [];
+  for (const r of rows) {
+    if (!r.flowlineWKT || seen.has(r.flowline)) continue;
+    seen.add(r.flowline);
+    const coords = parseWKTLineString(r.flowlineWKT);
+    if (!coords) continue;
+    features.push({
+      id: r.flowline,
+      geometry: { type: 'LineString', coordinates: coords },
+      properties: {
+        type: 'stream',
+        name: r.streamName || '',
+        flowType: r.fl_type || '',
+      },
+    });
+  }
+  return features;
+}
+
 export function transformRegionBoundaries(rows: SparqlRow[]): MapFeature[] {
   const features: MapFeature[] = [];
 

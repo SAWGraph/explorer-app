@@ -25,6 +25,8 @@ import {
 import {
   buildDownstreamTraceQuery,
   buildUpstreamTraceQuery,
+  buildDownstreamFlowlineQuery,
+  buildUpstreamFlowlineQuery,
 } from './templates/hydrology';
 
 export type PipelineStepType =
@@ -40,7 +42,8 @@ export type PipelineStepType =
   | 'GET_ANCHOR_DETAILS'
   | 'GET_SAMPLE_DETAILS'
   | 'FILTER_ANCHOR_TO_REGION'
-  | 'GET_REGION_BOUNDARIES';
+  | 'GET_REGION_BOUNDARIES'
+  | 'GET_FLOWLINE_GEOMETRIES';
 
 export interface PipelineStep {
   type: PipelineStepType;
@@ -54,6 +57,7 @@ export interface PipelineContext {
   s2Cells: string[];
   anchorS2Cells: string[];
   targetS2Cells: string[];
+  flowlineS2Cells: string[];
   results: Record<string, SparqlRow[]>;
 }
 
@@ -161,6 +165,19 @@ function traceUpstreamStep(): PipelineStep {
     buildQuery: (ctx) => {
       const vals = s2CellsToValuesString(ctx.s2Cells);
       return buildUpstreamTraceQuery(vals);
+    },
+  };
+}
+
+function flowlineGeometriesStep(direction: 'downstream' | 'upstream'): PipelineStep {
+  const builder = direction === 'downstream' ? buildDownstreamFlowlineQuery : buildUpstreamFlowlineQuery;
+  return {
+    type: 'GET_FLOWLINE_GEOMETRIES',
+    endpoint: 'hydrologykg',
+    description: `Loading ${direction} stream geometries`,
+    buildQuery: (ctx) => {
+      const vals = s2CellsToValuesString(ctx.flowlineS2Cells);
+      return builder(vals);
     },
   };
 }
@@ -323,6 +340,7 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     }
     steps.push(expandNearStep());
     steps.push(traceDownstreamStep());
+    steps.push(flowlineGeometriesStep('downstream'));
 
     // Strict region filter on Block A's region after tracing (no expansion)
     if (regionCodesA.length) {
@@ -351,6 +369,7 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
     }
     steps.push(expandNearStep());
     steps.push(traceUpstreamStep());
+    steps.push(flowlineGeometriesStep('upstream'));
     if (targetRegion) {
       steps.push(strictRegionFilterStep(targetRegion));
     }

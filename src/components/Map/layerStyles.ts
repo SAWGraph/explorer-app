@@ -37,6 +37,13 @@ export const LAYER_REGISTRY: LayerConfig[] = [
       '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="#74a9cf" stroke="#045a8d" stroke-width="2"/></svg>',
   },
   {
+    key: 'streams',
+    label: 'Streams',
+    defaultVisible: true,
+    legendSvg:
+      '<svg width="16" height="16" viewBox="0 0 16 16"><line x1="1" y1="12" x2="8" y2="4" stroke="#1b6d9e" stroke-width="2.5" stroke-linecap="round"/><line x1="8" y1="4" x2="15" y2="8" stroke="#1b6d9e" stroke-width="2.5" stroke-linecap="round"/></svg>',
+  },
+  {
     key: 'regionBoundaries',
     label: 'Region Boundaries',
     defaultVisible: false,

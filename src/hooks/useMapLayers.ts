@@ -6,6 +6,7 @@ import {
   transformFacilitiesToFeatures,
   transformWaterBodiesToFeatures,
   transformWellsToFeatures,
+  transformFlowlinesToFeatures,
   transformRegionBoundaries,
   enrichSampleFeaturesWithDetails,
 } from '../engine/resultTransformer';
@@ -15,6 +16,7 @@ export interface MapLayerData {
   facilities: MapFeature[];
   waterBodies: MapFeature[];
   wells: MapFeature[];
+  streams: MapFeature[];
   regionBoundaries: MapFeature[];
 }
 
@@ -25,6 +27,7 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       facilities: [],
       waterBodies: [],
       wells: [],
+      streams: [],
       regionBoundaries: [],
     };
 
@@ -36,6 +39,7 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
     const anchorRows = data['GET_ANCHOR_DETAILS'] || [];
     const boundaryRows = data['GET_REGION_BOUNDARIES'] || [];
     const sampleDetailRows = data['GET_SAMPLE_DETAILS'] || [];
+    const flowlineRows = data['GET_FLOWLINE_GEOMETRIES'] || [];
 
     // Determine what types came back by checking row shapes
     const allRows = [...targetRows, ...anchorRows];
@@ -55,6 +59,7 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       facilities: transformFacilitiesToFeatures(facilityRows),
       waterBodies: transformWaterBodiesToFeatures(waterBodyRows),
       wells: transformWellsToFeatures(wellRows),
+      streams: transformFlowlinesToFeatures(flowlineRows),
       regionBoundaries: transformRegionBoundaries(boundaryRows),
     };
   }, [result]);

@@ -6,6 +6,7 @@ import { SampleLayer } from './SampleLayer';
 import { FacilityLayer } from './FacilityLayer';
 import { WaterBodyLayer } from './WaterBodyLayer';
 import { WellLayer } from './WellLayer';
+import { StreamLayer } from './StreamLayer';
 import { RegionBoundaryLayer } from './RegionBoundaryLayer';
 import { MapCenterController } from './MapCenterController';
 import { LayerPanel } from './LayerPanel';
@@ -23,7 +24,13 @@ const LAYER_COMPONENTS: Record<string, ComponentType<{ features: MapFeature[] }>
   facilities: FacilityLayer,
   waterBodies: WaterBodyLayer,
   wells: WellLayer,
+  streams: StreamLayer,
   regionBoundaries: RegionBoundaryLayer,
+};
+
+const LAYER_PANE_CONFIG: Record<string, { name: string; zIndex: number }> = {
+  regionBoundaries: { name: 'regionPane', zIndex: 350 },
+  streams: { name: 'streamsPane', zIndex: 380 },
 };
 
 export function ResultsMap({ layers }: ResultsMapProps) {
@@ -34,7 +41,8 @@ export function ResultsMap({ layers }: ResultsMapProps) {
     layers.samples.length > 0 ||
     layers.facilities.length > 0 ||
     layers.waterBodies.length > 0 ||
-    layers.wells.length > 0;
+    layers.wells.length > 0 ||
+    layers.streams.length > 0;
 
   const handleToggle = (key: string) => {
     setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -71,9 +79,10 @@ export function ResultsMap({ layers }: ResultsMapProps) {
         const features = layers[key as keyof MapLayerData];
         const Component = LAYER_COMPONENTS[key];
         if (!visibility[key] || !features.length || !Component) return null;
-        if (key === 'regionBoundaries') {
+        const pane = LAYER_PANE_CONFIG[key];
+        if (pane) {
           return (
-            <Pane key={key} name="regionPane" style={{ zIndex: 350 }}>
+            <Pane key={key} name={pane.name} style={{ zIndex: pane.zIndex }}>
               <Component features={features} />
             </Pane>
           );

@@ -123,6 +123,8 @@ const MARKERS = [
   // Wells
   { layer: 'Wells',               role: 'fill',   hex: '#74a9cf' },
   { layer: 'Wells',               role: 'stroke', hex: '#045a8d' },
+  // Streams
+  { layer: 'Streams',             role: 'stroke', hex: '#1b6d9e' },
   // Region Boundaries — stroke darkened to #4a5568
   { layer: 'Region Boundaries',   role: 'stroke', hex: '#4a5568' },
   { layer: 'Region Boundaries',   role: 'fill',   hex: '#bdc3c7' },

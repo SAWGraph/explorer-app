@@ -259,6 +259,20 @@ export function MapPopupContent({ feature }: MapPopupProps) {
     );
   }
 
+  if (props.type === 'stream') {
+    return (
+      <div className="map-popup">
+        <strong>{props.name || 'Stream'}</strong>
+        {props.flowType && <div>Type: {props.flowType}</div>}
+        {feature.id && (
+          <div>
+            <a href={feature.id} target="_blank" rel="noopener noreferrer">{feature.id}</a>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (props.type === 'regionBoundary') {
     return (
       <div className="map-popup">

@@ -57,7 +57,7 @@ export async function executePipeline(
   question: AnalysisQuestion,
   onProgress: (progress: StepProgress) => void
 ): Promise<PipelineResult> {
-  const context: PipelineContext = { question, s2Cells: [], anchorS2Cells: [], targetS2Cells: [], results: {} };
+  const context: PipelineContext = { question, s2Cells: [], anchorS2Cells: [], targetS2Cells: [], flowlineS2Cells: [], results: {} };
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
@@ -69,6 +69,12 @@ export async function executePipeline(
     });
 
     try {
+      // Trace steps overwrite s2Cells with traced results; save a reference
+      // first so GET_FLOWLINE_GEOMETRIES can query from the pre-trace cells.
+      if (step.type === 'TRACE_DOWNSTREAM' || step.type === 'TRACE_UPSTREAM') {
+        context.flowlineS2Cells = context.s2Cells;
+      }
+
       const query = step.buildQuery(context);
       const results = await executeSparql(step.endpoint, query);
 
