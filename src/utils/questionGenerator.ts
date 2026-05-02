@@ -1,4 +1,9 @@
-import type { AnalysisQuestion, EntityBlock, SpatialRelationship, RegionFilter } from '../types/query';
+import type {
+  AnalysisQuestion,
+  EntityBlock,
+  SpatialRelationship,
+  RegionFilter,
+} from '../types/query';
 import { ALL_US_STATES } from '../constants/regions';
 
 export function generateQuestion(q: AnalysisQuestion): string {
@@ -16,10 +21,16 @@ function describeEntity(block: EntityBlock): string {
       const parts: string[] = [];
       if (block.sampleFilters?.substances?.length) {
         const labels = block.sampleFilters.substanceLabels ?? {};
-        parts.push(block.sampleFilters.substances.map((uri) => labels[uri] || extractLabel(uri)).join('/'));
+        parts.push(
+          block.sampleFilters.substances
+            .map((uri) => labels[uri] || extractLabel(uri))
+            .join('/'),
+        );
       }
       if (block.sampleFilters?.materialTypes?.length) {
-        parts.push(block.sampleFilters.materialTypes.map(extractLabel).join('/'));
+        parts.push(
+          block.sampleFilters.materialTypes.map(extractLabel).join('/'),
+        );
       }
       return parts.length ? `${parts.join(' ')} samples` : 'samples';
     }
@@ -36,7 +47,7 @@ function describeEntity(block: EntityBlock): string {
           return true;
         });
         const formatted = topLevel.map((code) =>
-          labels[code] ? `${code} - ${labels[code]}` : code
+          labels[code] ? `${code} - ${labels[code]}` : code,
         );
         return `${formatted.join(', ')} facilities`;
       }
@@ -51,9 +62,10 @@ function describeEntity(block: EntityBlock): string {
 
 function describeRelationship(rel: SpatialRelationship): string {
   switch (rel.type) {
-    case 'near':
-      // Each hop adds ~1.6km (Level 13 S2 cell diagonal ≈ 1.593 km)
-      return `near (~${((rel.hops || 1) * 1.6).toFixed(1)} km)`;
+    case 'near': {
+      const miles = rel.hops || 1;
+      return `near (~${miles} mile${miles > 1 ? 's' : ''})`;
+    }
     case 'downstream':
       return 'downstream of';
     case 'upstream':

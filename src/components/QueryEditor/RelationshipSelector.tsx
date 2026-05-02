@@ -13,10 +13,10 @@ const RELATIONSHIP_TYPES: { value: SpatialRelationship['type']; label: string; d
 ];
 
 const NEAR_DISTANCE_OPTIONS = [
-  { value: '1', label: '~1.6 km' },
-  { value: '2', label: '~3.2 km' },
-  { value: '3', label: '~4.8 km' },
-  { value: '4', label: '~6.4 km' },
+  { value: '1', label: '~1 mile' },
+  { value: '2', label: '~2 miles' },
+  { value: '3', label: '~3 miles' },
+  { value: '4', label: '~4 miles' },
 ];
 
 export function RelationshipSelector({ value, onChange }: RelationshipSelectorProps) {
