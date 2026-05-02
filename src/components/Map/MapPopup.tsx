@@ -90,21 +90,65 @@ export function MapPopupContent({ feature }: MapPopupProps) {
   if (props.type === 'sample') {
     return (
       <div className="map-popup">
-        <strong>Sample Point</strong>
-        <div>Results: {props.resultCount}</div>
-        {props.maxConcentration && <div>Max: {props.maxConcentration}</div>}
-        {props.substances && <div>Substances: {String(props.substances).split('; ').slice(0, 3).join(', ')}</div>}
-        {props.materials && <div>Materials: {props.materials}</div>}
+        <table className="popup-table">
+          <tbody>
+            <tr>
+              <td className="popup-label">Results</td>
+              <td>{props.resultCount}</td>
+            </tr>
+            {props.maxConcentration && (
+              <tr>
+                <td className="popup-label">Max</td>
+                <td>{props.maxConcentration}</td>
+              </tr>
+            )}
+            {props.substances && (
+              <tr>
+                <td className="popup-label">Substances</td>
+                <td>{String(props.substances).split('; ').slice(0, 3).join(', ')}</td>
+              </tr>
+            )}
+            {props.materials && (
+              <tr>
+                <td className="popup-label">Materials</td>
+                <td>{props.materials}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     );
   }
 
   if (props.type === 'facility') {
+    const registryId = feature.id.split('.').pop() || '';
+    const epaUrl = `https://frs-public.epa.gov/ords/frs_public2/fii_query_detail.disp_program_facility?p_registry_id=${registryId}`;
     return (
       <div className="map-popup">
-        <strong>{props.name || 'Facility'}</strong>
-        {props.industryName && <div>Industry: {props.industryName}</div>}
-        {props.industryCode && <div>NAICS: {String(props.industryCode).split('#').pop()?.replace('NAICS-', '')}</div>}
+        <table className="popup-table">
+          <tbody>
+            <tr>
+              <td className="popup-label">Facility</td>
+              <td><a href={epaUrl} target="_blank" rel="noopener noreferrer">{feature.id}</a></td>
+            </tr>
+            <tr>
+              <td className="popup-label">Name</td>
+              <td>{props.name || 'Facility'}</td>
+            </tr>
+            {props.industryCode && (
+              <tr>
+                <td className="popup-label">Industry code</td>
+                <td><a href={String(props.industryCode)} target="_blank" rel="noopener noreferrer">{props.industryCode}</a></td>
+              </tr>
+            )}
+            {props.industryName && (
+              <tr>
+                <td className="popup-label">Industry name</td>
+                <td>{props.industryName}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -112,11 +156,38 @@ export function MapPopupContent({ feature }: MapPopupProps) {
   if (props.type === 'waterBody') {
     return (
       <div className="map-popup">
-        <strong>{props.name || 'Surface Water Body'}</strong>
-        {props.ftype && <div>Type: {props.ftype}</div>}
-        {props.comid && <div>COMID: {props.comid}</div>}
-        {props.reachcode && <div>Reach Code: {props.reachcode}</div>}
-        {props.fcode && <div>FCODE: {props.fcode}</div>}
+        <table className="popup-table">
+          <tbody>
+            <tr>
+              <td className="popup-label">Name</td>
+              <td>{props.name || 'Surface Water Body'}</td>
+            </tr>
+            {props.ftype && (
+              <tr>
+                <td className="popup-label">Type</td>
+                <td>{props.ftype}</td>
+              </tr>
+            )}
+            {props.comid && (
+              <tr>
+                <td className="popup-label">COMID</td>
+                <td>{props.comid}</td>
+              </tr>
+            )}
+            {props.reachcode && (
+              <tr>
+                <td className="popup-label">Reach code</td>
+                <td>{props.reachcode}</td>
+              </tr>
+            )}
+            {props.fcode && (
+              <tr>
+                <td className="popup-label">FCODE</td>
+                <td>{props.fcode}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -125,20 +196,65 @@ export function MapPopupContent({ feature }: MapPopupProps) {
     const ilId = extractIlWellId(feature.id);
     return (
       <div className="map-popup">
-        <strong>{props.name || 'Well'}</strong>
-        {props.wellType && <div>Type: {props.wellType}</div>}
-        {props.wellUse && <div>Use: {props.wellUse}</div>}
-        {props.purpose && <div>Purpose: {props.purpose}</div>}
-        {props.owner && <div>Owner: {props.owner}</div>}
-        {props.depth && <div>Depth: {props.depth} ft</div>}
-        {props.overburden && <div>Overburden: {props.overburden} ft</div>}
-        {props.wellYield && <div>Yield: {props.wellYield}</div>}
-        {ilId && (
-          <div>
-            <a href={`https://data.prairie.illinois.edu/GEOPROD/water_summary.aspx?api10=${ilId.slice(0, 10)}&wo=${ilId.slice(10)}`}
-              target="_blank" rel="noopener noreferrer">Data Summary Sheet</a>
-          </div>
-        )}
+        <table className="popup-table">
+          <tbody>
+            <tr>
+              <td className="popup-label">Name</td>
+              <td>{props.name || 'Well'}</td>
+            </tr>
+            {props.wellType && (
+              <tr>
+                <td className="popup-label">Type</td>
+                <td>{props.wellType}</td>
+              </tr>
+            )}
+            {props.wellUse && (
+              <tr>
+                <td className="popup-label">Use</td>
+                <td>{props.wellUse}</td>
+              </tr>
+            )}
+            {props.purpose && (
+              <tr>
+                <td className="popup-label">Purpose</td>
+                <td>{props.purpose}</td>
+              </tr>
+            )}
+            {props.owner && (
+              <tr>
+                <td className="popup-label">Owner</td>
+                <td>{props.owner}</td>
+              </tr>
+            )}
+            {props.depth && (
+              <tr>
+                <td className="popup-label">Depth</td>
+                <td>{props.depth} ft</td>
+              </tr>
+            )}
+            {props.overburden && (
+              <tr>
+                <td className="popup-label">Overburden</td>
+                <td>{props.overburden} ft</td>
+              </tr>
+            )}
+            {props.wellYield && (
+              <tr>
+                <td className="popup-label">Yield</td>
+                <td>{props.wellYield}</td>
+              </tr>
+            )}
+            {ilId && (
+              <tr>
+                <td className="popup-label">Details</td>
+                <td>
+                  <a href={`https://data.prairie.illinois.edu/GEOPROD/water_summary.aspx?api10=${ilId.slice(0, 10)}&wo=${ilId.slice(10)}`}
+                    target="_blank" rel="noopener noreferrer">Data Summary Sheet</a>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -146,7 +262,14 @@ export function MapPopupContent({ feature }: MapPopupProps) {
   if (props.type === 'regionBoundary') {
     return (
       <div className="map-popup">
-        <strong>{props.name || 'Region'}</strong>
+        <table className="popup-table">
+          <tbody>
+            <tr>
+              <td className="popup-label">Name</td>
+              <td>{props.name || 'Region'}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     );
   }

@@ -1,4 +1,4 @@
-import { LayerGroup, Marker, Tooltip } from 'react-leaflet';
+import { LayerGroup, Marker, Popup } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -32,9 +32,9 @@ export function FacilityLayer({ features }: FacilityLayerProps) {
           position={f.geometry.coordinates as LatLngExpression}
           icon={createSquareIcon(getColor(f), getStroke(f))}
         >
-          <Tooltip>
+          <Popup maxWidth={600}>
             <MapPopupContent feature={f} />
-          </Tooltip>
+          </Popup>
         </Marker>
       ))}
     </LayerGroup>
