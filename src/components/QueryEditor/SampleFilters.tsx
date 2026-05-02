@@ -11,7 +11,10 @@ export function SampleFilters({ value, onChange }: SampleFiltersProps) {
   const { data: substances = [] } = useSubstances();
   const { data: materialTypes = [] } = useMaterialTypes();
 
-  const substanceOptions = substances.map((s) => ({ value: s.uri, label: s.label }));
+  const substanceOptions = substances.map((s) => ({
+    value: s.uri,
+    label: s.shortLabel || s.label,
+  }));
   const materialOptions = materialTypes.map((m) => ({ value: m.uri, label: m.label }));
 
   return (
@@ -21,7 +24,14 @@ export function SampleFilters({ value, onChange }: SampleFiltersProps) {
         <FlatSelect
           options={substanceOptions}
           selectedValues={value?.substances ?? []}
-          onChange={(vals) => onChange({ ...value, substances: vals })}
+          onChange={(vals) => {
+            const labels: Record<string, string> = {};
+            for (const uri of vals) {
+              const s = substances.find((sub) => sub.uri === uri);
+              if (s) labels[uri] = s.shortLabel || s.label;
+            }
+            onChange({ ...value, substances: vals, substanceLabels: labels });
+          }}
           placeholder="Any substance..."
         />
       </div>

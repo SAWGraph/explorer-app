@@ -1,4 +1,4 @@
-import { LayerGroup, Marker, Popup } from 'react-leaflet';
+import { LayerGroup, Marker, Popup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -35,6 +35,10 @@ export function FacilityLayer({ features }: FacilityLayerProps) {
           <Popup maxWidth={600}>
             <MapPopupContent feature={f} />
           </Popup>
+          <Tooltip>
+            <strong>{f.properties.name || 'Facility'}</strong>
+            {f.properties.industryName && <div>{f.properties.industryName}</div>}
+          </Tooltip>
         </Marker>
       ))}
     </LayerGroup>

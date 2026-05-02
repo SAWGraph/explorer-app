@@ -25,6 +25,7 @@ export interface RegionFilter {
 
 export interface SampleFilters {
   substances?: string[];
+  substanceLabels?: Record<string, string>; // uri → display label
   materialTypes?: string[];
   minConcentration?: number;
   maxConcentration?: number;

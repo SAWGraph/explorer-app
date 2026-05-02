@@ -1,15 +1,16 @@
 export interface Substance {
   uri: string;
   label: string;
+  shortLabel?: string;
 }
 
-// Fallback substances if discovery query fails
+// Fallback substances if discovery query fails (DSSTox URIs)
 export const FALLBACK_SUBSTANCES: Substance[] = [
-  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFOS_A', label: 'PFOS' },
-  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFOA_A', label: 'PFOA' },
-  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFHPA_A', label: 'PFHpA' },
-  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFHXS_A', label: 'PFHxS' },
-  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFNA_A', label: 'PFNA' },
-  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFDA_A', label: 'PFDA' },
-  { uri: 'http://w3id.org/sawgraph/v1/me-egad-data#parameter.PFBS_A', label: 'PFBS' },
+  { uri: 'http://w3id.org/DSSTox/v1/DTXSID3031864', label: 'Perfluorooctanesulfonic acid', shortLabel: 'PFOS' },
+  { uri: 'http://w3id.org/DSSTox/v1/DTXSID8031865', label: 'Perfluorooctanoic acid', shortLabel: 'PFOA' },
+  { uri: 'http://w3id.org/DSSTox/v1/DTXSID1037303', label: 'Perfluoroheptanoic acid', shortLabel: 'PFHpA' },
+  { uri: 'http://w3id.org/DSSTox/v1/DTXSID7040150', label: 'Perfluorohexanesulfonic acid', shortLabel: 'PFHxS' },
+  { uri: 'http://w3id.org/DSSTox/v1/DTXSID8031863', label: 'Perfluorononanoic acid', shortLabel: 'PFNA' },
+  { uri: 'http://w3id.org/DSSTox/v1/DTXSID3031860', label: 'Perfluorodecanoic acid', shortLabel: 'PFDA' },
+  { uri: 'http://w3id.org/DSSTox/v1/DTXSID5030030', label: 'Perfluorobutanesulfonic acid', shortLabel: 'PFBS' },
 ];

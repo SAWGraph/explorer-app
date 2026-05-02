@@ -14,6 +14,7 @@ PREFIX coso: <http://w3id.org/coso/v1/contaminoso#>
 PREFIX fio: <http://w3id.org/fio/v1/fio#>
 PREFIX naics: <http://w3id.org/fio/v1/naics#>
 PREFIX qudt: <http://qudt.org/schema/qudt/>
+PREFIX comptox: <http://w3id.org/DSSTox/v1/>
 PREFIX me_egad: <http://w3id.org/sawgraph/v1/me-egad#>
 PREFIX me_egad_data: <http://w3id.org/sawgraph/v1/me-egad-data#>
 PREFIX nhdplusv2: <http://nhdplusv2.spatialai.org/v1/nhdplusv2#>

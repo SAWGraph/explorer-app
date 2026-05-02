@@ -40,7 +40,7 @@ export function buildSampleS2Query(filters?: SampleFilters, regionCodes?: string
       ${regionFilterClause}
       ?observation rdf:type coso:ContaminantObservation ;
           coso:observedAtSamplePoint ?sp ;
-          coso:ofSubstance ?substance ;
+          coso:ofDSSToxSubstance ?substance ;
           coso:analyzedSample ?sample ;
           coso:hasResult ?result .
       ?sample coso:sampleOfMaterialType ?matType .
@@ -73,7 +73,7 @@ export function buildSampleRetrievalQuery(
       VALUES ?s2cell { ${s2ValuesString} }
       ?observation rdf:type coso:ContaminantObservation ;
           coso:observedAtSamplePoint ?sp ;
-          coso:ofSubstance ?substance ;
+          coso:ofDSSToxSubstance ?substance ;
           coso:analyzedSample ?sample ;
           coso:hasResult ?result .
       ?sample rdfs:label ?sampleLabel ;

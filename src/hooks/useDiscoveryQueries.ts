@@ -62,7 +62,11 @@ export function useSubstances() {
     queryFn: async () => {
       const rows = await executeSparql('sawgraph', buildDiscoverSubstancesQuery());
       if (rows.length === 0) return FALLBACK_SUBSTANCES;
-      return rows.map((r) => ({ uri: r.substance, label: r.label }));
+      return rows.map((r) => ({
+        uri: r.substance,
+        label: r.label,
+        shortLabel: r.short_label,
+      }));
     },
     staleTime: Infinity,
     retry: 1,

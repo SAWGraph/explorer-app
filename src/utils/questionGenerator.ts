@@ -15,7 +15,8 @@ function describeEntity(block: EntityBlock): string {
     case 'samples': {
       const parts: string[] = [];
       if (block.sampleFilters?.substances?.length) {
-        parts.push(block.sampleFilters.substances.map(extractLabel).join('/'));
+        const labels = block.sampleFilters.substanceLabels ?? {};
+        parts.push(block.sampleFilters.substances.map((uri) => labels[uri] || extractLabel(uri)).join('/'));
       }
       if (block.sampleFilters?.materialTypes?.length) {
         parts.push(block.sampleFilters.materialTypes.map(extractLabel).join('/'));

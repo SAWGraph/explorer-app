@@ -28,10 +28,16 @@ export function buildDiscoverIndustriesQuery(): string {
 export function buildDiscoverSubstancesQuery(): string {
   return `
     ${PREFIXES}
-    SELECT DISTINCT ?substance ?label WHERE {
-      ?observation coso:ofSubstance ?substance .
-      ?substance skos:altLabel ?label .
-    } ORDER BY ?label
+    SELECT DISTINCT ?substance
+      (SAMPLE(?_label) AS ?label)
+      (SAMPLE(?_short) AS ?short_label)
+    WHERE {
+      ?observation coso:ofDSSToxSubstance ?substance .
+      ?substance a comptox:ChemicalEntity .
+      ?substance dcterms:alternative ?_label .
+      OPTIONAL { ?substance skos:altLabel ?_short . }
+    } GROUP BY ?substance
+    ORDER BY ?label
   `;
 }
 
