@@ -162,16 +162,18 @@ export function FlatSelect({
           {chips.map((chip) => (
             <span key={chip.value} className="hs-chip">
               <span className="hs-chip-label">{chip.label}</span>
-              <button
-                className="hs-chip-remove"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemoveChip(chip.value);
-                }}
-                type="button"
-              >
-                &times;
-              </button>
+              {(isMulti || isClearable) && (
+                <button
+                  className="hs-chip-remove"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveChip(chip.value);
+                  }}
+                  type="button"
+                >
+                  &times;
+                </button>
+              )}
             </span>
           ))}
         </div>
