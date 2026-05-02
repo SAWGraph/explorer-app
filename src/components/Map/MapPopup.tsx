@@ -262,13 +262,26 @@ export function MapPopupContent({ feature }: MapPopupProps) {
   if (props.type === 'stream') {
     return (
       <div className="map-popup">
-        <strong>{props.name || 'Stream'}</strong>
-        {props.flowType && <div>Type: {props.flowType}</div>}
-        {feature.id && (
-          <div>
-            <a href={feature.id} target="_blank" rel="noopener noreferrer">{feature.id}</a>
-          </div>
-        )}
+        <table className="popup-table">
+          <tbody>
+            <tr>
+              <td className="popup-label">Name</td>
+              <td>{props.name || 'Stream'}</td>
+            </tr>
+            {props.flowType && (
+              <tr>
+                <td className="popup-label">Type</td>
+                <td>{props.flowType}</td>
+              </tr>
+            )}
+            {feature.id && (
+              <tr>
+                <td className="popup-label">Flowline</td>
+                <td><a href={feature.id} target="_blank" rel="noopener noreferrer">{feature.id}</a></td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     );
   }
