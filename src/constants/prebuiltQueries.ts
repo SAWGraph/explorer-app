@@ -100,11 +100,11 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
     },
   },
   {
-    id: 'facilities-upstream-pfhpa-gw-cumberland',
-    title: 'Facilities Upstream from PFHpA Groundwater Samples in Cumberland County',
+    id: 'facilities-downstream-pfhpa-gw-cumberland',
+    title: 'PFHpA Groundwater Samples Downstream from Facilities in Cumberland County',
     description:
-      'Identify facilities located upstream of groundwater sample points that tested positive for PFHpA (10-1000 ng/L) in Cumberland County, Maine. Traces upstream hydrology flow paths.',
-    tags: ['Facilities', 'Samples', 'Upstream', 'PFHpA', 'Groundwater', 'Cumberland'],
+      'Find groundwater sample points that tested positive for PFHpA (10-1000 ng/L) located downstream of facilities in Cumberland County, Maine. Traces downstream hydrology flow paths.',
+    tags: ['Facilities', 'Samples', 'Downstream', 'PFHpA', 'Groundwater', 'Cumberland'],
     question: {
       blockA: {
         type: 'samples',
@@ -116,7 +116,7 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
         },
         region: { stateCode: '23', countyCodes: ['23005'], countyLabels: { '23005': 'Cumberland County, Maine' } },
       },
-      relationship: { type: 'upstream' },
+      relationship: { type: 'downstream' },
       blockC: {
         type: 'facilities',
       },
