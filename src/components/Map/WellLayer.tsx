@@ -1,4 +1,4 @@
-import { CircleMarker, LayerGroup, Tooltip } from 'react-leaflet';
+import { CircleMarker, LayerGroup, Popup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -20,8 +20,11 @@ export function WellLayer({ features }: WellLayerProps) {
             radius={4}
             pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.aquifer, fillOpacity: 0.7, weight: 2 }}
           >
-            <Tooltip pane="tooltipPane">
+            <Popup maxWidth={500}>
               <MapPopupContent feature={f} />
+            </Popup>
+            <Tooltip pane="tooltipPane">
+              <strong>{f.properties.name || 'Well'}</strong>
             </Tooltip>
           </CircleMarker>
         );

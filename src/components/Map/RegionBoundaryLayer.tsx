@@ -1,4 +1,4 @@
-import { LayerGroup, Polygon, Tooltip } from 'react-leaflet';
+import { LayerGroup, Polygon, Popup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -26,8 +26,11 @@ export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
               dashArray: '5, 5',
             }}
           >
-            <Tooltip sticky pane="tooltipPane">
+            <Popup maxWidth={500}>
               <MapPopupContent feature={f} />
+            </Popup>
+            <Tooltip sticky pane="tooltipPane">
+              <strong>{f.properties.name || 'Region'}</strong>
             </Tooltip>
           </Polygon>
         );

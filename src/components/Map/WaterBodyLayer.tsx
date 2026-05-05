@@ -1,4 +1,4 @@
-import { LayerGroup, Polyline, Polygon, Marker, Tooltip } from 'react-leaflet';
+import { LayerGroup, Polyline, Polygon, Marker, Popup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -20,8 +20,11 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               position={f.geometry.coordinates as LatLngExpression}
               icon={triangleIcon}
             >
-              <Tooltip pane="tooltipPane">
+              <Popup maxWidth={500}>
                 <MapPopupContent feature={f} />
+              </Popup>
+              <Tooltip pane="tooltipPane">
+                <strong>{f.properties.name || 'Surface Water Body'}</strong>
               </Tooltip>
             </Marker>
           );
@@ -33,8 +36,11 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               positions={f.geometry.coordinates as LatLngExpression[]}
               pathOptions={{ color: WATER_COLORS.well, weight: 3, opacity: 0.8 }}
             >
-              <Tooltip sticky pane="tooltipPane">
+              <Popup maxWidth={500}>
                 <MapPopupContent feature={f} />
+              </Popup>
+              <Tooltip sticky pane="tooltipPane">
+                <strong>{f.properties.name || 'Surface Water Body'}</strong>
               </Tooltip>
             </Polyline>
           );
@@ -46,8 +52,11 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               positions={f.geometry.coordinates as LatLngExpression[][]}
               pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.watershed, fillOpacity: 0.3, weight: 2 }}
             >
-              <Tooltip sticky pane="tooltipPane">
+              <Popup maxWidth={500}>
                 <MapPopupContent feature={f} />
+              </Popup>
+              <Tooltip sticky pane="tooltipPane">
+                <strong>{f.properties.name || 'Surface Water Body'}</strong>
               </Tooltip>
             </Polygon>
           );

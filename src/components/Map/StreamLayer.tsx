@@ -1,4 +1,4 @@
-import { LayerGroup, Polyline, Tooltip } from 'react-leaflet';
+import { LayerGroup, Polyline, Popup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
@@ -19,8 +19,11 @@ export function StreamLayer({ features }: StreamLayerProps) {
             positions={f.geometry.coordinates as LatLngExpression[]}
             pathOptions={{ color: WATER_COLORS.flowline, weight: 2, opacity: 0.7 }}
           >
-            <Tooltip sticky pane="tooltipPane">
+            <Popup maxWidth={500}>
               <MapPopupContent feature={f} />
+            </Popup>
+            <Tooltip sticky pane="tooltipPane">
+              <strong>{f.properties.name || 'Stream'}</strong>
             </Tooltip>
           </Polyline>
         );
