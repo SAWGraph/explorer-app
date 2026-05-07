@@ -4,10 +4,17 @@ interface MapPopupProps {
   feature: MapFeature;
 }
 
-function SampleDetailPopup({ detail }: { detail: SamplePointDetail }) {
+function SampleDetailPopup({ id, detail }: { id: string; detail: SamplePointDetail }) {
   return (
     <div className="map-popup sample-detail-popup">
       <strong className="sample-popup-title">{detail.samplePointName || 'Sample Point'}</strong>
+
+      {id && (
+        <div className="sample-section-field">
+          <span className="sample-field-label">Sample Point URI</span>:{' '}
+          <a href={id} target="_blank" rel="noopener noreferrer">{id}</a>
+        </div>
+      )}
 
       {detail.maxResult && (
         <div className="sample-popup-max">
@@ -84,7 +91,7 @@ export function MapPopupContent({ feature }: MapPopupProps) {
 
   // Rich sample popup when detail data is available
   if (props.type === 'sample' && feature.sampleDetails) {
-    return <SampleDetailPopup detail={feature.sampleDetails} />;
+    return <SampleDetailPopup id={feature.id} detail={feature.sampleDetails} />;
   }
 
   if (props.type === 'sample') {
