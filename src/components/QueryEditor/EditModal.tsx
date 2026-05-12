@@ -3,14 +3,16 @@ import { useQueryStore } from '../../store/queryStore';
 import { useQueryPipeline } from '../../hooks/useQueryPipeline';
 import { QueryEditorContent } from './QueryEditorContent';
 import { PipelineTimeline } from '../Pipeline/PipelineTimeline';
-import { PipelineError } from '../Pipeline/PipelineError';
 
 export function EditModal() {
   const isOpen = useQueryStore((s) => s.isEditModalOpen);
   const closeEditModal = useQueryStore((s) => s.closeEditModal);
   const discardEditModal = useQueryStore((s) => s.discardEditModal);
+  const commitSnapshot = useQueryStore((s) => s.commitSnapshot);
+  const setLastApplyError = useQueryStore((s) => s.setLastApplyError);
+  const clearLastApplyError = useQueryStore((s) => s.clearLastApplyError);
+  const lastApplyError = useQueryStore((s) => s.lastApplyError);
   const stepProgress = useQueryStore((s) => s.stepProgress);
-  const pipelineResult = useQueryStore((s) => s.pipelineResult);
   const question = useQueryStore((s) => s.question);
   const questionSnapshot = useQueryStore((s) => s.questionSnapshot);
   const { runPipeline, isRunning } = useQueryPipeline();
@@ -25,13 +27,16 @@ export function EditModal() {
   }, [isRunning, discardEditModal]);
 
   const handleApply = useCallback(async () => {
+    clearLastApplyError();
     const result = await runPipeline();
-    if (result.status === 'success') {
-      setTimeout(() => closeEditModal(), 800);
+    commitSnapshot();
+    if (result.status === 'success' || result.status === 'empty') {
+      closeEditModal();
+    } else {
+      setLastApplyError(result);
     }
-  }, [runPipeline, closeEditModal]);
+  }, [runPipeline, commitSnapshot, closeEditModal, setLastApplyError, clearLastApplyError]);
 
-  // Escape key to discard
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -42,8 +47,6 @@ export function EditModal() {
   }, [isOpen, isRunning, discardEditModal]);
 
   if (!isOpen) return null;
-
-  const showTimeline = stepProgress.length > 0 || isRunning;
 
   return (
     <div className="modal-overlay" onClick={(e) => {
@@ -58,13 +61,27 @@ export function EditModal() {
         </div>
 
         <div className="modal-body">
-          {showTimeline ? (
-            <>
-              <PipelineTimeline steps={stepProgress} isRunning={isRunning} />
-              <PipelineError result={pipelineResult} />
-            </>
+          {isRunning ? (
+            <PipelineTimeline steps={stepProgress} isRunning={isRunning} />
           ) : (
-            <QueryEditorContent />
+            <>
+              {lastApplyError && (
+                <div className="pipeline-message pipeline-error apply-error-callout">
+                  <div className="apply-error-content">
+                    <strong>Error:</strong> {lastApplyError.message}
+                    {lastApplyError.error && <pre>{lastApplyError.error.message}</pre>}
+                  </div>
+                  <button
+                    className="apply-error-dismiss"
+                    onClick={clearLastApplyError}
+                    aria-label="Dismiss error"
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
+              <QueryEditorContent />
+            </>
           )}
         </div>
 

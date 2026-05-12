@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from '../types/query';
-import type { StepProgress, PipelineResult } from '../engine/executor';
+import type { StepProgress, PipelineResult, PipelineError } from '../engine/executor';
 
 function defaultEntityBlock(type: EntityBlock['type']): EntityBlock {
   return { type };
@@ -23,6 +23,7 @@ interface QueryStore {
   isEditModalOpen: boolean;
   questionSnapshot: AnalysisQuestion | null;
   pendingAutoRun: boolean;
+  lastApplyError: PipelineError | null;
 
   loadQuestion: (id: string, question: AnalysisQuestion) => void;
   clearPendingAutoRun: () => void;
@@ -36,6 +37,9 @@ interface QueryStore {
   openEditModal: () => void;
   closeEditModal: () => void;
   discardEditModal: () => void;
+  commitSnapshot: () => void;
+  setLastApplyError: (err: PipelineError | null) => void;
+  clearLastApplyError: () => void;
 
   setIsRunning: (running: boolean) => void;
   addStepProgress: (progress: StepProgress) => void;
@@ -52,6 +56,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
   isEditModalOpen: false,
   questionSnapshot: null,
   pendingAutoRun: false,
+  lastApplyError: null,
 
   loadQuestion: (id, question) =>
     set({
@@ -60,6 +65,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
       stepProgress: [],
       pipelineResult: null,
       pendingAutoRun: true,
+      lastApplyError: null,
     }),
   clearPendingAutoRun: () => set({ pendingAutoRun: false }),
 
@@ -75,13 +81,19 @@ export const useQueryStore = create<QueryStore>((set) => ({
       questionSnapshot: JSON.parse(JSON.stringify(s.question)),
       stepProgress: [],
     })),
-  closeEditModal: () => set({ isEditModalOpen: false, questionSnapshot: null }),
+  closeEditModal: () =>
+    set({ isEditModalOpen: false, questionSnapshot: null, lastApplyError: null }),
   discardEditModal: () =>
     set((s) => ({
       isEditModalOpen: false,
       question: s.questionSnapshot || s.question,
       questionSnapshot: null,
+      lastApplyError: null,
     })),
+  commitSnapshot: () =>
+    set((s) => ({ questionSnapshot: JSON.parse(JSON.stringify(s.question)) })),
+  setLastApplyError: (lastApplyError) => set({ lastApplyError }),
+  clearLastApplyError: () => set({ lastApplyError: null }),
 
   setIsRunning: (isRunning) => set({ isRunning }),
   addStepProgress: (progress) =>
@@ -90,6 +102,6 @@ export const useQueryStore = create<QueryStore>((set) => ({
       updated[progress.stepIndex] = progress;
       return { stepProgress: updated };
     }),
-  clearProgress: () => set({ stepProgress: [], pipelineResult: null }),
+  clearProgress: () => set({ stepProgress: [] }),
   setPipelineResult: (pipelineResult) => set({ pipelineResult }),
 }));

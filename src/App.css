@@ -648,6 +648,34 @@
   white-space: pre-wrap;
 }
 
+.apply-error-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-top: 0;
+  margin-bottom: var(--space-md);
+}
+
+.apply-error-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.apply-error-dismiss {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 var(--space-xs);
+  opacity: 0.7;
+}
+
+.apply-error-dismiss:hover {
+  opacity: 1;
+}
+
 .result-summary {
   margin-top: var(--space-sm);
   font-size: var(--text-base);

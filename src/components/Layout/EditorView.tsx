@@ -19,10 +19,8 @@ export function EditorView() {
       return;
     }
 
-    const { activeQueryId, loadQuestion } = useQueryStore.getState();
-    if (activeQueryId !== queryId) {
-      loadQuestion(queryId, prebuilt.question);
-    }
+    const { loadQuestion } = useQueryStore.getState();
+    loadQuestion(queryId, prebuilt.question);
   }, [queryId, navigate]);
 
   return (
