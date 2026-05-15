@@ -7,6 +7,13 @@ function wrapUri(uri: string): string {
   return uri;
 }
 
+const NG_PER_L_UNIT_URI = 'http://qudt.org/vocab/unit/NanoGM-PER-L';
+
+// Emits the SPARQL fragment that filters by substance / material / concentration
+// range. Requires the caller to bind ?result, ?result_value, and ?unit before
+// this fragment appears. Range filters pin the unit to ng/L and handle two
+// numeric-value shapes (direct coso:measurementValue and nested
+// qudt:quantityValue/qudt:numericValue) plus the coso:non-detect URI literal.
 function buildSampleFilterClauses(filters?: SampleFilters): string {
   if (!filters) return '';
   let clauses = '';
@@ -17,12 +24,39 @@ function buildSampleFilterClauses(filters?: SampleFilters): string {
   if (filters.materialTypes?.length) {
     clauses += `VALUES ?matType { ${filters.materialTypes.map(wrapUri).join(' ')} }\n      `;
   }
-  if (filters.minConcentration != null) {
-    clauses += `FILTER (?result_value > ${filters.minConcentration})\n      `;
+
+  const hasRange =
+    filters.minConcentration != null || filters.maxConcentration != null;
+  const excludeNondetects = filters.includeNondetects === false;
+
+  if (hasRange || excludeNondetects) {
+    clauses += `OPTIONAL { ?result qudt:quantityValue/qudt:numericValue ?numericResult }\n      `;
+    clauses += `OPTIONAL { ?result qudt:enumeratedValue ?enumDetected }\n      `;
   }
-  if (filters.maxConcentration != null) {
-    clauses += `FILTER (?result_value < ${filters.maxConcentration})\n      `;
+
+  if (hasRange) {
+    clauses += `BIND(COALESCE(xsd:decimal(?numericResult), xsd:decimal(?result_value)) as ?numericValue)\n      `;
+    clauses += `VALUES ?unit { <${NG_PER_L_UNIT_URI}> }\n      `;
+
+    const numericChecks: string[] = [];
+    if (filters.minConcentration != null) {
+      numericChecks.push(`?numericValue >= ${filters.minConcentration}`);
+    }
+    if (filters.maxConcentration != null) {
+      numericChecks.push(`?numericValue <= ${filters.maxConcentration}`);
+    }
+    const numericExpr = `BOUND(?numericValue) && ${numericChecks.join(' && ')}`;
+
+    if (excludeNondetects) {
+      clauses += `FILTER(${numericExpr})\n      `;
+      clauses += `FILTER(!BOUND(?enumDetected))\n      `;
+    } else {
+      clauses += `FILTER((${numericExpr}) || BOUND(?enumDetected))\n      `;
+    }
+  } else if (excludeNondetects) {
+    clauses += `FILTER(!BOUND(?enumDetected))\n      `;
   }
+
   return clauses;
 }
 
@@ -120,8 +154,10 @@ export function buildSampleDetailQuery(
           coso:analyzedSample ?sample ;
           coso:observedAtSamplePoint ?sp ;
           coso:ofDSSToxSubstance/skos:altLabel ?substance ;
-          coso:hasResult/coso:measurementValue ?result_value ;
-          coso:hasResult/coso:measurementUnit/qudt:symbol ?unit_sym .
+          coso:hasResult ?result .
+      ?result coso:measurementValue ?result_value ;
+          coso:measurementUnit ?unit .
+      ?unit qudt:symbol ?unit_sym .
       OPTIONAL { ?observation sosa:resultTime ?date }
       OPTIONAL { ?sample dcterms:identifier ?sampleId }
       ${filterClauses}

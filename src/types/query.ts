@@ -30,6 +30,7 @@ export interface SampleFilters {
   minConcentration?: number;
   maxConcentration?: number;
   unit?: string;
+  includeNondetects?: boolean;
 }
 
 export interface FacilityFilters {

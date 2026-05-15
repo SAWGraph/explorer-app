@@ -1,5 +1,8 @@
 import type { SampleFilters as SampleFiltersType } from '../../types/query';
-import { useSubstances, useMaterialTypes } from '../../hooks/useDiscoveryQueries';
+import {
+  useSubstances,
+  useMaterialTypes,
+} from '../../hooks/useDiscoveryQueries';
 import { FlatSelect } from './FlatSelect/FlatSelect';
 
 interface SampleFiltersProps {
@@ -15,11 +18,14 @@ export function SampleFilters({ value, onChange }: SampleFiltersProps) {
     value: s.uri,
     label: s.shortLabel || s.label,
   }));
-  const materialOptions = materialTypes.map((m) => ({ value: m.uri, label: m.label }));
+  const materialOptions = materialTypes.map((m) => ({
+    value: m.uri,
+    label: m.label,
+  }));
 
   return (
-    <div className="sample-filters">
-      <div className="filter-field">
+    <div className='sample-filters'>
+      <div className='filter-field'>
         <label>Substance:</label>
         <FlatSelect
           options={substanceOptions}
@@ -32,49 +38,70 @@ export function SampleFilters({ value, onChange }: SampleFiltersProps) {
             }
             onChange({ ...value, substances: vals, substanceLabels: labels });
           }}
-          placeholder="Any substance..."
+          placeholder='Any substance...'
         />
       </div>
 
-      <div className="filter-field">
+      <div className='filter-field'>
         <label>Material:</label>
         <FlatSelect
           options={materialOptions}
           selectedValues={value?.materialTypes ?? []}
           onChange={(vals) => onChange({ ...value, materialTypes: vals })}
-          placeholder="Any material type..."
+          placeholder='Any material type...'
         />
       </div>
 
-      <div className="filter-row">
-        <div className="filter-field half">
+      <div className='filter-row'>
+        <div className='filter-field half'>
           <label>Min (ng/L):</label>
           <input
-            type="number"
+            type='number'
+            min={0}
+            step='any'
             value={value?.minConcentration ?? ''}
             onChange={(e) =>
               onChange({
                 ...value,
-                minConcentration: e.target.value ? Number(e.target.value) : undefined,
+                minConcentration: e.target.value
+                  ? Number(e.target.value)
+                  : undefined,
               })
             }
-            placeholder="Min"
+            placeholder='Min'
           />
         </div>
-        <div className="filter-field half">
+        <div className='filter-field half'>
           <label>Max (ng/L):</label>
           <input
-            type="number"
+            type='number'
+            min={0}
+            step='any'
             value={value?.maxConcentration ?? ''}
             onChange={(e) =>
               onChange({
                 ...value,
-                maxConcentration: e.target.value ? Number(e.target.value) : undefined,
+                maxConcentration: e.target.value
+                  ? Number(e.target.value)
+                  : undefined,
               })
             }
-            placeholder="Max"
+            placeholder='Max'
           />
         </div>
+      </div>
+
+      <div className='filter-field'>
+        <label className='filter-checkbox'>
+          <input
+            type='checkbox'
+            checked={value?.includeNondetects !== false}
+            onChange={(e) =>
+              onChange({ ...value, includeNondetects: e.target.checked })
+            }
+          />
+          <span>Include non-detects</span>
+        </label>
       </div>
     </div>
   );
