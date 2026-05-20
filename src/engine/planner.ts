@@ -28,6 +28,12 @@ import {
   buildDownstreamFlowlineQuery,
   buildUpstreamFlowlineQuery,
 } from './templates/hydrology';
+import {
+  buildFederatedSamplePointAnchorQuery,
+  buildSampleRetrievalByIriQuery,
+  buildSampleDetailByIriQuery,
+} from './templates/downstreamSamples';
+import { USE_FEDERATED_DOWNSTREAM } from '../constants/featureFlags';
 
 export type PipelineStepType =
   | 'GET_S2_FOR_ANCHOR'
@@ -43,7 +49,10 @@ export type PipelineStepType =
   | 'GET_SAMPLE_DETAILS'
   | 'FILTER_ANCHOR_TO_REGION'
   | 'GET_REGION_BOUNDARIES'
-  | 'GET_FLOWLINE_GEOMETRIES';
+  | 'GET_FLOWLINE_GEOMETRIES'
+  | 'FIND_SAMPLES_FEDERATED'
+  | 'HYDRATE_SAMPLES_BY_IRI'
+  | 'HYDRATE_SAMPLE_DETAILS_BY_IRI';
 
 export interface PipelineStep {
   type: PipelineStepType;
@@ -58,6 +67,7 @@ export interface PipelineContext {
   anchorS2Cells: string[];
   targetS2Cells: string[];
   flowlineS2Cells: string[];
+  samplePointIris: string[];
   results: Record<string, SparqlRow[]>;
 }
 
@@ -276,7 +286,70 @@ function getRegionCodes(block: EntityBlock): string[] {
   return [];
 }
 
+function canUseFederatedDownstream(question: AnalysisQuestion): boolean {
+  if (!USE_FEDERATED_DOWNSTREAM) return false;
+  const { blockA, relationship, blockC } = question;
+  if (relationship.type !== 'downstream') return false;
+  return blockC.type === 'facilities' && blockA.type === 'samples';
+}
+
+function planFederatedDownstream(question: AnalysisQuestion): PipelineStep[] {
+  const { blockA, blockC } = question;
+  const facilityBlock = blockC;
+  const sampleBlock = blockA;
+  const anchorRegion = getRegionCodes(facilityBlock);
+  const targetRegion = getRegionCodes(sampleBlock);
+
+  const steps: PipelineStep[] = [
+    getS2Step(facilityBlock, anchorRegion.length ? anchorRegion : undefined),
+    getDetailsStep(facilityBlock),
+    {
+      type: 'FIND_SAMPLES_FEDERATED',
+      endpoint: 'federation',
+      description: 'Finding downstream samples (federated)',
+      buildQuery: () =>
+        buildFederatedSamplePointAnchorQuery({
+          facilityFilters: facilityBlock.facilityFilters,
+          anchorRegionCodes: anchorRegion.length ? anchorRegion : undefined,
+          targetRegionCodes: targetRegion.length ? targetRegion : undefined,
+          sampleFilters: sampleBlock.sampleFilters,
+          direction: 'downstream',
+        }),
+    },
+    {
+      type: 'HYDRATE_SAMPLES_BY_IRI',
+      endpoint: 'sawgraph',
+      description: 'Loading sample details',
+      buildQuery: (ctx) =>
+        buildSampleRetrievalByIriQuery(ctx.samplePointIris, sampleBlock.sampleFilters),
+    },
+    {
+      type: 'HYDRATE_SAMPLE_DETAILS_BY_IRI',
+      endpoint: 'sawgraph',
+      description: 'Loading sample observation details',
+      buildQuery: (ctx) =>
+        buildSampleDetailByIriQuery(ctx.samplePointIris, sampleBlock.sampleFilters),
+    },
+  ];
+
+  const stateCode = blockA.region?.stateCode || blockC.region?.stateCode;
+  if (stateCode && (anchorRegion.length || targetRegion.length)) {
+    steps.push({
+      type: 'GET_REGION_BOUNDARIES',
+      endpoint: 'spatialkg',
+      description: 'Loading region boundaries',
+      buildQuery: () => buildRegionBoundaryQuery(stateCode),
+    });
+  }
+
+  return steps;
+}
+
 export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
+  if (canUseFederatedDownstream(question)) {
+    return planFederatedDownstream(question);
+  }
+
   const { blockA, relationship, blockC } = question;
   const steps: PipelineStep[] = [];
 
@@ -392,15 +465,7 @@ export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
         const vals = s2CellsToValuesString(
           allCells.length > 0 ? allCells : ctx.s2Cells,
         );
-        // Don't pass substance/materialType filters — ?substance in the detail
-        // query is bound to a label (skos:altLabel), not a URI, so a VALUES
-        // filter on URIs returns 0 rows. S2 cells already constrain scope.
-        const { substances: _s, materialTypes: _m, ...displayFilters } =
-          sampleBlock.sampleFilters ?? {};
-        return buildSampleDetailQuery(
-          vals,
-          Object.keys(displayFilters).length ? displayFilters : undefined,
-        );
+        return buildSampleDetailQuery(vals, sampleBlock.sampleFilters);
       },
     });
   }

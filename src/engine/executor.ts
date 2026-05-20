@@ -57,7 +57,7 @@ export async function executePipeline(
   question: AnalysisQuestion,
   onProgress: (progress: StepProgress) => void
 ): Promise<PipelineResult> {
-  const context: PipelineContext = { question, s2Cells: [], anchorS2Cells: [], targetS2Cells: [], flowlineS2Cells: [], results: {} };
+  const context: PipelineContext = { question, s2Cells: [], anchorS2Cells: [], targetS2Cells: [], flowlineS2Cells: [], samplePointIris: [], results: {} };
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
@@ -142,6 +142,38 @@ export async function executePipeline(
         } else {
           context.anchorS2Cells = [];
         }
+      }
+
+      // Hydration results are aliased into legacy keys so useMapLayers
+      // consumes them unchanged.
+      if (step.type === 'FIND_SAMPLES_FEDERATED') {
+        const iris = new Set<string>();
+        for (const r of results) if (r.sp) iris.add(r.sp);
+        context.samplePointIris = [...iris];
+        if (context.samplePointIris.length === 0) {
+          onProgress({
+            stepIndex: i,
+            totalSteps: steps.length,
+            description: step.description,
+            status: 'done',
+            resultCount: 0,
+          });
+          context.results[step.type] = results;
+          return {
+            status: 'empty',
+            failedAtStep: i,
+            message: `No results at step: ${step.description}`,
+          };
+        }
+      }
+      if (step.type === 'HYDRATE_SAMPLES_BY_IRI') {
+        context.results['FIND_TARGET_ENTITIES'] = results;
+        const cells = new Set<string>();
+        for (const r of results) if (r.s2cell) cells.add(shortenS2URI(r.s2cell));
+        context.targetS2Cells = [...cells];
+      }
+      if (step.type === 'HYDRATE_SAMPLE_DETAILS_BY_IRI') {
+        context.results['GET_SAMPLE_DETAILS'] = results;
       }
 
       context.results[step.type] = results;

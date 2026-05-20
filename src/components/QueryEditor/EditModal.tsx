@@ -3,6 +3,7 @@ import { useQueryStore } from '../../store/queryStore';
 import { useQueryPipeline } from '../../hooks/useQueryPipeline';
 import { QueryEditorContent } from './QueryEditorContent';
 import { PipelineTimeline } from '../Pipeline/PipelineTimeline';
+import { assessQueryBreadth } from '../../engine/queryBreadth';
 
 export function EditModal() {
   const isOpen = useQueryStore((s) => s.isEditModalOpen);
@@ -21,6 +22,11 @@ export function EditModal() {
     if (!questionSnapshot) return false;
     return JSON.stringify(question) !== JSON.stringify(questionSnapshot);
   }, [question, questionSnapshot]);
+
+  const breadthWarning = useMemo(
+    () => (question ? assessQueryBreadth(question) : null),
+    [question],
+  );
 
   const handleDiscard = useCallback(() => {
     if (!isRunning) discardEditModal();
@@ -80,6 +86,13 @@ export function EditModal() {
                   </button>
                 </div>
               )}
+              {breadthWarning && !lastApplyError && (
+                <div className="pipeline-message pipeline-empty apply-error-callout">
+                  <div className="apply-error-content">
+                    <strong>Heads up:</strong> {breadthWarning}
+                  </div>
+                </div>
+              )}
               <QueryEditorContent />
             </>
           )}
@@ -89,8 +102,12 @@ export function EditModal() {
           <button className="btn-secondary" onClick={handleDiscard} disabled={isRunning}>
             Discard Changes
           </button>
-          <button className="btn-primary" onClick={handleApply} disabled={isRunning || !hasChanges}>
-            {isRunning ? 'Running...' : 'Apply'}
+          <button
+            className="btn-primary"
+            onClick={handleApply}
+            disabled={isRunning || (!hasChanges && !lastApplyError)}
+          >
+            {isRunning ? 'Running...' : lastApplyError ? 'Retry' : 'Apply'}
           </button>
         </div>
       </div>
