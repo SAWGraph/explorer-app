@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
 import { PrebuiltQueryCard } from './PrebuiltQueryCard';
+import { SearchQuestionsModal } from './SearchQuestionsModal';
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <div className='dashboard'>
@@ -30,7 +33,7 @@ export function Dashboard() {
             <h3>Choose from the Prebuilt Analysis Questions</h3>
             <button
               className='btn-view-more'
-              onClick={() => navigate('/q/new')}
+              onClick={() => setSearchOpen(true)}
             >
               <svg className='btn-icon' viewBox='0 0 18 18' fill='currentColor' width='18' height='18' aria-hidden='true'>
                 <rect x='1' y='1' width='7' height='7' rx='1.5' />
@@ -53,6 +56,16 @@ export function Dashboard() {
           </div>
         </section>
       </div>
+
+      {searchOpen && (
+        <SearchQuestionsModal
+          onClose={() => setSearchOpen(false)}
+          onSelect={(query) => {
+            setSearchOpen(false);
+            navigate(`/q/${query.id}`);
+          }}
+        />
+      )}
     </div>
   );
 }
