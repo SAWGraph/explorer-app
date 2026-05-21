@@ -31,7 +31,7 @@ export const LAYER_REGISTRY: LayerConfig[] = [
   },
   {
     key: 'wells',
-    label: 'Subsurface Water Bodies',
+    label: 'Wells',
     defaultVisible: true,
     legendSvg:
       '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="#74a9cf" stroke="#045a8d" stroke-width="2"/></svg>',

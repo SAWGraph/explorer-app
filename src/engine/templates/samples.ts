@@ -2,7 +2,7 @@ import { PREFIXES } from '../../constants/prefixes';
 import { buildRegionFilterClause } from './shared';
 import type { SampleFilters } from '../../types/query';
 
-function wrapUri(uri: string): string {
+export function wrapUri(uri: string): string {
   if (uri.startsWith('http://') || uri.startsWith('https://')) return `<${uri}>`;
   return uri;
 }
@@ -14,7 +14,7 @@ const NG_PER_L_UNIT_URI = 'http://qudt.org/vocab/unit/NanoGM-PER-L';
 // this fragment appears. Range filters pin the unit to ng/L and handle two
 // numeric-value shapes (direct coso:measurementValue and nested
 // qudt:quantityValue/qudt:numericValue) plus the coso:non-detect URI literal.
-function buildSampleFilterClauses(filters?: SampleFilters): string {
+export function buildSampleFilterClauses(filters?: SampleFilters): string {
   if (!filters) return '';
   let clauses = '';
 
@@ -126,7 +126,16 @@ export function buildSampleDetailQuery(
   s2ValuesString: string,
   filters?: SampleFilters
 ): string {
-  const filterClauses = buildSampleFilterClauses(filters);
+  // ?substance projects the label here, unlike the other templates where it is
+  // the URI. Filter on ?substanceUri so buildSampleFilterClauses's VALUES
+  // ?substance does not match a label against URIs.
+  const { substances, ...nonSubstanceFilters } = filters ?? {};
+  const filterClauses = buildSampleFilterClauses(
+    Object.keys(nonSubstanceFilters).length ? nonSubstanceFilters : undefined,
+  );
+  const substanceClause = substances?.length
+    ? `VALUES ?substanceUri { ${substances.map(wrapUri).join(' ')} }\n      `
+    : '';
 
   return `
     ${PREFIXES}
@@ -153,8 +162,10 @@ export function buildSampleDetailQuery(
       ?observation rdf:type coso:ContaminantObservation ;
           coso:analyzedSample ?sample ;
           coso:observedAtSamplePoint ?sp ;
-          coso:ofDSSToxSubstance/skos:altLabel ?substance ;
+          coso:ofDSSToxSubstance ?substanceUri ;
           coso:hasResult ?result .
+      ?substanceUri skos:altLabel ?substance .
+      ${substanceClause}
       ?result coso:measurementValue ?result_value ;
           coso:measurementUnit ?unit .
       ?unit qudt:symbol ?unit_sym .

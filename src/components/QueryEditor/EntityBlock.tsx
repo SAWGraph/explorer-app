@@ -64,6 +64,7 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
             <WellFilters
               value={value.wellFilters}
               onChange={(f) => onChange({ ...value, wellFilters: f })}
+              stateCode={value.region?.stateCode}
             />
           )}
         </>

@@ -51,7 +51,7 @@ export function buildFacilityDetailsQuery(
   `;
 }
 
-function buildIndustryValues(codes?: string[]): string {
+export function buildIndustryValues(codes?: string[]): string {
   if (!codes || codes.length === 0) return '';
 
   const groups: string[] = [];
