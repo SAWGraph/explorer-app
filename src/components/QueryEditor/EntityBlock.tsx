@@ -8,7 +8,7 @@ import { RegionSelector } from './RegionSelector';
 import { useState } from 'react';
 
 interface EntityBlockProps {
-  label: string;
+  label: React.ReactNode;
   value: EntityBlockType;
   onChange: (block: EntityBlockType) => void;
 }

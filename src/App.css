@@ -1523,3 +1523,79 @@
   color: var(--color-gray-500);
   font-size: var(--text-base);
 }
+
+/* Glossary terms — squiggly underline + hover/focus tooltip */
+.defined-term {
+  position: relative;
+  cursor: help;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--color-primary-400);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  outline: none;
+}
+
+.defined-term:focus-visible {
+  text-decoration-color: var(--color-primary-600);
+}
+
+.defined-term-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translate(-50%, 4px);
+  width: max-content;
+  max-width: 300px;
+  padding: var(--space-md);
+  background: white;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card-hover);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: var(--font-normal);
+  font-size: var(--text-base);
+  line-height: 1.45;
+  color: var(--color-gray-700);
+  text-align: left;
+  text-decoration: none;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
+  z-index: 1100;
+}
+
+.defined-term-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: white;
+  filter: drop-shadow(0 1px 0 var(--color-gray-200));
+}
+
+.defined-term-tooltip-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-gray-800);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.defined-term-tooltip-body {
+  font-style: normal;
+}
+
+.defined-term:hover .defined-term-tooltip,
+.defined-term:focus-visible .defined-term-tooltip,
+.defined-term:focus-within .defined-term-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}

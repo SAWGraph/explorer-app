@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
+import { DefinedTerm } from '../common/DefinedTerm';
 import { PrebuiltQueryCard } from './PrebuiltQueryCard';
 import { SearchQuestionsModal } from './SearchQuestionsModal';
 
@@ -30,7 +31,10 @@ export function Dashboard() {
 
         <section className='dashboard-section'>
           <div className='dashboard-section-header'>
-            <h3>Choose from the Prebuilt Analysis Questions</h3>
+            <h3>
+              Choose from the Prebuilt{' '}
+              <DefinedTerm term='analysisQuestion'>Analysis Questions</DefinedTerm>
+            </h3>
             <button
               className='btn-view-more'
               onClick={() => setSearchOpen(true)}

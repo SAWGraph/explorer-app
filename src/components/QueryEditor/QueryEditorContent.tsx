@@ -1,7 +1,17 @@
 import { useQueryStore } from '../../store/queryStore';
+import { DefinedTerm } from '../common/DefinedTerm';
 import { QuestionPreview } from './QuestionPreview';
 import { EntityBlock } from './EntityBlock';
 import { RelationshipSelector } from './RelationshipSelector';
+
+function blockLabel(suffix: 'A' | 'C') {
+  return (
+    <>
+      <DefinedTerm term='feature'>Features</DefinedTerm> or{' '}
+      <DefinedTerm term='observation'>Observations</DefinedTerm> ({suffix})
+    </>
+  );
+}
 
 export function QueryEditorContent() {
   const { question, setBlockA, setBlockC, setRelationship } = useQueryStore();
@@ -11,7 +21,7 @@ export function QueryEditorContent() {
       <QuestionPreview question={question} />
 
       <EntityBlock
-        label="Features or Observations (A)"
+        label={blockLabel('A')}
         value={question.blockA}
         onChange={setBlockA}
       />
@@ -19,7 +29,7 @@ export function QueryEditorContent() {
       <RelationshipSelector value={question.relationship} onChange={setRelationship} />
 
       <EntityBlock
-        label="Features or Observations (C)"
+        label={blockLabel('C')}
         value={question.blockC}
         onChange={setBlockC}
       />
