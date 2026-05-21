@@ -354,6 +354,17 @@
   margin: 0;
 }
 
+.filter-warning {
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+
 /* Region Selector */
 .region-selector {
   margin-top: var(--space-sm);
