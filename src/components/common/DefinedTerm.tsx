@@ -1,4 +1,5 @@
-import { useId } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export type GlossaryTerm = 'analysisQuestion' | 'feature' | 'observation';
 
@@ -25,6 +26,8 @@ const GLOSSARY: Record<GlossaryTerm, GlossaryEntry> = {
   },
 };
 
+const TOOLTIP_GAP = 10;
+
 interface DefinedTermProps {
   term: GlossaryTerm;
   children: React.ReactNode;
@@ -32,15 +35,64 @@ interface DefinedTermProps {
 
 export function DefinedTerm({ term, children }: DefinedTermProps) {
   const tooltipId = useId();
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const entry = GLOSSARY[term];
 
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const updatePosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setCoords({
+        top: rect.top - TOOLTIP_GAP,
+        left: rect.left + rect.width / 2,
+      });
+    };
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setCoords(null);
+  }, [open]);
+
+  const show = () => setOpen(true);
+  const hide = () => setOpen(false);
+
   return (
-    <span className='defined-term' tabIndex={0} aria-describedby={tooltipId}>
-      {children}
-      <span className='defined-term-tooltip' role='tooltip' id={tooltipId}>
-        <strong className='defined-term-tooltip-label'>{entry.label}</strong>
-        <span className='defined-term-tooltip-body'>{entry.definition}</span>
+    <>
+      <span
+        ref={triggerRef}
+        className='defined-term'
+        tabIndex={0}
+        aria-describedby={open ? tooltipId : undefined}
+        onPointerEnter={show}
+        onPointerLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >
+        {children}
       </span>
-    </span>
+      {open && coords &&
+        createPortal(
+          <span
+            id={tooltipId}
+            role='tooltip'
+            className='defined-term-tooltip'
+            style={{ top: coords.top, left: coords.left }}
+          >
+            <strong className='defined-term-tooltip-label'>{entry.label}</strong>
+            <span className='defined-term-tooltip-body'>{entry.definition}</span>
+          </span>,
+          document.body
+        )}
+    </>
   );
 }

@@ -1541,10 +1541,8 @@
 }
 
 .defined-term-tooltip {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translate(-50%, 4px);
+  position: fixed;
+  transform: translate(-50%, -100%);
   width: max-content;
   max-width: 300px;
   padding: var(--space-md);
@@ -1555,18 +1553,25 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  font-family: inherit;
   font-weight: var(--font-normal);
   font-size: var(--text-base);
+  font-style: normal;
   line-height: 1.45;
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--color-gray-700);
   text-align: left;
   text-decoration: none;
   white-space: normal;
   pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
   z-index: 1100;
+  animation: defined-term-tooltip-in 0.12s ease-out;
+}
+
+@keyframes defined-term-tooltip-in {
+  from { opacity: 0; transform: translate(-50%, calc(-100% + 4px)); }
+  to   { opacity: 1; transform: translate(-50%, -100%); }
 }
 
 .defined-term-tooltip::after {
@@ -1590,12 +1595,7 @@
 
 .defined-term-tooltip-body {
   font-style: normal;
-}
-
-.defined-term:hover .defined-term-tooltip,
-.defined-term:focus-visible .defined-term-tooltip,
-.defined-term:focus-within .defined-term-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translate(-50%, 0);
+  font-weight: var(--font-normal);
+  text-transform: none;
+  letter-spacing: normal;
 }
