@@ -46,7 +46,7 @@ export function Dashboard() {
           </div>
 
           <div className='query-cards-list'>
-            {PREBUILT_QUERIES.map((query) => (
+            {PREBUILT_QUERIES.slice(0, 4).map((query) => (
               <PrebuiltQueryCard
                 key={query.id}
                 query={query}

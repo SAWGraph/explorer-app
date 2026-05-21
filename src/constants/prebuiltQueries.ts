@@ -100,6 +100,78 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
     },
   },
   {
+    id: 'wells-near-landfill-dod-maine',
+    title: 'Maine Private Wells Near Landfills & DoD Sites',
+    description:
+      'Locate Maine private wells (MGS) within proximity of Solid Waste Landfills (NAICS 562212) and National Security / DoD facilities (NAICS 928110) statewide — the two facility classes most often implicated in Maine PFAS investigations.',
+    tags: ['Wells', 'Facilities', 'Near', 'Maine', 'Landfill', 'DoD'],
+    question: {
+      blockA: {
+        type: 'wells',
+        region: { stateCode: '23' },
+        wellFilters: { wellTypes: ['MGS-Well'] },
+      },
+      relationship: { type: 'near', hops: 1 },
+      blockC: {
+        type: 'facilities',
+        facilityFilters: {
+          industryCodes: ['562212', '928110'],
+          industryLabels: {
+            '562212': 'Solid Waste Landfill',
+            '928110': 'National Security',
+          },
+        },
+      },
+    },
+  },
+  {
+    id: 'wells-near-wwtp-maine',
+    title: 'Maine Private Wells Near Wastewater Treatment Facilities',
+    description:
+      'Identify Maine private wells (MGS) near sewage treatment facilities (NAICS 221320). Biosolid land-application from these POTWs is the dominant PFAS exposure pathway driving Maine well-sampling priorities.',
+    tags: ['Wells', 'Facilities', 'Near', 'Maine', 'Wastewater', 'Biosolids'],
+    question: {
+      blockA: {
+        type: 'wells',
+        region: { stateCode: '23' },
+        wellFilters: { wellTypes: ['MGS-Well'] },
+      },
+      relationship: { type: 'near', hops: 1 },
+      blockC: {
+        type: 'facilities',
+        facilityFilters: {
+          industryCodes: ['221320'],
+          industryLabels: { '221320': 'Sewage Treatment Facilities' },
+        },
+      },
+    },
+  },
+  {
+    id: 'wells-near-airports-maine',
+    title: 'Maine Private Wells Near Airports & Air Transportation Sites (AFFF)',
+    description:
+      'Find Maine private wells (MGS) near airports and air transportation operations (NAICS 488119, 481111). Aqueous Film-Forming Foam (AFFF) used in airport firefighting is a leading legacy source of PFOS / PFOA in groundwater.',
+    tags: ['Wells', 'Facilities', 'Near', 'Maine', 'Airports', 'AFFF'],
+    question: {
+      blockA: {
+        type: 'wells',
+        region: { stateCode: '23' },
+        wellFilters: { wellTypes: ['MGS-Well'] },
+      },
+      relationship: { type: 'near', hops: 1 },
+      blockC: {
+        type: 'facilities',
+        facilityFilters: {
+          industryCodes: ['488119', '481111'],
+          industryLabels: {
+            '488119': 'Other Airport Operations',
+            '481111': 'Scheduled Passenger Air Transportation',
+          },
+        },
+      },
+    },
+  },
+  {
     id: 'facilities-downstream-pfhpa-gw-cumberland',
     title: 'PFHpA Groundwater Samples Downstream from Facilities in Cumberland County',
     description:
