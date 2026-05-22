@@ -11,6 +11,7 @@ import { RegionBoundaryLayer } from './RegionBoundaryLayer';
 import { MapCenterController } from './MapCenterController';
 import { LayerPanel } from './LayerPanel';
 import { BasemapSelector } from './BasemapSelector';
+import { MeasureControl } from './MeasureControl';
 import { LAYER_REGISTRY, getDefaultVisibility } from './layerStyles';
 import { BASEMAPS, DEFAULT_BASEMAP } from './basemaps';
 import 'leaflet/dist/leaflet.css';
@@ -104,6 +105,7 @@ export function ResultsMap({ layers }: ResultsMapProps) {
       )}
 
       <BasemapSelector current={basemapKey} onChange={setBasemapKey} />
+      <MeasureControl />
     </MapContainer>
   );
 }

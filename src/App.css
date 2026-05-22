@@ -1599,3 +1599,81 @@
   text-transform: none;
   letter-spacing: normal;
 }
+
+/* Measurement tool (topleft Leaflet control) */
+.measure-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.measure-control__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: white;
+  color: var(--color-gray-700);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.measure-control__toggle:hover {
+  background: var(--color-gray-50);
+  color: var(--color-gray-800);
+}
+
+.measure-control__toggle--active,
+.measure-control__toggle--active:hover {
+  background: var(--color-primary-600, #4f46e5);
+  color: white;
+  border-color: var(--color-primary-600, #4f46e5);
+}
+
+.measure-control__readout {
+  background: white;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+  color: var(--color-gray-800);
+  min-width: 200px;
+}
+
+.measure-control__readout-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-base);
+}
+
+.measure-control__readout-sep {
+  color: var(--color-gray-400);
+}
+
+.measure-control__readout-hint {
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
+  color: var(--color-gray-500);
+  line-height: 1.3;
+}
+
+.leaflet-container.measure-active,
+.leaflet-container.measure-active .leaflet-interactive {
+  cursor: crosshair !important;
+}
