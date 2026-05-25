@@ -5,6 +5,11 @@ import { useQueryStore } from '../../store/queryStore';
 import { AnalysisQuestionBar } from './AnalysisQuestionBar';
 import { MainContent } from './MainContent';
 import { EditModal } from '../../components/QueryEditor/EditModal';
+import { savedQuestionsRepo } from '../../storage/savedQuestionsStore';
+import {
+  isSavedQuestionId,
+  parseSavedQueryParam,
+} from '../../types/savedQuestion';
 
 export function EditorView() {
   const { queryId } = useParams<{ queryId: string }>();
@@ -13,13 +18,25 @@ export function EditorView() {
   useEffect(() => {
     if (!queryId || queryId === 'new') return;
 
+    const { loadQuestion } = useQueryStore.getState();
+
+    if (isSavedQuestionId(queryId)) {
+      const savedId = parseSavedQueryParam(queryId);
+      const saved = savedId ? savedQuestionsRepo.get(savedId) : null;
+      if (!saved) {
+        navigate('/', { replace: true });
+        return;
+      }
+      loadQuestion(queryId, saved.question);
+      return;
+    }
+
     const prebuilt = PREBUILT_QUERIES.find((q) => q.id === queryId);
     if (!prebuilt) {
       navigate('/', { replace: true });
       return;
     }
 
-    const { loadQuestion } = useQueryStore.getState();
     loadQuestion(queryId, prebuilt.question);
   }, [queryId, navigate]);
 

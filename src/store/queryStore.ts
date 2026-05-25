@@ -26,6 +26,7 @@ interface QueryStore {
   lastApplyError: PipelineError | null;
 
   loadQuestion: (id: string, question: AnalysisQuestion) => void;
+  setActiveQueryId: (id: string | null) => void;
   clearPendingAutoRun: () => void;
 
   setBlockA: (block: EntityBlock) => void;
@@ -67,6 +68,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
       pendingAutoRun: true,
       lastApplyError: null,
     }),
+  setActiveQueryId: (activeQueryId) => set({ activeQueryId }),
   clearPendingAutoRun: () => set({ pendingAutoRun: false }),
 
   setBlockA: (block) => set((s) => ({ question: { ...s.question, blockA: block } })),

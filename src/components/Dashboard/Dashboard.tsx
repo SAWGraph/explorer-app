@@ -4,10 +4,22 @@ import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
 import { DefinedTerm } from '../common/DefinedTerm';
 import { PrebuiltQueryCard } from './PrebuiltQueryCard';
 import { SearchQuestionsModal } from './SearchQuestionsModal';
+import { SavedQuestionRow } from './SavedQuestionRow';
+import {
+  useDeleteSavedQuestion,
+  useSavedQuestionsList,
+  useUpdateSavedQuestion,
+} from '../../hooks/useSavedQuestions';
+import { toSavedQueryParam } from '../../types/savedQuestion';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
+  const savedQuery = useSavedQuestionsList();
+  const updateMutation = useUpdateSavedQuestion();
+  const deleteMutation = useDeleteSavedQuestion();
+
+  const savedItems = savedQuery.data ?? [];
 
   return (
     <div className='dashboard'>
@@ -21,12 +33,28 @@ export function Dashboard() {
               Take a quick walkthrough 🎉
             </a>
           </div>
-          <div className='recent-work-placeholder'>
-            <p>
-              This section lists your recent work. Open an analysis to see it
-              here.
-            </p>
-          </div>
+          {savedItems.length === 0 ? (
+            <div className='recent-work-placeholder'>
+              <p>
+                This section lists your recent work. Open an analysis to see it
+                here.
+              </p>
+            </div>
+          ) : (
+            <div className='saved-list'>
+              {savedItems.map((saved) => (
+                <SavedQuestionRow
+                  key={saved.id}
+                  saved={saved}
+                  onOpen={() => navigate(`/q/${toSavedQueryParam(saved.id)}`)}
+                  onRename={(name) =>
+                    updateMutation.mutate({ id: saved.id, patch: { name } })
+                  }
+                  onDelete={() => deleteMutation.mutate(saved.id)}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         <section className='dashboard-section'>

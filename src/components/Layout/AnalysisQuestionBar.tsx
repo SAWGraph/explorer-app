@@ -1,12 +1,91 @@
+import { useEffect, useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
 import { generateQuestion } from '../../utils/questionGenerator';
 import { ExportDropdown } from './ExportDropdown';
+import { SaveQuestionModal } from '../QueryEditor/SaveQuestionModal';
+import {
+  useCreateSavedQuestion,
+  useUpdateSavedQuestion,
+} from '../../hooks/useSavedQuestions';
+import {
+  isSavedQuestionId,
+  parseSavedQueryParam,
+  toSavedQueryParam,
+} from '../../types/savedQuestion';
+import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
+
+const SAVED_INDICATOR_MS = 1500;
 
 export function AnalysisQuestionBar() {
   const question = useQueryStore((s) => s.question);
+  const activeQueryId = useQueryStore((s) => s.activeQueryId);
   const openEditModal = useQueryStore((s) => s.openEditModal);
   const isRunning = useQueryStore((s) => s.isRunning);
   const text = generateQuestion(question);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [savedIndicator, setSavedIndicator] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const createMutation = useCreateSavedQuestion();
+  const updateMutation = useUpdateSavedQuestion();
+
+  const isExistingSave = isSavedQuestionId(activeQueryId);
+
+  useEffect(() => {
+    if (!savedIndicator) return;
+    const t = setTimeout(() => setSavedIndicator(false), SAVED_INDICATOR_MS);
+    return () => clearTimeout(t);
+  }, [savedIndicator]);
+
+  const handleSaveClick = async () => {
+    setSaveError(null);
+    if (isExistingSave && activeQueryId) {
+      const savedId = parseSavedQueryParam(activeQueryId);
+      if (!savedId) return;
+      try {
+        await updateMutation.mutateAsync({
+          id: savedId,
+          patch: { question },
+        });
+        setSavedIndicator(true);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : 'Failed to save.');
+      }
+      return;
+    }
+    setModalOpen(true);
+  };
+
+  const defaultName = (): string => {
+    if (activeQueryId) {
+      const prebuilt = PREBUILT_QUERIES.find((q) => q.id === activeQueryId);
+      if (prebuilt) return prebuilt.title;
+    }
+    const generated = generateQuestion(question);
+    return generated.length > 80 ? generated.slice(0, 80) + '…' : generated;
+  };
+
+  const handleConfirmSave = async (name: string) => {
+    setSaveError(null);
+    try {
+      const created = await createMutation.mutateAsync({
+        name,
+        question,
+        basedOnQueryId: activeQueryId && !isSavedQuestionId(activeQueryId)
+          ? activeQueryId
+          : null,
+      });
+      useQueryStore.getState().setActiveQueryId(toSavedQueryParam(created.id));
+      setModalOpen(false);
+      setSavedIndicator(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save.');
+    }
+  };
+
+  const saveBusy = createMutation.isPending || updateMutation.isPending;
+  const saveLabel = savedIndicator ? 'Saved' : isExistingSave ? 'Save' : 'Save';
 
   return (
     <div className="question-bar">
@@ -20,14 +99,31 @@ export function AnalysisQuestionBar() {
         </div>
       </div>
       <div className="question-bar-right">
-        <button className="btn-secondary" disabled>
-          Save
+        <button
+          className="btn-secondary"
+          onClick={handleSaveClick}
+          disabled={isRunning || saveBusy}
+        >
+          {saveBusy ? 'Saving...' : saveLabel}
         </button>
         <ExportDropdown />
         <button className="btn-secondary" disabled>
           Publish
         </button>
       </div>
+
+      {modalOpen && (
+        <SaveQuestionModal
+          initialName={defaultName()}
+          isSaving={createMutation.isPending}
+          error={saveError}
+          onCancel={() => {
+            setModalOpen(false);
+            setSaveError(null);
+          }}
+          onSave={handleConfirmSave}
+        />
+      )}
     </div>
   );
 }
