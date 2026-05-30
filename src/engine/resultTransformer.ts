@@ -57,6 +57,7 @@ export function transformSamplesToFeatures(rows: SparqlRow[]): MapFeature[] {
         properties: {
           type: 'sample',
           resultCount: row.resultCount || '0',
+          sampleCount: row.sampleCount || '0',
           maxConcentration: row.max || '',
           substances: row.substances || '',
           materials: row.materials || '',
