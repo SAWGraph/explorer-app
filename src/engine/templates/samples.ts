@@ -1,5 +1,3 @@
-import { PREFIXES } from '../../constants/prefixes';
-import { buildRegionFilterClause } from './shared';
 import type { SampleFilters } from '../../types/query';
 
 export function wrapUri(uri: string): string {
@@ -11,18 +9,18 @@ const NG_PER_L_UNIT_URI = 'http://qudt.org/vocab/unit/NanoGM-PER-L';
 
 // Emits the SPARQL fragment that filters by substance / material / concentration
 // range. Requires the caller to bind ?result, ?result_value, and ?unit before
-// this fragment appears. Range filters pin the unit to ng/L and handle two
-// numeric-value shapes (direct coso:measurementValue and nested
-// qudt:quantityValue/qudt:numericValue) plus the coso:non-detect URI literal.
-export function buildSampleFilterClauses(filters?: SampleFilters): string {
+// this fragment appears. `suffix` (default '') is appended to every variable
+// so the same fragment can be used inside fused queries where anchor and
+// target sides need disambiguated vars (e.g. '?resultC').
+export function buildSampleFilterClauses(filters?: SampleFilters, suffix = ''): string {
   if (!filters) return '';
   let clauses = '';
 
   if (filters.substances?.length) {
-    clauses += `VALUES ?substance { ${filters.substances.map(wrapUri).join(' ')} }\n      `;
+    clauses += `VALUES ?substance${suffix} { ${filters.substances.map(wrapUri).join(' ')} }\n      `;
   }
   if (filters.materialTypes?.length) {
-    clauses += `VALUES ?matType { ${filters.materialTypes.map(wrapUri).join(' ')} }\n      `;
+    clauses += `VALUES ?matType${suffix} { ${filters.materialTypes.map(wrapUri).join(' ')} }\n      `;
   }
 
   const hasRange =
@@ -30,150 +28,32 @@ export function buildSampleFilterClauses(filters?: SampleFilters): string {
   const excludeNondetects = filters.includeNondetects === false;
 
   if (hasRange || excludeNondetects) {
-    clauses += `OPTIONAL { ?result qudt:quantityValue/qudt:numericValue ?numericResult }\n      `;
-    clauses += `OPTIONAL { ?result qudt:enumeratedValue ?enumDetected }\n      `;
+    clauses += `OPTIONAL { ?result${suffix} qudt:quantityValue/qudt:numericValue ?numericResult${suffix} }\n      `;
+    clauses += `OPTIONAL { ?result${suffix} qudt:enumeratedValue ?enumDetected${suffix} }\n      `;
   }
 
   if (hasRange) {
-    clauses += `BIND(COALESCE(xsd:decimal(?numericResult), xsd:decimal(?result_value)) as ?numericValue)\n      `;
-    clauses += `VALUES ?unit { <${NG_PER_L_UNIT_URI}> }\n      `;
+    clauses += `BIND(COALESCE(xsd:decimal(?numericResult${suffix}), xsd:decimal(?result_value${suffix})) as ?numericValue${suffix})\n      `;
+    clauses += `VALUES ?unit${suffix} { <${NG_PER_L_UNIT_URI}> }\n      `;
 
     const numericChecks: string[] = [];
     if (filters.minConcentration != null) {
-      numericChecks.push(`?numericValue >= ${filters.minConcentration}`);
+      numericChecks.push(`?numericValue${suffix} >= ${filters.minConcentration}`);
     }
     if (filters.maxConcentration != null) {
-      numericChecks.push(`?numericValue <= ${filters.maxConcentration}`);
+      numericChecks.push(`?numericValue${suffix} <= ${filters.maxConcentration}`);
     }
-    const numericExpr = `BOUND(?numericValue) && ${numericChecks.join(' && ')}`;
+    const numericExpr = `BOUND(?numericValue${suffix}) && ${numericChecks.join(' && ')}`;
 
     if (excludeNondetects) {
       clauses += `FILTER(${numericExpr})\n      `;
-      clauses += `FILTER(!BOUND(?enumDetected))\n      `;
+      clauses += `FILTER(!BOUND(?enumDetected${suffix}))\n      `;
     } else {
-      clauses += `FILTER((${numericExpr}) || BOUND(?enumDetected))\n      `;
+      clauses += `FILTER((${numericExpr}) || BOUND(?enumDetected${suffix}))\n      `;
     }
   } else if (excludeNondetects) {
-    clauses += `FILTER(!BOUND(?enumDetected))\n      `;
+    clauses += `FILTER(!BOUND(?enumDetected${suffix}))\n      `;
   }
 
   return clauses;
-}
-
-export function buildSampleS2Query(filters?: SampleFilters, regionCodes?: string[]): string {
-  const filterClauses = buildSampleFilterClauses(filters);
-
-  const regionFilterClause = buildRegionFilterClause(regionCodes);
-
-  return `
-    ${PREFIXES}
-    SELECT DISTINCT ?s2cell WHERE {
-      ?sp rdf:type coso:SamplePoint ;
-          spatial:connectedTo ?s2cell .
-      ?s2cell rdf:type kwg-ont:S2Cell_Level13 .
-      ${regionFilterClause}
-      ?observation rdf:type coso:ContaminantObservation ;
-          coso:observedAtSamplePoint ?sp ;
-          coso:ofDSSToxSubstance ?substance ;
-          coso:analyzedSample ?sample ;
-          coso:hasResult ?result .
-      ?sample coso:sampleOfMaterialType ?matType .
-      ?matType rdfs:label ?matTypeLabel .
-      ?result coso:measurementValue ?result_value ;
-          coso:measurementUnit ?unit .
-      ${filterClauses}
-    } GROUP BY ?s2cell
-  `;
-}
-
-export function buildSampleRetrievalQuery(
-  s2ValuesString: string,
-  filters?: SampleFilters
-): string {
-  const filterClauses = buildSampleFilterClauses(filters);
-
-  return `
-    ${PREFIXES}
-    SELECT
-      (COUNT(DISTINCT ?subVal) as ?resultCount)
-      (MAX(?result_value) as ?max)
-      (GROUP_CONCAT(DISTINCT ?substance; separator="; ") as ?substances)
-      (GROUP_CONCAT(DISTINCT ?matTypeLabel; separator="; ") as ?materials)
-      ?sp ?spWKT ?s2cell
-    WHERE {
-      ?sp rdf:type coso:SamplePoint ;
-          spatial:connectedTo ?s2cell ;
-          geo:hasGeometry/geo:asWKT ?spWKT .
-      VALUES ?s2cell { ${s2ValuesString} }
-      ?observation rdf:type coso:ContaminantObservation ;
-          coso:observedAtSamplePoint ?sp ;
-          coso:ofDSSToxSubstance ?substance ;
-          coso:analyzedSample ?sample ;
-          coso:hasResult ?result .
-      ?sample rdfs:label ?sampleLabel ;
-          coso:sampleOfMaterialType ?matType .
-      ?matType rdfs:label ?matTypeLabel .
-      ?result coso:measurementValue ?result_value ;
-          coso:measurementUnit ?unit .
-      ?unit qudt:symbol ?unit_sym .
-      ${filterClauses}
-      BIND((CONCAT(str(?result_value), " ", ?unit_sym)) as ?subVal)
-    } GROUP BY ?sp ?spWKT ?s2cell
-  `;
-}
-
-export function buildSampleDetailQuery(
-  s2ValuesString: string,
-  filters?: SampleFilters
-): string {
-  // ?substance projects the label here, unlike the other templates where it is
-  // the URI. Filter on ?substanceUri so buildSampleFilterClauses's VALUES
-  // ?substance does not match a label against URIs.
-  const { substances, ...nonSubstanceFilters } = filters ?? {};
-  const filterClauses = buildSampleFilterClauses(
-    Object.keys(nonSubstanceFilters).length ? nonSubstanceFilters : undefined,
-  );
-  const substanceClause = substances?.length
-    ? `VALUES ?substanceUri { ${substances.map(wrapUri).join(' ')} }\n      `
-    : '';
-
-  return `
-    ${PREFIXES}
-    SELECT DISTINCT
-      ?sp ?spWKT
-      (SAMPLE(?spName) as ?samplePointName)
-      ?sample
-      (GROUP_CONCAT(DISTINCT ?sampleId; separator="; ") as ?sampleIdentifier)
-      ?observation
-      ?date
-      ?substance
-      ?result_value
-      ?unit_sym
-      (GROUP_CONCAT(DISTINCT ?matTypeLabel; separator=", ") as ?sampleType)
-    WHERE {
-      ?sp rdf:type coso:SamplePoint ;
-          spatial:connectedTo ?s2cell ;
-          geo:hasGeometry/geo:asWKT ?spWKT .
-      VALUES ?s2cell { ${s2ValuesString} }
-      OPTIONAL { ?sp rdfs:label ?spName }
-      ?sample coso:fromSamplePoint ?sp ;
-          coso:sampleOfMaterialType ?matType .
-      ?matType rdfs:label ?matTypeLabel .
-      ?observation rdf:type coso:ContaminantObservation ;
-          coso:analyzedSample ?sample ;
-          coso:observedAtSamplePoint ?sp ;
-          coso:ofDSSToxSubstance ?substanceUri ;
-          coso:hasResult ?result .
-      ?substanceUri skos:altLabel ?substance .
-      ${substanceClause}
-      ?result coso:measurementValue ?result_value ;
-          coso:measurementUnit ?unit .
-      ?unit qudt:symbol ?unit_sym .
-      OPTIONAL { ?observation sosa:resultTime ?date }
-      OPTIONAL { ?sample dcterms:identifier ?sampleId }
-      ${filterClauses}
-    }
-    GROUP BY ?sp ?spWKT ?sample ?observation ?date ?substance ?result_value ?unit_sym
-    ORDER BY ?sp ?sample ?substance DESC(?date)
-  `;
 }

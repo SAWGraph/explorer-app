@@ -871,6 +871,10 @@
   background: var(--color-gray-50);
 }
 
+.hs-tree-node--dimmed {
+  opacity: 0.45;
+}
+
 .hs-tree-arrow {
   display: inline-flex;
   align-items: center;

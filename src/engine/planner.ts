@@ -1,58 +1,28 @@
 import type { AnalysisQuestion, EntityBlock } from '../types/query';
 import type { EndpointKey } from '../constants/endpoints';
 import type { SparqlRow } from '../types/sparql';
-import { s2CellsToValuesString } from '../utils/s2cells';
 import {
-  buildFacilityS2Query,
-  buildFacilityDetailsQuery,
-} from './templates/facilities';
+  buildFusedNearQuery,
+  buildFusedHydrologyQuery,
+  buildFusedFlowlineQuery,
+  buildFusedSampleAggregateQuery,
+  buildFusedSampleDetailsQuery,
+} from './templates/fusedQueries';
 import {
-  buildSampleS2Query,
-  buildSampleRetrievalQuery,
-  buildSampleDetailQuery,
-} from './templates/samples';
-import {
-  buildWaterBodyS2Query,
-  buildWaterBodyRetrievalQuery,
-} from './templates/waterBodies';
-import { buildWellS2Query, buildWellRetrievalQuery } from './templates/wells';
-import {
-  buildStrictRegionFilterQuery,
-  buildNearExpansionQuery,
-  buildAnchorFilterByTargetProximity,
-  buildRegionBoundaryQuery,
-} from './templates/spatial';
-import {
-  buildDownstreamTraceQuery,
-  buildUpstreamTraceQuery,
-  buildDownstreamFlowlineQuery,
-  buildUpstreamFlowlineQuery,
-} from './templates/hydrology';
-import {
-  buildFederatedSamplePointAnchorQuery,
-  buildSampleRetrievalByIriQuery,
-  buildSampleDetailByIriQuery,
-} from './templates/downstreamSamples';
-import { USE_FEDERATED_DOWNSTREAM } from '../constants/featureFlags';
+  buildFacilitiesByIri,
+  buildWaterBodiesByIri,
+  buildWellsByIri,
+} from './templates/hydrate';
+import { buildRegionBoundaryQuery } from './templates/spatial';
 
 export type PipelineStepType =
-  | 'GET_S2_FOR_ANCHOR'
-  | 'FILTER_S2_TO_REGION'
-  | 'EXPAND_S2_NEAR'
-  | 'EXPAND_TARGET_S2_NEAR'
-  | 'TRACE_DOWNSTREAM'
-  | 'TRACE_UPSTREAM'
-  | 'FILTER_S2_POST_SPATIAL'
-  | 'FIND_TARGET_ENTITIES'
-  | 'FILTER_ANCHOR_TO_NEARBY_TARGETS'
-  | 'GET_ANCHOR_DETAILS'
+  | 'FIND_TARGET_IRIS'
+  | 'FIND_ANCHOR_IRIS'
+  | 'HYDRATE_TARGET_BY_IRI'
+  | 'HYDRATE_ANCHOR_BY_IRI'
   | 'GET_SAMPLE_DETAILS'
-  | 'FILTER_ANCHOR_TO_REGION'
-  | 'GET_REGION_BOUNDARIES'
   | 'GET_FLOWLINE_GEOMETRIES'
-  | 'FIND_SAMPLES_FEDERATED'
-  | 'HYDRATE_SAMPLES_BY_IRI'
-  | 'HYDRATE_SAMPLE_DETAILS_BY_IRI';
+  | 'GET_REGION_BOUNDARIES';
 
 export interface PipelineStep {
   type: PipelineStepType;
@@ -63,219 +33,9 @@ export interface PipelineStep {
 
 export interface PipelineContext {
   question: AnalysisQuestion;
-  s2Cells: string[];
-  anchorS2Cells: string[];
-  targetS2Cells: string[];
-  flowlineS2Cells: string[];
-  samplePointIris: string[];
+  targetIris: string[];
+  anchorIris: string[];
   results: Record<string, SparqlRow[]>;
-}
-
-function getS2Step(block: EntityBlock, regionCodes?: string[]): PipelineStep {
-  switch (block.type) {
-    case 'facilities':
-      return {
-        type: 'GET_S2_FOR_ANCHOR',
-        endpoint: 'federation',
-        description: 'Finding S2 cells containing matching facilities',
-        buildQuery: () =>
-          buildFacilityS2Query(block.facilityFilters, regionCodes),
-      };
-    case 'samples':
-      return {
-        type: 'GET_S2_FOR_ANCHOR',
-        endpoint: 'sawgraph',
-        description: 'Finding S2 cells containing matching samples',
-        buildQuery: () => buildSampleS2Query(block.sampleFilters, regionCodes),
-      };
-    case 'waterBodies':
-      return {
-        type: 'GET_S2_FOR_ANCHOR',
-        endpoint: 'hydrologykg',
-        description: 'Finding S2 cells containing water bodies',
-        buildQuery: () =>
-          buildWaterBodyS2Query(block.waterBodyFilters, regionCodes),
-      };
-    case 'wells':
-      return {
-        type: 'GET_S2_FOR_ANCHOR',
-        endpoint: 'hydrologykg',
-        description: 'Finding S2 cells containing wells',
-        buildQuery: () => buildWellS2Query(block.wellFilters, regionCodes),
-      };
-  }
-}
-
-function strictRegionFilterStep(regionCodes: string[]): PipelineStep {
-  return {
-    type: 'FILTER_S2_POST_SPATIAL',
-    endpoint: 'spatialkg',
-    description: `Filtering to region ${regionCodes.join(', ')}`,
-    buildQuery: (ctx) => {
-      const vals = s2CellsToValuesString(ctx.s2Cells);
-      return buildStrictRegionFilterQuery(vals, regionCodes);
-    },
-  };
-}
-
-function expandNearStep(): PipelineStep {
-  return {
-    type: 'EXPAND_S2_NEAR',
-    endpoint: 'spatialkg',
-    description: 'Expanding to neighboring S2 cells (touching neighbors)',
-    buildQuery: (ctx) => {
-      const vals = s2CellsToValuesString(ctx.s2Cells);
-      return buildNearExpansionQuery(vals);
-    },
-  };
-}
-
-function expandTargetNearStep(): PipelineStep {
-  return {
-    type: 'EXPAND_TARGET_S2_NEAR',
-    endpoint: 'spatialkg',
-    description: 'Expanding target S2 cells to neighbors',
-    buildQuery: (ctx) => {
-      const vals = s2CellsToValuesString(ctx.targetS2Cells);
-      return buildNearExpansionQuery(vals);
-    },
-  };
-}
-
-function filterAnchorToNearbyTargetsStep(): PipelineStep {
-  return {
-    type: 'FILTER_ANCHOR_TO_NEARBY_TARGETS',
-    endpoint: 'spatialkg',
-    description: 'Filtering anchors to only those near found targets',
-    buildQuery: (ctx) => {
-      const anchorVals = s2CellsToValuesString(ctx.anchorS2Cells);
-      const targetVals = s2CellsToValuesString(ctx.targetS2Cells);
-      return buildAnchorFilterByTargetProximity(anchorVals, targetVals);
-    },
-  };
-}
-
-function traceDownstreamStep(): PipelineStep {
-  return {
-    type: 'TRACE_DOWNSTREAM',
-    endpoint: 'hydrologykg',
-    description: 'Tracing downstream flow paths',
-    buildQuery: (ctx) => {
-      const vals = s2CellsToValuesString(ctx.s2Cells);
-      return buildDownstreamTraceQuery(vals);
-    },
-  };
-}
-
-function traceUpstreamStep(): PipelineStep {
-  return {
-    type: 'TRACE_UPSTREAM',
-    endpoint: 'hydrologykg',
-    description: 'Tracing upstream flow paths',
-    buildQuery: (ctx) => {
-      const vals = s2CellsToValuesString(ctx.s2Cells);
-      return buildUpstreamTraceQuery(vals);
-    },
-  };
-}
-
-function flowlineGeometriesStep(direction: 'downstream' | 'upstream'): PipelineStep {
-  const builder = direction === 'downstream' ? buildDownstreamFlowlineQuery : buildUpstreamFlowlineQuery;
-  return {
-    type: 'GET_FLOWLINE_GEOMETRIES',
-    endpoint: 'hydrologykg',
-    description: `Loading ${direction} stream geometries`,
-    buildQuery: (ctx) => {
-      const vals = s2CellsToValuesString(ctx.flowlineS2Cells);
-      return builder(vals);
-    },
-  };
-}
-
-function findEntitiesStep(block: EntityBlock): PipelineStep {
-  switch (block.type) {
-    case 'samples':
-      return {
-        type: 'FIND_TARGET_ENTITIES',
-        endpoint: 'sawgraph',
-        description: 'Finding samples in target area',
-        buildQuery: (ctx) => {
-          const vals = s2CellsToValuesString(ctx.s2Cells);
-          return buildSampleRetrievalQuery(vals, block.sampleFilters);
-        },
-      };
-    case 'facilities':
-      return {
-        type: 'FIND_TARGET_ENTITIES',
-        endpoint: 'federation',
-        description: 'Finding facilities in target area',
-        buildQuery: (ctx) =>
-          buildFacilityDetailsQuery(block.facilityFilters, ctx.s2Cells),
-      };
-    case 'waterBodies':
-      return {
-        type: 'FIND_TARGET_ENTITIES',
-        endpoint: 'hydrologykg',
-        description: 'Finding water bodies in target area',
-        buildQuery: (ctx) => {
-          const vals = s2CellsToValuesString(ctx.s2Cells);
-          return buildWaterBodyRetrievalQuery(vals, block.waterBodyFilters);
-        },
-      };
-    case 'wells':
-      return {
-        type: 'FIND_TARGET_ENTITIES',
-        endpoint: 'hydrologykg',
-        description: 'Finding wells in target area',
-        buildQuery: (ctx) => {
-          const vals = s2CellsToValuesString(ctx.s2Cells);
-          return buildWellRetrievalQuery(vals, block.wellFilters);
-        },
-      };
-  }
-}
-
-function getDetailsStep(block: EntityBlock): PipelineStep {
-  switch (block.type) {
-    case 'facilities':
-      return {
-        type: 'GET_ANCHOR_DETAILS',
-        endpoint: 'federation',
-        description: 'Getting facility details for map',
-        buildQuery: (ctx) =>
-          buildFacilityDetailsQuery(block.facilityFilters, ctx.anchorS2Cells),
-      };
-    case 'samples':
-      return {
-        type: 'GET_ANCHOR_DETAILS',
-        endpoint: 'sawgraph',
-        description: 'Getting sample details for map',
-        buildQuery: (ctx) => {
-          const vals = s2CellsToValuesString(ctx.anchorS2Cells);
-          return buildSampleRetrievalQuery(vals, block.sampleFilters);
-        },
-      };
-    case 'waterBodies':
-      return {
-        type: 'GET_ANCHOR_DETAILS',
-        endpoint: 'hydrologykg',
-        description: 'Getting water body details for map',
-        buildQuery: (ctx) => {
-          const vals = s2CellsToValuesString(ctx.anchorS2Cells);
-          return buildWaterBodyRetrievalQuery(vals, block.waterBodyFilters);
-        },
-      };
-    case 'wells':
-      return {
-        type: 'GET_ANCHOR_DETAILS',
-        endpoint: 'hydrologykg',
-        description: 'Getting well details for map',
-        buildQuery: (ctx) => {
-          const vals = s2CellsToValuesString(ctx.anchorS2Cells);
-          return buildWellRetrievalQuery(vals, block.wellFilters);
-        },
-      };
-  }
 }
 
 function getRegionCodes(block: EntityBlock): string[] {
@@ -286,54 +46,184 @@ function getRegionCodes(block: EntityBlock): string[] {
   return [];
 }
 
-function canUseFederatedDownstream(question: AnalysisQuestion): boolean {
-  if (!USE_FEDERATED_DOWNSTREAM) return false;
-  const { blockA, relationship, blockC } = question;
-  if (relationship.type !== 'downstream') return false;
-  return blockC.type === 'facilities' && blockA.type === 'samples';
+function entityEndpoint(block: EntityBlock): EndpointKey {
+  switch (block.type) {
+    case 'facilities':
+      return 'federation';
+    case 'samples':
+      return 'sawgraph';
+    case 'waterBodies':
+    case 'wells':
+      return 'hydrologykg';
+  }
 }
 
-function planFederatedDownstream(question: AnalysisQuestion): PipelineStep[] {
-  const { blockA, blockC } = question;
-  const facilityBlock = blockC;
-  const sampleBlock = blockA;
-  const anchorRegion = getRegionCodes(facilityBlock);
-  const targetRegion = getRegionCodes(sampleBlock);
+interface FusedContext {
+  anchorBlock: EntityBlock;
+  targetBlock: EntityBlock;
+  relationship: AnalysisQuestion['relationship'];
+  anchorRegion?: string[];
+  targetRegion?: string[];
+}
 
-  const steps: PipelineStep[] = [
-    getS2Step(facilityBlock, anchorRegion.length ? anchorRegion : undefined),
-    getDetailsStep(facilityBlock),
-    {
-      type: 'FIND_SAMPLES_FEDERATED',
+function hydrateStep(
+  block: EntityBlock,
+  side: 'target' | 'anchor',
+  fused: FusedContext,
+): PipelineStep {
+  const type = side === 'target' ? 'HYDRATE_TARGET_BY_IRI' : 'HYDRATE_ANCHOR_BY_IRI';
+  // Sample hydration is server-fused (re-derives sample IRIs via inner
+  // subquery) — statewide queries can have 1000+ sample IRIs and inlining
+  // them as VALUES makes the request body 502 the gateway. Other entity
+  // types stay on IRI-based hydration where the IRI list is small.
+  const endpoint = block.type === 'samples' ? 'federation' : entityEndpoint(block);
+  const description = `Loading ${side === 'target' ? 'target' : 'anchor'} ${block.type} details`;
+
+  return {
+    type,
+    endpoint,
+    description,
+    buildQuery: (ctx) => {
+      if (block.type === 'samples') {
+        return buildFusedSampleAggregateQuery({
+          anchor: fused.anchorBlock,
+          target: fused.targetBlock,
+          relationship: fused.relationship,
+          anchorRegion: fused.anchorRegion,
+          targetRegion: fused.targetRegion,
+          sampleSide: side === 'target' ? 'target' : 'anchor',
+        });
+      }
+      const iris = side === 'target' ? ctx.targetIris : ctx.anchorIris;
+      switch (block.type) {
+        case 'facilities':
+          return buildFacilitiesByIri(iris, block.facilityFilters);
+        case 'waterBodies':
+          return buildWaterBodiesByIri(iris, block.waterBodyFilters);
+        case 'wells':
+          return buildWellsByIri(iris, block.wellFilters);
+      }
+    },
+  };
+}
+
+function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
+  const { blockA, relationship, blockC } = question;
+
+  // Map the question's anchor/target semantics consistently:
+  //   - near:       anchor=blockC, target=blockA
+  //   - downstream: anchor=blockC, target=blockA (samples downstream of facilities)
+  //   - upstream:   anchor=blockA, target=blockC
+  let anchorBlock: EntityBlock;
+  let targetBlock: EntityBlock;
+  if (relationship.type === 'upstream') {
+    anchorBlock = blockA;
+    targetBlock = blockC;
+  } else {
+    anchorBlock = blockC;
+    targetBlock = blockA;
+  }
+
+  const anchorRegion = getRegionCodes(anchorBlock);
+  const targetRegion = getRegionCodes(targetBlock);
+  const anchorRegionOpt = anchorRegion.length ? anchorRegion : undefined;
+  const targetRegionOpt = targetRegion.length ? targetRegion : undefined;
+
+  const steps: PipelineStep[] = [];
+
+  const buildIriQuery = (project: 'target' | 'anchor'): string => {
+    if (relationship.type === 'near') {
+      return buildFusedNearQuery({
+        anchor: anchorBlock,
+        target: targetBlock,
+        hops: relationship.hops || 1,
+        project,
+        anchorRegion: anchorRegionOpt,
+        targetRegion: targetRegionOpt,
+      });
+    }
+    return buildFusedHydrologyQuery({
+      anchor: anchorBlock,
+      target: targetBlock,
+      direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',
+      project,
+      anchorRegion: anchorRegionOpt,
+      targetRegion: targetRegionOpt,
+    });
+  };
+
+  const verb = relationship.type === 'near' ? 'nearby' : relationship.type;
+  steps.push({
+    type: 'FIND_TARGET_IRIS',
+    endpoint: 'federation',
+    description: `Finding ${verb} ${targetBlock.type}`,
+    buildQuery: () => buildIriQuery('target'),
+  });
+  steps.push({
+    type: 'FIND_ANCHOR_IRIS',
+    endpoint: 'federation',
+    description: `Finding ${anchorBlock.type} with ${verb} ${targetBlock.type}`,
+    buildQuery: () => buildIriQuery('anchor'),
+  });
+
+  if (relationship.type !== 'near') {
+    steps.push({
+      type: 'GET_FLOWLINE_GEOMETRIES',
       endpoint: 'federation',
-      description: 'Finding downstream samples (federated)',
+      description: `Loading ${relationship.type} stream geometries`,
       buildQuery: () =>
-        buildFederatedSamplePointAnchorQuery({
-          facilityFilters: facilityBlock.facilityFilters,
-          anchorRegionCodes: anchorRegion.length ? anchorRegion : undefined,
-          targetRegionCodes: targetRegion.length ? targetRegion : undefined,
-          sampleFilters: sampleBlock.sampleFilters,
-          direction: 'downstream',
+        buildFusedFlowlineQuery({
+          anchor: anchorBlock,
+          direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',
+          anchorRegion: anchorRegionOpt,
         }),
-    },
-    {
-      type: 'HYDRATE_SAMPLES_BY_IRI',
-      endpoint: 'sawgraph',
-      description: 'Loading sample details',
-      buildQuery: (ctx) =>
-        buildSampleRetrievalByIriQuery(ctx.samplePointIris, sampleBlock.sampleFilters),
-    },
-    {
-      type: 'HYDRATE_SAMPLE_DETAILS_BY_IRI',
-      endpoint: 'sawgraph',
-      description: 'Loading sample observation details',
-      buildQuery: (ctx) =>
-        buildSampleDetailByIriQuery(ctx.samplePointIris, sampleBlock.sampleFilters),
-    },
-  ];
+    });
+  }
 
+  const fusedCtx: FusedContext = {
+    anchorBlock,
+    targetBlock,
+    relationship,
+    anchorRegion: anchorRegionOpt,
+    targetRegion: targetRegionOpt,
+  };
+
+  steps.push(hydrateStep(targetBlock, 'target', fusedCtx));
+  steps.push(hydrateStep(anchorBlock, 'anchor', fusedCtx));
+
+  // Per-observation sample details for popups, if either side is samples.
+  // Server-fused (re-derives sample IRIs in an inner subquery) for the same
+  // wire-size reason as sample hydration above. If both sides are samples,
+  // the target side is used — covering both would require a UNION and the
+  // anchor IRI set is typically a subset anyway when proximity is reciprocal.
+  const sampleSide: 'target' | 'anchor' | null =
+    targetBlock.type === 'samples'
+      ? 'target'
+      : anchorBlock.type === 'samples'
+        ? 'anchor'
+        : null;
+
+  if (sampleSide) {
+    steps.push({
+      type: 'GET_SAMPLE_DETAILS',
+      endpoint: 'federation',
+      description: 'Loading sample observation details',
+      buildQuery: () =>
+        buildFusedSampleDetailsQuery({
+          anchor: anchorBlock,
+          target: targetBlock,
+          relationship,
+          anchorRegion: anchorRegionOpt,
+          targetRegion: targetRegionOpt,
+          sampleSide,
+        }),
+    });
+  }
+
+  // Region boundaries
   const stateCode = blockA.region?.stateCode || blockC.region?.stateCode;
-  if (stateCode && (anchorRegion.length || targetRegion.length)) {
+  const hasRegion = anchorRegion.length > 0 || targetRegion.length > 0;
+  if (hasRegion && stateCode) {
     steps.push({
       type: 'GET_REGION_BOUNDARIES',
       endpoint: 'spatialkg',
@@ -346,146 +236,5 @@ function planFederatedDownstream(question: AnalysisQuestion): PipelineStep[] {
 }
 
 export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
-  if (canUseFederatedDownstream(question)) {
-    return planFederatedDownstream(question);
-  }
-
-  const { blockA, relationship, blockC } = question;
-  const steps: PipelineStep[] = [];
-
-  if (relationship.type === 'near') {
-    // Start from Block C (the anchor entity), find Block A nearby.
-    // Step 1 filters to region directly in SPARQL, so no separate region filter
-    // step is needed — that would cause a double expansion (wrong search radius).
-    const regionCodesC = getRegionCodes(blockC);
-    const regionCodesA = getRegionCodes(blockA);
-    const preExpandRegion = regionCodesC.length
-      ? regionCodesC
-      : regionCodesA.length
-        ? regionCodesA
-        : undefined;
-
-    steps.push(getS2Step(blockC, preExpandRegion)); // anchorS2Cells saved here
-
-    // Expand to neighboring S2 cells. Each hop adds ~1.6 km radius.
-    const hops = relationship.hops || 1;
-    for (let i = 0; i < hops; i++) {
-      steps.push(expandNearStep());
-    }
-
-    // Clip to Block A's region after expansion to avoid cross-border targets
-    if (regionCodesA.length) {
-      steps.push({
-        ...strictRegionFilterStep(regionCodesA),
-        type: 'FILTER_S2_POST_SPATIAL',
-      });
-    }
-
-    steps.push(findEntitiesStep(blockA)); // targetS2Cells extracted here by executor
-
-    // For multi-hop, expand target S2 cells so the reverse filter matches
-    // the same radius used for forward expansion.
-    for (let i = 0; i < hops - 1; i++) {
-      steps.push(expandTargetNearStep());
-    }
-
-    // Reverse-lookup: only show anchor entities that are near the found targets
-    steps.push(filterAnchorToNearbyTargetsStep()); // updates anchorS2Cells
-
-    steps.push(getDetailsStep(blockC));
-  } else if (relationship.type === 'downstream') {
-    // Start from Block C (anchor), trace downstream, find Block A (targets).
-    // Expand 1 hop before tracing to capture flow paths near the anchor cells.
-    const regionCodesC = getRegionCodes(blockC);
-    const regionCodesA = getRegionCodes(blockA);
-    const anchorRegion = regionCodesC.length
-      ? regionCodesC
-      : regionCodesA.length
-        ? regionCodesA
-        : undefined;
-
-    steps.push(getS2Step(blockC));
-    if (anchorRegion) {
-      steps.push({
-        ...strictRegionFilterStep(anchorRegion),
-        type: 'FILTER_ANCHOR_TO_REGION',
-      });
-    }
-    steps.push(expandNearStep());
-    steps.push(traceDownstreamStep());
-    steps.push(flowlineGeometriesStep('downstream'));
-
-    // Strict region filter on Block A's region after tracing (no expansion)
-    if (regionCodesA.length) {
-      steps.push(strictRegionFilterStep(regionCodesA));
-    }
-    steps.push(findEntitiesStep(blockA));
-    steps.push(getDetailsStep(blockC));
-  } else if (relationship.type === 'upstream') {
-    // Start from Block A (anchor), trace upstream, find Block C (targets).
-    // Expand 1 hop before tracing to capture flow paths near the anchor cells.
-    const regionCodesA = getRegionCodes(blockA);
-    const regionCodesC = getRegionCodes(blockC);
-    const anchorRegion = regionCodesA.length ? regionCodesA : undefined;
-    const targetRegion = regionCodesC.length
-      ? regionCodesC
-      : regionCodesA.length
-        ? regionCodesA
-        : undefined;
-
-    steps.push(getS2Step(blockA));
-    if (anchorRegion) {
-      steps.push({
-        ...strictRegionFilterStep(anchorRegion),
-        type: 'FILTER_ANCHOR_TO_REGION',
-      });
-    }
-    steps.push(expandNearStep());
-    steps.push(traceUpstreamStep());
-    steps.push(flowlineGeometriesStep('upstream'));
-    if (targetRegion) {
-      steps.push(strictRegionFilterStep(targetRegion));
-    }
-    steps.push(findEntitiesStep(blockC));
-    steps.push(getDetailsStep(blockA));
-  }
-
-  // Sample detail query — fetch per-observation data for richer popups
-  if (blockA.type === 'samples' || blockC.type === 'samples') {
-    const sampleBlock = blockA.type === 'samples' ? blockA : blockC;
-    steps.push({
-      type: 'GET_SAMPLE_DETAILS',
-      endpoint: 'sawgraph',
-      description: 'Loading sample observation details',
-      buildQuery: (ctx) => {
-        // Combine S2 cells from both target and anchor results to cover all samples
-        const allCells = [
-          ...new Set([...ctx.targetS2Cells, ...ctx.anchorS2Cells]),
-        ];
-        const vals = s2CellsToValuesString(
-          allCells.length > 0 ? allCells : ctx.s2Cells,
-        );
-        return buildSampleDetailQuery(vals, sampleBlock.sampleFilters);
-      },
-    });
-  }
-
-  // Region boundaries
-  const regionCodesA = getRegionCodes(blockA);
-  const regionCodesC = getRegionCodes(blockC);
-  const hasBoundaryRegion = regionCodesA.length > 0 || regionCodesC.length > 0;
-  if (hasBoundaryRegion) {
-    // Use state code for boundaries
-    const stateCode = blockA.region?.stateCode || blockC.region?.stateCode;
-    if (stateCode) {
-      steps.push({
-        type: 'GET_REGION_BOUNDARIES',
-        endpoint: 'spatialkg',
-        description: 'Loading region boundaries',
-        buildQuery: () => buildRegionBoundaryQuery(stateCode),
-      });
-    }
-  }
-
-  return steps;
+  return buildFusedSteps(question);
 }

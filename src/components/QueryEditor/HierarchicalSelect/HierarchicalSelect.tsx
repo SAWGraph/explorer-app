@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { NaicsIndustry } from '../../../constants/naics';
-import { useNaicsTree, getAllDescendantCodes } from './useNaicsTree';
+import { useNaicsTree, getAllDescendantCodes, rollupCounts } from './useNaicsTree';
 import { TreeNode } from './TreeNode';
 
 interface HierarchicalSelectProps {
@@ -9,6 +9,7 @@ interface HierarchicalSelectProps {
   selectedCodes: string[];
   onChange: (codes: string[], labels: Record<string, string>) => void;
   placeholder?: string;
+  counts?: Record<string, number>;
 }
 
 interface DropdownPosition {
@@ -23,6 +24,7 @@ export function HierarchicalSelect({
   selectedCodes,
   onChange,
   placeholder = 'Any industry...',
+  counts,
 }: HierarchicalSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -34,6 +36,11 @@ export function HierarchicalSelect({
   const { roots, nodeMap, userSelections } = useNaicsTree(industries, selectedCodes);
 
   const allSelectedSet = useMemo(() => new Set(selectedCodes), [selectedCodes]);
+
+  const rolledCounts = useMemo(
+    () => (counts ? rollupCounts(roots, counts) : undefined),
+    [roots, counts],
+  );
 
   // Compute position as derived data (recalculates when isOpen or resizeTick changes)
   const position: DropdownPosition | null = useMemo(() => {
@@ -252,6 +259,7 @@ export function HierarchicalSelect({
                   isAncestorSelected={false}
                   onToggleExpand={handleToggleExpand}
                   onToggleSelect={handleToggleSelect}
+                  counts={rolledCounts}
                 />
               ))
             )}

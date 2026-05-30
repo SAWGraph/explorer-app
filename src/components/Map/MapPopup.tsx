@@ -4,7 +4,17 @@ interface MapPopupProps {
   feature: MapFeature;
 }
 
-function SampleDetailPopup({ id, detail }: { id: string; detail: SamplePointDetail }) {
+function SampleDetailPopup({
+  id,
+  detail,
+  resultCount,
+  sampleCount,
+}: {
+  id: string;
+  detail: SamplePointDetail;
+  resultCount?: string | number;
+  sampleCount?: string | number;
+}) {
   return (
     <div className="map-popup sample-detail-popup">
       <strong className="sample-popup-title">{detail.samplePointName || 'Sample Point'}</strong>
@@ -13,6 +23,22 @@ function SampleDetailPopup({ id, detail }: { id: string; detail: SamplePointDeta
         <div className="sample-section-field">
           <span className="sample-field-label">Sample Point URI</span>:{' '}
           <a href={id} target="_blank" rel="noopener noreferrer">{id}</a>
+        </div>
+      )}
+
+      {(resultCount || sampleCount) && (
+        <div className="sample-section-field">
+          {resultCount && (
+            <>
+              <span className="sample-field-label">Results</span>: {resultCount}
+            </>
+          )}
+          {resultCount && sampleCount && ' · '}
+          {sampleCount && (
+            <>
+              <span className="sample-field-label">Samples</span>: {sampleCount}
+            </>
+          )}
         </div>
       )}
 
@@ -91,7 +117,14 @@ export function MapPopupContent({ feature }: MapPopupProps) {
 
   // Rich sample popup when detail data is available
   if (props.type === 'sample' && feature.sampleDetails) {
-    return <SampleDetailPopup id={feature.id} detail={feature.sampleDetails} />;
+    return (
+      <SampleDetailPopup
+        id={feature.id}
+        detail={feature.sampleDetails}
+        resultCount={props.resultCount}
+        sampleCount={props.sampleCount}
+      />
+    );
   }
 
   if (props.type === 'sample') {
@@ -103,6 +136,12 @@ export function MapPopupContent({ feature }: MapPopupProps) {
               <td className="popup-label">Results</td>
               <td>{props.resultCount}</td>
             </tr>
+            {props.sampleCount && (
+              <tr>
+                <td className="popup-label">Samples</td>
+                <td>{props.sampleCount}</td>
+              </tr>
+            )}
             {props.maxConcentration && (
               <tr>
                 <td className="popup-label">Max</td>

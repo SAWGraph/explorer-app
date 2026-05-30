@@ -10,6 +10,7 @@ interface TreeNodeProps {
   isAncestorSelected: boolean;
   onToggleExpand: (code: string) => void;
   onToggleSelect: (code: string) => void;
+  counts?: Map<string, number>;
 }
 
 export function TreeNode({
@@ -20,6 +21,7 @@ export function TreeNode({
   isAncestorSelected,
   onToggleExpand,
   onToggleSelect,
+  counts,
 }: TreeNodeProps) {
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedNodes.has(node.code);
@@ -38,10 +40,13 @@ export function TreeNode({
     (checkState === 'checked' &&
       getAllDescendantCodes(node).every((c) => allSelectedCodes.has(c)));
 
+  const count = counts?.get(node.code);
+  const dimmed = counts !== undefined && (!count || count === 0);
+
   return (
     <>
       <div
-        className="hs-tree-node"
+        className={`hs-tree-node${dimmed ? ' hs-tree-node--dimmed' : ''}`}
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
       >
         {hasChildren ? (
@@ -68,7 +73,10 @@ export function TreeNode({
             disabled={isDisabled}
             onChange={() => onToggleSelect(node.code)}
           />
-          <span>{node.code} - {node.label}</span>
+          <span>
+            {node.code} - {node.label}
+            {count !== undefined && count > 0 ? ` (${count})` : ''}
+          </span>
         </label>
       </div>
 
@@ -83,6 +91,7 @@ export function TreeNode({
             isAncestorSelected={isThisOrAncestorSelected}
             onToggleExpand={onToggleExpand}
             onToggleSelect={onToggleSelect}
+            counts={counts}
           />
         ))
       }

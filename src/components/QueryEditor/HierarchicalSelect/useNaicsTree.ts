@@ -112,6 +112,23 @@ export function getCheckState(
   return 'indeterminate';
 }
 
+export function rollupCounts(
+  roots: NaicsTreeNode[],
+  leafCounts: Record<string, number>,
+): Map<string, number> {
+  const result = new Map<string, number>();
+  function visit(node: NaicsTreeNode): number {
+    let sum = leafCounts[node.code] ?? 0;
+    for (const child of node.children) {
+      sum += visit(child);
+    }
+    result.set(node.code, sum);
+    return sum;
+  }
+  for (const r of roots) visit(r);
+  return result;
+}
+
 export function useNaicsTree(industries: NaicsIndustry[], selectedCodes: string[]) {
   const { roots, nodeMap } = useMemo(() => buildTree(industries), [industries]);
 

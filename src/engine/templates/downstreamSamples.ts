@@ -1,66 +1,6 @@
 import { PREFIXES } from '../../constants/prefixes';
-import type { FacilityFilters, SampleFilters } from '../../types/query';
-import { buildIndustryValues } from './facilities';
+import type { SampleFilters } from '../../types/query';
 import { wrapUri, buildSampleFilterClauses } from './samples';
-import { buildRegionFilterClause } from './shared';
-
-export interface FederatedDownstreamSamplesOpts {
-  facilityFilters?: FacilityFilters;
-  anchorRegionCodes?: string[];
-  targetRegionCodes?: string[];
-  sampleFilters?: SampleFilters;
-  direction: 'downstream' | 'upstream';
-}
-
-// Single federated query: facility S2 → sfTouches → hydrology trace → sample-point match.
-// Returns ?sp IRIs only; intermediate S2 sets never cross the wire.
-export function buildFederatedSamplePointAnchorQuery(
-  opts: FederatedDownstreamSamplesOpts,
-): string {
-  const industryValues = buildIndustryValues(opts.facilityFilters?.industryCodes);
-  const facRegion = buildRegionFilterClause(opts.anchorRegionCodes, '?s2anchor', '?_facRegion');
-  const targetRegion = buildRegionFilterClause(opts.targetRegionCodes, '?ds_s2cell', '?_targRegion');
-  const substanceUris = opts.sampleFilters?.substances ?? [];
-  const substanceValues = substanceUris.length
-    ? `VALUES ?substance { ${substanceUris.map(wrapUri).join(' ')} }\n      `
-    : '';
-
-  const traceTriple =
-    opts.direction === 'downstream'
-      ? `?upstream_flowline hyf:downstreamFlowPathTC ?ds_s2_flowline .`
-      : `?ds_s2_flowline hyf:downstreamFlowPathTC ?upstream_flowline .`;
-
-  return `
-    ${PREFIXES}
-    SELECT DISTINCT ?sp WHERE {
-      {
-        SELECT DISTINCT ?ds_s2cell WHERE {
-          ?s2anchor rdf:type kwg-ont:S2Cell_Level13 ;
-                    kwg-ont:sfContains ?facility .
-          ${facRegion}
-          ?facility fio:ofIndustry ?industryGroup ;
-                    fio:ofIndustry ?industryCode .
-          ?industryCode a naics:NAICS-IndustryCode ;
-                        fio:subcodeOf ?industryGroup .
-          ${industryValues}
-          ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .
-          ?s2neighbor spatial:connectedTo ?upstream_flowline .
-          ?upstream_flowline rdf:type hyf:HY_FlowPath .
-          ${traceTriple}
-          ?ds_s2cell spatial:connectedTo ?ds_s2_flowline ;
-                     rdf:type kwg-ont:S2Cell_Level13 .
-          ${targetRegion}
-        }
-      }
-      ?sp rdf:type coso:SamplePoint ;
-          spatial:connectedTo ?ds_s2cell .
-      ?observation rdf:type coso:ContaminantObservation ;
-          coso:observedAtSamplePoint ?sp ;
-          coso:ofDSSToxSubstance ?substance .
-      ${substanceValues}
-    }
-  `;
-}
 
 function spValues(spIris: string[]): string {
   return spIris.map(wrapUri).join(' ');
@@ -76,7 +16,8 @@ export function buildSampleRetrievalByIriQuery(
   return `
     ${PREFIXES}
     SELECT
-      (COUNT(DISTINCT ?subVal) as ?resultCount)
+      (COUNT(DISTINCT ?observation) as ?resultCount)
+      (COUNT(DISTINCT ?sample) as ?sampleCount)
       (MAX(?result_value) as ?max)
       (GROUP_CONCAT(DISTINCT ?substance; separator="; ") as ?substances)
       (GROUP_CONCAT(DISTINCT ?matTypeLabel; separator="; ") as ?materials)
@@ -96,9 +37,7 @@ export function buildSampleRetrievalByIriQuery(
       ?matType rdfs:label ?matTypeLabel .
       ?result coso:measurementValue ?result_value ;
           coso:measurementUnit ?unit .
-      ?unit qudt:symbol ?unit_sym .
       ${filterClauses}
-      BIND((CONCAT(str(?result_value), " ", ?unit_sym)) as ?subVal)
     } GROUP BY ?sp ?spWKT ?s2cell
   `;
 }
@@ -143,11 +82,14 @@ export function buildSampleDetailByIriQuery(
           coso:observedAtSamplePoint ?sp ;
           coso:ofDSSToxSubstance ?substanceUri ;
           coso:hasResult ?result .
-      ?substanceUri skos:altLabel ?substance .
       ${substanceClause}
+      OPTIONAL { ?substanceUri skos:altLabel ?altLabel }
+      OPTIONAL { ?substanceUri rdfs:label ?rdfLabel }
+      BIND(COALESCE(?altLabel, ?rdfLabel, REPLACE(STR(?substanceUri), "^.*[#/]", "")) AS ?substance)
       ?result coso:measurementValue ?result_value ;
           coso:measurementUnit ?unit .
-      ?unit qudt:symbol ?unit_sym .
+      OPTIONAL { ?unit qudt:symbol ?unit_sym0 }
+      BIND(COALESCE(?unit_sym0, REPLACE(STR(?unit), "^.*[#/]", "")) AS ?unit_sym)
       OPTIONAL { ?observation sosa:resultTime ?date }
       OPTIONAL { ?sample dcterms:identifier ?sampleId }
       ${filterClauses}
