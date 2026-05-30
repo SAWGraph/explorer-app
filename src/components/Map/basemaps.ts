@@ -37,8 +37,8 @@ export const BASEMAPS: BasemapOption[] = [
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
   },
   {
-    key: 'imagery',
-    label: 'Imagery',
+    key: 'aerial',
+    label: 'Aerial',
     url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}',
     attribution:
       'Tiles courtesy of the <a href="https://usgs.gov/">U.S. Geological Survey</a>',
