@@ -1,4 +1,4 @@
-import type { SampleFilters as SampleFiltersType } from '../../types/query';
+import type { SampleFilters as SampleFiltersType, RegionFilter } from '../../types/query';
 import {
   useSubstances,
   useMaterialTypes,
@@ -8,19 +8,24 @@ import { FlatSelect } from './FlatSelect/FlatSelect';
 interface SampleFiltersProps {
   value?: SampleFiltersType;
   onChange: (filters: SampleFiltersType) => void;
+  region?: RegionFilter;
 }
 
-export function SampleFilters({ value, onChange }: SampleFiltersProps) {
-  const { data: substances = [] } = useSubstances();
-  const { data: materialTypes = [] } = useMaterialTypes();
+function withCount(label: string, count?: number): string {
+  return count && count > 0 ? `${label} (${count})` : label;
+}
+
+export function SampleFilters({ value, onChange, region }: SampleFiltersProps) {
+  const { data: substances = [] } = useSubstances(region);
+  const { data: materialTypes = [] } = useMaterialTypes(region);
 
   const substanceOptions = substances.map((s) => ({
     value: s.uri,
-    label: s.shortLabel || s.label,
+    label: withCount(s.shortLabel || s.label, s.count),
   }));
   const materialOptions = materialTypes.map((m) => ({
     value: m.uri,
-    label: m.label,
+    label: withCount(m.label, m.count),
   }));
 
   return (

@@ -2,6 +2,7 @@ export interface Substance {
   uri: string;
   label: string;
   shortLabel?: string;
+  count?: number;
 }
 
 // Fallback substances if discovery query fails (DSSTox URIs)

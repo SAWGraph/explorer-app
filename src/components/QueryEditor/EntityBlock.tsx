@@ -46,12 +46,14 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
             <SampleFilters
               value={value.sampleFilters}
               onChange={(f) => onChange({ ...value, sampleFilters: f })}
+              region={value.region}
             />
           )}
           {value.type === 'facilities' && (
             <FacilityFilters
               value={value.facilityFilters}
               onChange={(f) => onChange({ ...value, facilityFilters: f })}
+              region={value.region}
             />
           )}
           {value.type === 'waterBodies' && (

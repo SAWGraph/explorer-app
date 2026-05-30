@@ -5,6 +5,7 @@ import {
   buildDiscoverSubstancesQuery,
   buildDiscoverMaterialTypesQuery,
   buildDiscoverCountiesQuery,
+  buildIndustryCountsQuery,
 } from '../engine/templates/regions';
 import { FALLBACK_NAICS, type NaicsIndustry } from '../constants/naics';
 import { FALLBACK_SUBSTANCES, type Substance } from '../constants/substances';
@@ -56,16 +57,58 @@ export function useIndustries() {
   });
 }
 
-export function useSubstances() {
-  return useQuery<Substance[]>({
-    queryKey: ['substances'],
+interface RegionParam {
+  stateCode?: string;
+  countyCodes?: string[];
+}
+
+export function useIndustryCounts(region?: RegionParam) {
+  const key = region?.stateCode
+    ? (region.countyCodes?.length ? [...region.countyCodes].sort() : [region.stateCode]).join(',')
+    : '';
+  return useQuery<Record<string, number>>({
+    queryKey: ['industryCounts', key],
     queryFn: async () => {
-      const rows = await executeSparql('sawgraph', buildDiscoverSubstancesQuery());
-      if (rows.length === 0) return FALLBACK_SUBSTANCES;
+      if (!region?.stateCode) return {};
+      const rows = await executeSparql(
+        'federation',
+        buildIndustryCountsQuery({ stateCode: region.stateCode, countyCodes: region.countyCodes }),
+      );
+      const counts: Record<string, number> = {};
+      for (const r of rows) {
+        const uri = r.industryCode || '';
+        const code = uri.split(/[#/]/).pop()?.replace(/^NAICS-/, '');
+        if (!code) continue;
+        counts[code] = Number(r.num) || 0;
+      }
+      return counts;
+    },
+    enabled: !!region?.stateCode,
+    staleTime: Infinity,
+  });
+}
+
+function regionKey(region?: RegionParam): string {
+  if (!region?.stateCode) return '';
+  const codes = region.countyCodes?.length ? [...region.countyCodes].sort() : [region.stateCode];
+  return codes.join(',');
+}
+
+export function useSubstances(region?: RegionParam) {
+  const key = regionKey(region);
+  return useQuery<Substance[]>({
+    queryKey: ['substances', key],
+    queryFn: async () => {
+      const rows = await executeSparql(
+        region?.stateCode ? 'federation' : 'sawgraph',
+        buildDiscoverSubstancesQuery(region),
+      );
+      if (rows.length === 0) return key ? [] : FALLBACK_SUBSTANCES;
       return rows.map((r) => ({
         uri: r.substance,
         label: r.label,
         shortLabel: r.short_label,
+        count: r.num ? Number(r.num) : undefined,
       }));
     },
     staleTime: Infinity,
@@ -74,13 +117,21 @@ export function useSubstances() {
   });
 }
 
-export function useMaterialTypes() {
+export function useMaterialTypes(region?: RegionParam) {
+  const key = regionKey(region);
   return useQuery<MaterialType[]>({
-    queryKey: ['materialTypes'],
+    queryKey: ['materialTypes', key],
     queryFn: async () => {
-      const rows = await executeSparql('sawgraph', buildDiscoverMaterialTypesQuery());
-      if (rows.length === 0) return FALLBACK_MATERIAL_TYPES;
-      return rows.map((r) => ({ uri: r.matType, label: r.label }));
+      const rows = await executeSparql(
+        region?.stateCode ? 'federation' : 'sawgraph',
+        buildDiscoverMaterialTypesQuery(region),
+      );
+      if (rows.length === 0) return key ? [] : FALLBACK_MATERIAL_TYPES;
+      return rows.map((r) => ({
+        uri: r.matType,
+        label: r.label || r.matType.split(/[#/]/).pop() || r.matType,
+        count: r.num ? Number(r.num) : undefined,
+      }));
     },
     staleTime: Infinity,
     retry: 1,

@@ -1,6 +1,7 @@
 export interface MaterialType {
   uri: string;
   label: string;
+  count?: number;
 }
 
 // Fallback material types if discovery query fails
