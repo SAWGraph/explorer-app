@@ -49,17 +49,23 @@
 }
 
 .header-back {
-  background: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 1.25rem var(--space-sm) 1rem;
+  background: var(--color-indigo-600);
+  color: white;
   border: none;
-  color: var(--color-indigo-600);
+  border-radius: var(--radius-md);
   font-size: var(--text-base);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  transition: background 0.15s;
 }
 
 .header-back:hover {
-  background: var(--color-indigo-100);
+  background: var(--color-indigo-700);
 }
 
 .header-right {
