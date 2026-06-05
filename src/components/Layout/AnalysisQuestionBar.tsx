@@ -93,7 +93,12 @@ export function AnalysisQuestionBar() {
         <span className="question-bar-label">Analysis Question</span>
         <div className="question-bar-row">
           <span className="question-bar-text">{text}</span>
-          <button className="btn-link" onClick={openEditModal} disabled={isRunning}>
+          <button
+            className="btn-secondary"
+            onClick={openEditModal}
+            disabled={isRunning}
+            title="Edit analysis question"
+          >
             Edit
           </button>
         </div>
