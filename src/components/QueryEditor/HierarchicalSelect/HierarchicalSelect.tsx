@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { NaicsIndustry } from '../../../constants/naics';
-import { useNaicsTree, getAllDescendantCodes, rollupCounts } from './useNaicsTree';
+import { useNaicsTree, getAllDescendantCodes, rollupCounts, expandSelections } from './useNaicsTree';
 import { TreeNode } from './TreeNode';
 
 interface HierarchicalSelectProps {
@@ -35,7 +35,10 @@ export function HierarchicalSelect({
 
   const { roots, nodeMap, userSelections } = useNaicsTree(industries, selectedCodes);
 
-  const allSelectedSet = useMemo(() => new Set(selectedCodes), [selectedCodes]);
+  const allSelectedSet = useMemo(
+    () => new Set(expandSelections(userSelections, nodeMap)),
+    [userSelections, nodeMap],
+  );
 
   const rolledCounts = useMemo(
     () => (counts ? rollupCounts(roots, counts) : undefined),

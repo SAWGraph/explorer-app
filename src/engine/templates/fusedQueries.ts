@@ -51,10 +51,8 @@ export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: stri
         suffix,
       );
       return `${s2Var} kwg-ont:sfContains ?facility${suffix} .
-      ?facility${suffix} fio:ofIndustry ?industryGroup${suffix} ;
-                         fio:ofIndustry ?industryCode${suffix} .
-      ?industryCode${suffix} a naics:NAICS-IndustryCode ;
-                             fio:subcodeOf ?industryGroup${suffix} .
+      ?facility${suffix} fio:ofIndustry ?industryCode${suffix} .
+      ?industryCode${suffix} a naics:NAICS-IndustryCode .
       ${industry}`;
     }
     case 'samples': {

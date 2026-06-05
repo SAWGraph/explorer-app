@@ -25,12 +25,10 @@ export function buildFacilitiesByIri(
       VALUES ?facility { ${vals} }
       ?s2cell kwg-ont:sfContains ?facility ;
               rdf:type kwg-ont:S2Cell_Level13 .
-      ?facility fio:ofIndustry ?industryGroup ;
-                fio:ofIndustry ?industryCode ;
+      ?facility fio:ofIndustry ?industryCode ;
                 geo:hasGeometry/geo:asWKT ?facWKT ;
                 rdfs:label ?facilityName .
       ?industryCode a naics:NAICS-IndustryCode ;
-                    fio:subcodeOf ?industryGroup ;
                     rdfs:label ?industryName .
       ${industryClause}
     }
