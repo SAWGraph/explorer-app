@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { EditorView } from './components/Layout/EditorView';
+import { PublishedView } from './components/Layout/PublishedView';
 import { DesignSystem } from './components/DesignSystem/DesignSystem';
 import './index.css';
 
@@ -18,6 +19,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/" element={<App />}>
             <Route index element={<Dashboard />} />
             <Route path="q/:queryId" element={<EditorView />} />
+            <Route path="p/:publishId" element={<PublishedView />} />
           </Route>
           <Route path="/design-guide" element={<DesignSystem />} />
         </Routes>

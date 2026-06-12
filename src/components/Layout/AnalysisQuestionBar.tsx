@@ -3,10 +3,12 @@ import { useQueryStore } from '../../store/queryStore';
 import { generateQuestion } from '../../utils/questionGenerator';
 import { ExportDropdown } from './ExportDropdown';
 import { SaveQuestionModal } from '../QueryEditor/SaveQuestionModal';
+import { PublishWorkflowModal } from '../Publish/PublishWorkflowModal';
 import {
   useCreateSavedQuestion,
   useUpdateSavedQuestion,
 } from '../../hooks/useSavedQuestions';
+import { usePublishWorkflow } from '../../hooks/usePublishWorkflow';
 import {
   isSavedQuestionId,
   parseSavedQueryParam,
@@ -26,9 +28,13 @@ export function AnalysisQuestionBar() {
   const [modalOpen, setModalOpen] = useState(false);
   const [savedIndicator, setSavedIndicator] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
   const createMutation = useCreateSavedQuestion();
   const updateMutation = useUpdateSavedQuestion();
+  const publishMutation = usePublishWorkflow();
 
   const isExistingSave = isSavedQuestionId(activeQueryId);
 
@@ -112,7 +118,15 @@ export function AnalysisQuestionBar() {
           {saveBusy ? 'Saving...' : saveLabel}
         </button>
         <ExportDropdown />
-        <button className="btn-secondary" disabled>
+        <button
+          className="btn-primary"
+          onClick={() => {
+            setPublishError(null);
+            setPublishedUrl(null);
+            setPublishOpen(true);
+          }}
+          disabled={isRunning}
+        >
           Publish
         </button>
       </div>
@@ -127,6 +141,56 @@ export function AnalysisQuestionBar() {
             setSaveError(null);
           }}
           onSave={handleConfirmSave}
+        />
+      )}
+
+      {publishOpen && (
+        <PublishWorkflowModal
+          isSaved={isExistingSave}
+          defaultTitle={defaultName()}
+          isSubmitting={publishMutation.isPending || createMutation.isPending}
+          error={publishError}
+          publishedUrl={publishedUrl}
+          onCancel={() => {
+            setPublishOpen(false);
+            setPublishError(null);
+          }}
+          onClose={() => {
+            setPublishOpen(false);
+            setPublishError(null);
+            setPublishedUrl(null);
+          }}
+          onSubmit={async (values) => {
+            setPublishError(null);
+            try {
+              if (!isExistingSave) {
+                const created = await createMutation.mutateAsync({
+                  name: values.title,
+                  question,
+                  basedOnQueryId:
+                    activeQueryId && !isSavedQuestionId(activeQueryId)
+                      ? activeQueryId
+                      : null,
+                });
+                useQueryStore
+                  .getState()
+                  .setActiveQueryId(toSavedQueryParam(created.id));
+                setSavedIndicator(true);
+              }
+              const result = await publishMutation.mutateAsync({
+                author: values.author,
+                title: values.title,
+                description: values.description,
+                tags: values.tags,
+                question,
+              });
+              setPublishedUrl(result.url);
+            } catch (err) {
+              setPublishError(
+                err instanceof Error ? err.message : 'Failed to publish.',
+              );
+            }
+          }}
         />
       )}
     </div>
