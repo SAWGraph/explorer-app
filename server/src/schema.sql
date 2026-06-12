@@ -11,3 +11,6 @@ CREATE TABLE IF NOT EXISTS published_workflows (
 
 CREATE INDEX IF NOT EXISTS published_workflows_created_at_idx
   ON published_workflows (created_at DESC);
+
+ALTER TABLE published_workflows
+  ADD COLUMN IF NOT EXISTS edit_token_hash TEXT;
