@@ -1,22 +1,49 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PREBUILT_QUERIES, type PrebuiltQuery } from '../../constants/prebuiltQueries';
 import { PrebuiltQueryCard } from './PrebuiltQueryCard';
+import { CommunityAnalysisCard } from './CommunityAnalysisCard';
+import { usePublishedWorkflowsList } from '../../hooks/usePublishWorkflow';
+import type { PublishedListItem } from '../../api/publishClient';
+
+export type SearchFilter = 'all' | 'prebuilt' | 'community';
 
 interface SearchQuestionsModalProps {
+  initialFilter?: SearchFilter;
   onClose: () => void;
-  onSelect: (query: PrebuiltQuery) => void;
+  onSelectPrebuilt: (query: PrebuiltQuery) => void;
+  onSelectCommunity: (item: PublishedListItem) => void;
 }
 
-function matchesQuery(query: PrebuiltQuery, term: string): boolean {
+function matchesPrebuilt(query: PrebuiltQuery, term: string): boolean {
   const haystack = [query.title, query.description, ...query.tags]
     .join(' ')
     .toLowerCase();
   return haystack.includes(term);
 }
 
-export function SearchQuestionsModal({ onClose, onSelect }: SearchQuestionsModalProps) {
+function matchesCommunity(item: PublishedListItem, term: string): boolean {
+  const haystack = [item.title, item.author, item.description ?? '', ...item.tags]
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(term);
+}
+
+const FILTERS: { id: SearchFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'prebuilt', label: 'Prebuilt' },
+  { id: 'community', label: 'Community' },
+];
+
+export function SearchQuestionsModal({
+  initialFilter = 'all',
+  onClose,
+  onSelectPrebuilt,
+  onSelectCommunity,
+}: SearchQuestionsModalProps) {
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<SearchFilter>(initialFilter);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { data: communityItems = [] } = usePublishedWorkflowsList(100);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -28,13 +55,25 @@ export function SearchQuestionsModal({ onClose, onSelect }: SearchQuestionsModal
   }, [onClose]);
 
   const trimmed = search.trim().toLowerCase();
-  const results = useMemo(() => {
-    if (!trimmed) return PREBUILT_QUERIES;
-    return PREBUILT_QUERIES.filter((q) => matchesQuery(q, trimmed));
-  }, [trimmed]);
 
+  const showPrebuilt = filter === 'all' || filter === 'prebuilt';
+  const showCommunity = filter === 'all' || filter === 'community';
+
+  const prebuiltResults = useMemo(() => {
+    if (!showPrebuilt) return [];
+    if (!trimmed) return PREBUILT_QUERIES;
+    return PREBUILT_QUERIES.filter((q) => matchesPrebuilt(q, trimmed));
+  }, [trimmed, showPrebuilt]);
+
+  const communityResults = useMemo(() => {
+    if (!showCommunity) return [];
+    if (!trimmed) return communityItems;
+    return communityItems.filter((q) => matchesCommunity(q, trimmed));
+  }, [trimmed, showCommunity, communityItems]);
+
+  const total = prebuiltResults.length + communityResults.length;
   const heading = trimmed
-    ? `Showing ${results.length} Search Result${results.length === 1 ? '' : 's'}`
+    ? `Showing ${total} Search Result${total === 1 ? '' : 's'}`
     : 'Suggestions';
 
   return (
@@ -44,7 +83,7 @@ export function SearchQuestionsModal({ onClose, onSelect }: SearchQuestionsModal
         onClick={(e) => e.stopPropagation()}
         role='dialog'
         aria-modal='true'
-        aria-label='Search Predefined Analysis Questions'
+        aria-label='Search Analysis Questions'
       >
         <div className='search-modal-header'>
           <div className='search-modal-title'>
@@ -54,7 +93,7 @@ export function SearchQuestionsModal({ onClose, onSelect }: SearchQuestionsModal
                 <path d='m14 14 4 4' strokeLinecap='round' />
               </svg>
             </span>
-            <h2>Search Predefined Analysis Questions</h2>
+            <h2>Search Analysis Questions</h2>
           </div>
           <button
             type='button'
@@ -79,7 +118,7 @@ export function SearchQuestionsModal({ onClose, onSelect }: SearchQuestionsModal
             ref={inputRef}
             type='text'
             className='search-modal-input'
-            placeholder='Search Predefined Analysis Questions'
+            placeholder='Search Analysis Questions'
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -97,17 +136,37 @@ export function SearchQuestionsModal({ onClose, onSelect }: SearchQuestionsModal
           )}
         </div>
 
+        <div className='search-filter-pills'>
+          {FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type='button'
+              className={`search-filter-pill${filter === f.id ? ' is-active' : ''}`}
+              onClick={() => setFilter(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         <div className='search-modal-body'>
           <h4 className='search-modal-heading'>{heading}</h4>
-          {results.length === 0 ? (
+          {total === 0 ? (
             <p className='search-modal-empty'>No analysis questions match your search.</p>
           ) : (
             <div className='query-cards-list'>
-              {results.map((query) => (
+              {prebuiltResults.map((query) => (
                 <PrebuiltQueryCard
-                  key={query.id}
+                  key={`p-${query.id}`}
                   query={query}
-                  onClick={() => onSelect(query)}
+                  onClick={() => onSelectPrebuilt(query)}
+                />
+              ))}
+              {communityResults.map((item) => (
+                <CommunityAnalysisCard
+                  key={`c-${item.id}`}
+                  item={item}
+                  onClick={() => onSelectCommunity(item)}
                 />
               ))}
             </div>
