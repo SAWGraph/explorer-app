@@ -27,7 +27,7 @@ export function EditorView() {
         navigate('/', { replace: true });
         return;
       }
-      loadQuestion(queryId, saved.question);
+      loadQuestion(queryId, saved.question, saved.name);
       return;
     }
 
@@ -37,7 +37,7 @@ export function EditorView() {
       return;
     }
 
-    loadQuestion(queryId, prebuilt.question);
+    loadQuestion(queryId, prebuilt.question, prebuilt.title);
   }, [queryId, navigate]);
 
   return (

@@ -29,6 +29,7 @@ export function PublishedView() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<PublishedWorkflow | null>(null);
+  const activeQueryName = useQueryStore((s) => s.activeQueryName);
 
   useEffect(() => {
     if (!publishId) {
@@ -47,7 +48,7 @@ export function PublishedView() {
         if (cancelled) return;
         useQueryStore
           .getState()
-          .loadQuestion(`published:${data.id}`, data.question);
+          .loadQuestion(`published:${data.id}`, data.question, data.title);
         setMeta(data);
         setStatus('ready');
       } catch (err) {
@@ -86,7 +87,7 @@ export function PublishedView() {
       {meta && (
         <div className="published-banner">
           <div>
-            <strong>{meta.title}</strong>
+            <strong>{activeQueryName ?? meta.title}</strong>
             <span className="published-banner-author"> · shared by {meta.author}</span>
           </div>
           {meta.tags.length > 0 && (

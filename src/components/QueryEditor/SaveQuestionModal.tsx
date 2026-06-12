@@ -58,7 +58,7 @@ export function SaveQuestionModal({
         <form onSubmit={handleSubmit}>
           <div className='modal-body'>
             <label className='save-modal-label' htmlFor='save-question-name'>
-              Name
+              Title
             </label>
             <input
               id='save-question-name'

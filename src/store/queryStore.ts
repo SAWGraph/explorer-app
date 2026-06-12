@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from '../types/query';
 import type { StepProgress, PipelineResult, PipelineError } from '../engine/executor';
+import { deepClone } from '../utils/clone';
 
 function defaultEntityBlock(type: EntityBlock['type']): EntityBlock {
   return { type };
@@ -16,7 +17,9 @@ function defaultQuestion(): AnalysisQuestion {
 
 interface QueryStore {
   activeQueryId: string | null;
+  activeQueryName: string | null;
   question: AnalysisQuestion;
+  baselineQuestion: AnalysisQuestion;
   stepProgress: StepProgress[];
   pipelineResult: PipelineResult | null;
   isRunning: boolean;
@@ -25,8 +28,10 @@ interface QueryStore {
   pendingAutoRun: boolean;
   lastApplyError: PipelineError | null;
 
-  loadQuestion: (id: string, question: AnalysisQuestion) => void;
+  loadQuestion: (id: string, question: AnalysisQuestion, name?: string | null) => void;
   setActiveQueryId: (id: string | null) => void;
+  setActiveQueryName: (name: string | null) => void;
+  markBaseline: () => void;
   clearPendingAutoRun: () => void;
 
   setBlockA: (block: EntityBlock) => void;
@@ -50,7 +55,9 @@ interface QueryStore {
 
 export const useQueryStore = create<QueryStore>((set) => ({
   activeQueryId: null,
+  activeQueryName: null,
   question: defaultQuestion(),
+  baselineQuestion: defaultQuestion(),
   stepProgress: [],
   pipelineResult: null,
   isRunning: false,
@@ -59,16 +66,21 @@ export const useQueryStore = create<QueryStore>((set) => ({
   pendingAutoRun: false,
   lastApplyError: null,
 
-  loadQuestion: (id, question) =>
+  loadQuestion: (id, question, name = null) =>
     set({
       activeQueryId: id,
+      activeQueryName: name,
       question,
+      baselineQuestion: deepClone(question),
       stepProgress: [],
       pipelineResult: null,
       pendingAutoRun: true,
       lastApplyError: null,
     }),
   setActiveQueryId: (activeQueryId) => set({ activeQueryId }),
+  setActiveQueryName: (activeQueryName) => set({ activeQueryName }),
+  markBaseline: () =>
+    set((s) => ({ baselineQuestion: deepClone(s.question) })),
   clearPendingAutoRun: () => set({ pendingAutoRun: false }),
 
   setBlockA: (block) => set((s) => ({ question: { ...s.question, blockA: block } })),
@@ -80,7 +92,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
   openEditModal: () =>
     set((s) => ({
       isEditModalOpen: true,
-      questionSnapshot: JSON.parse(JSON.stringify(s.question)),
+      questionSnapshot: deepClone(s.question),
       stepProgress: [],
     })),
   closeEditModal: () =>
@@ -93,7 +105,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
       lastApplyError: null,
     })),
   commitSnapshot: () =>
-    set((s) => ({ questionSnapshot: JSON.parse(JSON.stringify(s.question)) })),
+    set((s) => ({ questionSnapshot: deepClone(s.question) })),
   setLastApplyError: (lastApplyError) => set({ lastApplyError }),
   clearLastApplyError: () => set({ lastApplyError: null }),
 
