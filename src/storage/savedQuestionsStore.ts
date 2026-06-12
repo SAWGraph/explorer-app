@@ -1,5 +1,6 @@
 import type { AnalysisQuestion } from '../types/query';
 import type { SavedQuestion } from '../types/savedQuestion';
+import { deepClone } from '../utils/clone';
 
 const STORAGE_KEY = 'sawgraph.savedQuestions.v1';
 const MAX_ENTRIES = 50;
@@ -29,10 +30,6 @@ function genId(): string {
   }
   // Fallback for older environments
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function deepClone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
 }
 
 function isStorageAvailable(): boolean {

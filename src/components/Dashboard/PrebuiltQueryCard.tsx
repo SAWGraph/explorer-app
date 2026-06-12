@@ -1,25 +1,10 @@
 import { useState } from 'react';
 import type { PrebuiltQuery } from '../../constants/prebuiltQueries';
+import { getTagColor } from '../../utils/tagColor';
 
 interface PrebuiltQueryCardProps {
   query: PrebuiltQuery;
   onClick: () => void;
-}
-
-const TAG_COLORS: Record<string, string> = {
-  Samples: 'var(--color-tag-samples)',
-  Facilities: 'var(--color-tag-facilities)',
-  'Water Bodies': 'var(--color-tag-water-bodies)',
-  Near: 'var(--color-tag-near)',
-  Downstream: 'var(--color-tag-downstream)',
-  Upstream: 'var(--color-tag-upstream)',
-};
-
-function getTagColor(tag: string): string {
-  for (const [key, color] of Object.entries(TAG_COLORS)) {
-    if (tag.includes(key)) return color;
-  }
-  return 'var(--color-gray-500)';
 }
 
 const MAX_VISIBLE_TAGS = 3;
