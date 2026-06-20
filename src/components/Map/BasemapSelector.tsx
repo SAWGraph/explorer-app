@@ -50,17 +50,20 @@ export function BasemapSelector({ current, onChange }: BasemapSelectorProps) {
         </svg>
       </div>
       <div className="basemap-selector__body">
-        {BASEMAPS.map((bm: BasemapOption) => (
-          <label key={bm.key} className="basemap-selector__row">
-            <input
-              type="radio"
-              name="basemap"
-              checked={current === bm.key}
-              onChange={() => onChange(bm.key)}
-            />
-            <span className="basemap-selector__label">{bm.label}</span>
-          </label>
-        ))}
+        <div className="basemap-selector__grid">
+          {BASEMAPS.map((bm: BasemapOption) => (
+            <button
+              key={bm.key}
+              type="button"
+              className={`basemap-selector__tile${current === bm.key ? ' is-active' : ''}`}
+              onClick={() => onChange(bm.key)}
+              aria-pressed={current === bm.key}
+            >
+              <img src={bm.thumbnail} alt="" className="basemap-selector__thumb" />
+              <span className="basemap-selector__label">{bm.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </>,
     containerRef.current,

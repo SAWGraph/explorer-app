@@ -5,6 +5,7 @@ export interface BasemapOption {
   attribution: string;
   maxNativeZoom?: number;
   overlayUrl?: string;
+  thumbnail: string;
 }
 
 export const BASEMAPS: BasemapOption[] = [
@@ -14,13 +15,15 @@ export const BASEMAPS: BasemapOption[] = [
     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    thumbnail: '/basemaps/positron.png',
   },
-{
+  {
     key: 'osm',
     label: 'OpenStreetMap',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    thumbnail: '/basemaps/osm.png',
   },
   {
     key: 'dark',
@@ -28,6 +31,7 @@ export const BASEMAPS: BasemapOption[] = [
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    thumbnail: '/basemaps/dark.png',
   },
   {
     key: 'aerial',
@@ -36,6 +40,7 @@ export const BASEMAPS: BasemapOption[] = [
     attribution:
       'Tiles courtesy of the <a href="https://usgs.gov/">U.S. Geological Survey</a>',
     maxNativeZoom: 16,
+    thumbnail: '/basemaps/aerial.png',
   },
   {
     key: 'hydro',
@@ -46,6 +51,7 @@ export const BASEMAPS: BasemapOption[] = [
     maxNativeZoom: 16,
     overlayUrl:
       'https://basemap.nationalmap.gov/arcgis/rest/services/USGSHydroCached/MapServer/tile/{z}/{y}/{x}',
+    thumbnail: '/basemaps/hydro.png',
   },
 ];
 
