@@ -112,6 +112,29 @@ export function getCheckState(
   return 'indeterminate';
 }
 
+export function filterTree(
+  roots: NaicsTreeNode[],
+  query: string,
+): { roots: NaicsTreeNode[]; expand: Set<string> } {
+  const q = query.trim().toLowerCase();
+  if (!q) return { roots, expand: new Set() };
+  const expand = new Set<string>();
+
+  function visit(node: NaicsTreeNode): NaicsTreeNode | null {
+    const selfMatch =
+      node.code.toLowerCase().includes(q) || node.label.toLowerCase().includes(q);
+    const keptChildren = node.children
+      .map(visit)
+      .filter((c): c is NaicsTreeNode => c !== null);
+    if (!selfMatch && keptChildren.length === 0) return null;
+    if (keptChildren.length > 0) expand.add(node.code);
+    return { code: node.code, label: node.label, children: keptChildren };
+  }
+
+  const out = roots.map(visit).filter((n): n is NaicsTreeNode => n !== null);
+  return { roots: out, expand };
+}
+
 export function rollupCounts(
   roots: NaicsTreeNode[],
   leafCounts: Record<string, number>,

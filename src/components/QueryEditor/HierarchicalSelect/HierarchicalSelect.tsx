@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { NaicsIndustry } from '../../../constants/naics';
-import { useNaicsTree, getAllDescendantCodes, rollupCounts, expandSelections } from './useNaicsTree';
+import { useNaicsTree, getAllDescendantCodes, rollupCounts, expandSelections, filterTree } from './useNaicsTree';
 import { TreeNode } from './TreeNode';
 
 interface HierarchicalSelectProps {
@@ -29,9 +29,11 @@ export function HierarchicalSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [resizeTick, setResizeTick] = useState(0);
+  const [query, setQuery] = useState('');
 
   const triggerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const { roots, nodeMap, userSelections } = useNaicsTree(industries, selectedCodes);
 
@@ -44,6 +46,13 @@ export function HierarchicalSelect({
     () => (counts ? rollupCounts(roots, counts) : undefined),
     [roots, counts],
   );
+
+  const { roots: visibleRoots, expand: searchExpand } = useMemo(
+    () => filterTree(roots, query),
+    [roots, query],
+  );
+
+  const effectiveExpanded = query.trim() ? searchExpand : expandedNodes;
 
   // Compute position as derived data (recalculates when isOpen or resizeTick changes)
   const position: DropdownPosition | null = useMemo(() => {
@@ -95,6 +104,15 @@ export function HierarchicalSelect({
     };
     window.addEventListener('keydown', handleKey, true);
     return () => window.removeEventListener('keydown', handleKey, true);
+  }, [isOpen]);
+
+  // Focus search on open, clear query on close
+  useEffect(() => {
+    if (isOpen) {
+      searchRef.current?.focus();
+    } else {
+      setQuery('');
+    }
   }, [isOpen]);
 
   // Close on modal scroll
@@ -168,6 +186,28 @@ export function HierarchicalSelect({
     onChange([], {});
   }, [onChange]);
 
+  const handleSelectAllVisible = useCallback(
+    (visible: typeof roots) => {
+      const codes = visible.map((n) => n.code);
+      const allChecked = codes.every((c) => userSelections.has(c));
+      const next = new Set(userSelections);
+      if (allChecked) {
+        for (const c of codes) next.delete(c);
+      } else {
+        for (const c of codes) {
+          next.add(c);
+          for (const dc of getAllDescendantCodes(nodeMap.get(c)!)) {
+            if (dc !== c) next.delete(dc);
+          }
+        }
+      }
+      onChange(Array.from(next), buildLabels(next));
+      setQuery('');
+      searchRef.current?.focus();
+    },
+    [userSelections, nodeMap, onChange, buildLabels],
+  );
+
   // Build chip data from userSelections
   const chips = useMemo(() => {
     const result: { code: string; label: string }[] = [];
@@ -201,7 +241,7 @@ export function HierarchicalSelect({
         onClick={() => setIsOpen((o) => !o)}
       >
         <div className="hs-value-container">
-          {!hasValue && <span className="hs-placeholder">{placeholder}</span>}
+          {!hasValue && !query && <span className="hs-placeholder">{placeholder}</span>}
           {chips.map((chip) => (
             <span key={chip.code} className="hs-chip">
               <span className="hs-chip-label">
@@ -219,6 +259,18 @@ export function HierarchicalSelect({
               </button>
             </span>
           ))}
+          <input
+            ref={searchRef}
+            type="text"
+            className="hs-inline-search"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (!isOpen) setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
         <div className="hs-indicators">
           {hasValue && (
@@ -251,20 +303,42 @@ export function HierarchicalSelect({
           >
             {roots.length === 0 ? (
               <div className="hs-empty">No industries available</div>
+            ) : visibleRoots.length === 0 ? (
+              <div className="hs-empty">No matches</div>
             ) : (
-              roots.map((node) => (
+              <>
+                {(() => {
+                  const allChecked = visibleRoots.every((n) => userSelections.has(n.code));
+                  return (
+                    <div
+                      className="hs-flat-option hs-select-all"
+                      onClick={() => handleSelectAllVisible(visibleRoots)}
+                    >
+                      <input
+                        type="checkbox"
+                        className="hs-tree-checkbox"
+                        checked={allChecked}
+                        onChange={() => handleSelectAllVisible(visibleRoots)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span>{allChecked ? 'Deselect all' : 'Select all'}{query.trim() ? ` (${visibleRoots.length})` : ''}</span>
+                    </div>
+                  );
+                })()}
+                {visibleRoots.map((node) => (
                 <TreeNode
                   key={node.code}
                   node={node}
                   depth={0}
-                  expandedNodes={expandedNodes}
+                  expandedNodes={effectiveExpanded}
                   allSelectedCodes={allSelectedSet}
                   isAncestorSelected={false}
                   onToggleExpand={handleToggleExpand}
                   onToggleSelect={handleToggleSelect}
                   counts={rolledCounts}
                 />
-              ))
+              ))}
+              </>
             )}
           </div>,
           document.body

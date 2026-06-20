@@ -937,6 +937,30 @@
   font-size: 0.85rem;
 }
 
+.hs-select-all {
+  position: sticky;
+  top: 0;
+  background: var(--color-gray-50, #f9fafb);
+  border-bottom: 1px solid var(--color-gray-200);
+  font-weight: 500;
+  z-index: 1;
+}
+
+.hs-inline-search {
+  flex: 1 1 60px;
+  min-width: 60px;
+  border: none;
+  outline: none;
+  padding: 2px 4px;
+  font-size: 0.9rem;
+  background: transparent;
+  color: inherit;
+}
+
+.hs-inline-search::placeholder {
+  color: var(--color-gray-400);
+}
+
 /* Tree nodes */
 .hs-tree-node {
   display: flex;

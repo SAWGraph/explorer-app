@@ -15,6 +15,7 @@ interface FlatSelectProps {
   placeholder?: string;
   isLoading?: boolean;
   isClearable?: boolean;
+  searchable?: boolean;
 }
 
 interface DropdownPosition {
@@ -32,12 +33,15 @@ export function FlatSelect({
   placeholder = 'Select...',
   isLoading = false,
   isClearable = true,
+  searchable = true,
 }: FlatSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [resizeTick, setResizeTick] = useState(0);
+  const [query, setQuery] = useState('');
 
   const triggerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const selectedSet = useMemo(() => new Set(selectedValues), [selectedValues]);
 
@@ -93,6 +97,15 @@ export function FlatSelect({
     return () => window.removeEventListener('keydown', handleKey, true);
   }, [isOpen]);
 
+  // Focus search on open, clear query on close
+  useEffect(() => {
+    if (isOpen) {
+      searchRef.current?.focus();
+    } else {
+      setQuery('');
+    }
+  }, [isOpen]);
+
   // Close on modal scroll
   useEffect(() => {
     if (!isOpen) return;
@@ -114,6 +127,8 @@ export function FlatSelect({
           next.add(value);
         }
         onChange(Array.from(next));
+        setQuery('');
+        searchRef.current?.focus();
       } else {
         onChange([value]);
         setIsOpen(false);
@@ -158,7 +173,7 @@ export function FlatSelect({
         onClick={() => setIsOpen((o) => !o)}
       >
         <div className="hs-value-container">
-          {!hasValue && <span className="hs-placeholder">{placeholder}</span>}
+          {!hasValue && !query && <span className="hs-placeholder">{placeholder}</span>}
           {chips.map((chip) => (
             <span key={chip.value} className="hs-chip">
               <span className="hs-chip-label">{chip.label}</span>
@@ -176,6 +191,20 @@ export function FlatSelect({
               )}
             </span>
           ))}
+          {searchable && (
+            <input
+              ref={searchRef}
+              type="text"
+              className="hs-inline-search"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (!isOpen) setIsOpen(true);
+              }}
+              onFocus={() => setIsOpen(true)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
         </div>
         <div className="hs-indicators">
           {hasValue && isClearable && (
@@ -206,12 +235,46 @@ export function FlatSelect({
             ref={dropdownRef}
             style={dropdownStyle}
           >
-            {isLoading ? (
-              <div className="hs-loading">Loading…</div>
-            ) : options.length === 0 ? (
-              <div className="hs-empty">No options available</div>
-            ) : (
-              options.map((option) => {
+            {(() => {
+              const q = query.trim().toLowerCase();
+              const filtered = q
+                ? options.filter((o) => o.label.toLowerCase().includes(q))
+                : options;
+              if (isLoading) return <div className="hs-loading">Loading…</div>;
+              if (options.length === 0) return <div className="hs-empty">No options available</div>;
+              if (filtered.length === 0) return <div className="hs-empty">No matches</div>;
+              const selectable = filtered.filter((o) => !o.disabled);
+              const allSelected =
+                selectable.length > 0 && selectable.every((o) => selectedSet.has(o.value));
+              const handleSelectAll = () => {
+                const next = new Set(selectedSet);
+                if (allSelected) {
+                  for (const o of selectable) next.delete(o.value);
+                } else {
+                  for (const o of selectable) next.add(o.value);
+                }
+                onChange(Array.from(next));
+                setQuery('');
+                searchRef.current?.focus();
+              };
+              return (
+                <>
+                  {isMulti && (
+                    <div
+                      className="hs-flat-option hs-select-all"
+                      onClick={handleSelectAll}
+                    >
+                      <input
+                        type="checkbox"
+                        className="hs-tree-checkbox"
+                        checked={allSelected}
+                        onChange={handleSelectAll}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span>{allSelected ? 'Deselect all' : 'Select all'}{q ? ` (${selectable.length})` : ''}</span>
+                    </div>
+                  )}
+                  {filtered.map((option) => {
                 const isSelected = selectedSet.has(option.value);
                 const isDisabled = option.disabled === true;
                 return (
@@ -233,8 +296,10 @@ export function FlatSelect({
                     <span>{option.label}</span>
                   </div>
                 );
-              })
-            )}
+              })}
+                </>
+              );
+            })()}
           </div>,
           document.body
         )}

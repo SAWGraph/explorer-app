@@ -25,6 +25,7 @@ export function EntityTypeSelector({ value, onChange }: EntityTypeSelectorProps)
         }}
         isMulti={false}
         isClearable={false}
+        searchable={false}
         placeholder="Select type..."
       />
     </div>
