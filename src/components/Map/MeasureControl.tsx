@@ -169,27 +169,11 @@ export function MeasureControl() {
       previewRef.current = null;
       setPreviewDist(null);
     };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (pendingClickRef.current != null) {
-          window.clearTimeout(pendingClickRef.current);
-          pendingClickRef.current = null;
-        }
-        polylineRef.current?.setLatLngs([]);
-        markersRef.current?.clearLayers();
-        previewRef.current?.remove();
-        previewRef.current = null;
-        setVertices([]);
-        setPreviewDist(null);
-      }
-    };
-
     map.on('click', onClick);
     map.on('dblclick', onDblClick);
     map.on('mousemove', onMouseMove);
     map.on('mouseout', onMouseOut);
     map.doubleClickZoom.disable();
-    window.addEventListener('keydown', onKeyDown);
 
     return () => {
       map.off('click', onClick);
@@ -197,9 +181,32 @@ export function MeasureControl() {
       map.off('mousemove', onMouseMove);
       map.off('mouseout', onMouseOut);
       map.doubleClickZoom.enable();
-      window.removeEventListener('keydown', onKeyDown);
     };
   }, [active, done, map]);
+
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (vertices.length === 0) {
+        setActive(false);
+        return;
+      }
+      if (pendingClickRef.current != null) {
+        window.clearTimeout(pendingClickRef.current);
+        pendingClickRef.current = null;
+      }
+      polylineRef.current?.setLatLngs([]);
+      markersRef.current?.clearLayers();
+      previewRef.current?.remove();
+      previewRef.current = null;
+      setVertices([]);
+      setPreviewDist(null);
+      setDone(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [active, vertices.length, done]);
 
   useEffect(() => {
     if (!active) return;
@@ -255,7 +262,7 @@ export function MeasureControl() {
               ? 'Done · click the ruler to clear and remeasure'
               : vertices.length === 0
                 ? 'Click to add a starting point'
-                : 'Click to add · double-click to finish · esc to clear'}
+                : 'Click to add · double-click to finish · esc to clear/exit'}
           </div>
         </div>
       )}
