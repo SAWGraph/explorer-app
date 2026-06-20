@@ -28,15 +28,15 @@ function SampleDetailPopup({
 
       {(resultCount || sampleCount) && (
         <div className="sample-section-field">
-          {resultCount && (
-            <>
-              <span className="sample-field-label">Results</span>: {resultCount}
-            </>
-          )}
-          {resultCount && sampleCount && ' · '}
           {sampleCount && (
             <>
               <span className="sample-field-label">Samples</span>: {sampleCount}
+            </>
+          )}
+          {resultCount && sampleCount && ' · '}
+          {resultCount && (
+            <>
+              <span className="sample-field-label">Results</span>: {resultCount}
             </>
           )}
         </div>
@@ -132,16 +132,16 @@ export function MapPopupContent({ feature }: MapPopupProps) {
       <div className="map-popup">
         <table className="popup-table">
           <tbody>
-            <tr>
-              <td className="popup-label">Results</td>
-              <td>{props.resultCount}</td>
-            </tr>
             {props.sampleCount && (
               <tr>
                 <td className="popup-label">Samples</td>
                 <td>{props.sampleCount}</td>
               </tr>
             )}
+            <tr>
+              <td className="popup-label">Results</td>
+              <td>{props.resultCount}</td>
+            </tr>
             {props.maxConcentration && (
               <tr>
                 <td className="popup-label">Max</td>
