@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
 import { generateQuestion } from '../../utils/questionGenerator';
+import { useQuestionTotals } from '../../hooks/useQuestionTotals';
 import { ExportDropdown } from './ExportDropdown';
 import { SaveQuestionModal } from '../QueryEditor/SaveQuestionModal';
 import { PublishWorkflowModal } from '../Publish/PublishWorkflowModal';
@@ -37,7 +38,8 @@ export function AnalysisQuestionBar() {
   const openEditModal = useQueryStore((s) => s.openEditModal);
   const markBaseline = useQueryStore((s) => s.markBaseline);
   const isRunning = useQueryStore((s) => s.isRunning);
-  const text = generateQuestion(question);
+  const totals = useQuestionTotals(question);
+  const text = generateQuestion(question, totals);
   const isDirty = !deepEqual(question, baselineQuestion);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -99,7 +101,7 @@ export function AnalysisQuestionBar() {
   const defaultName = (): string => {
     if (isDirtyPrebuilt) return 'Untitled';
     if (activeQueryName) return activeQueryName;
-    const generated = generateQuestion(question);
+    const generated = generateQuestion(question, totals);
     return generated.length > 80 ? generated.slice(0, 80) + '…' : generated;
   };
 

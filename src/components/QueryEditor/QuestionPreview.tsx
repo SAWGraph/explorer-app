@@ -1,12 +1,14 @@
 import type { AnalysisQuestion } from '../../types/query';
 import { generateQuestion } from '../../utils/questionGenerator';
+import { useQuestionTotals } from '../../hooks/useQuestionTotals';
 
 interface QuestionPreviewProps {
   question: AnalysisQuestion;
 }
 
 export function QuestionPreview({ question }: QuestionPreviewProps) {
-  const text = generateQuestion(question);
+  const totals = useQuestionTotals(question);
+  const text = generateQuestion(question, totals);
 
   return (
     <div className="question-preview">
