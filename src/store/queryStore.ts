@@ -28,7 +28,12 @@ interface QueryStore {
   pendingAutoRun: boolean;
   lastApplyError: PipelineError | null;
 
-  loadQuestion: (id: string, question: AnalysisQuestion, name?: string | null) => void;
+  loadQuestion: (
+    id: string,
+    question: AnalysisQuestion,
+    name?: string | null,
+    options?: { autoRun?: boolean },
+  ) => void;
   setActiveQueryId: (id: string | null) => void;
   setActiveQueryName: (name: string | null) => void;
   markBaseline: () => void;
@@ -66,7 +71,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
   pendingAutoRun: false,
   lastApplyError: null,
 
-  loadQuestion: (id, question, name = null) =>
+  loadQuestion: (id, question, name = null, options = {}) =>
     set({
       activeQueryId: id,
       activeQueryName: name,
@@ -74,7 +79,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
       baselineQuestion: deepClone(question),
       stepProgress: [],
       pipelineResult: null,
-      pendingAutoRun: true,
+      pendingAutoRun: options.autoRun ?? true,
       lastApplyError: null,
     }),
   setActiveQueryId: (activeQueryId) => set({ activeQueryId }),
