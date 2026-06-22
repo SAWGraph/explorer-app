@@ -13,6 +13,7 @@ const RELATIONSHIP_TYPES: { value: SpatialRelationship['type']; label: string; d
 ];
 
 const NEAR_DISTANCE_OPTIONS = [
+  { value: '0', label: '0 miles' },
   { value: '1', label: '~1 mile' },
   { value: '2', label: '~2 miles' },
   { value: '3', label: '~3 miles' },
@@ -21,7 +22,7 @@ const NEAR_DISTANCE_OPTIONS = [
 
 export function RelationshipSelector({ value, onChange }: RelationshipSelectorProps) {
   const selected = RELATIONSHIP_TYPES.find((r) => r.value === value.type) || RELATIONSHIP_TYPES[0];
-  const currentHops = value.hops || 1;
+  const currentHops = value.hops ?? 1;
 
   return (
     <div className="relationship-selector block-card">

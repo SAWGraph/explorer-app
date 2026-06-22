@@ -157,7 +157,8 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
 function describeRelationship(rel: SpatialRelationship): string {
   switch (rel.type) {
     case 'near': {
-      const miles = rel.hops || 1;
+      const miles = rel.hops ?? 1;
+      if (miles === 0) return 'near';
       return `near (~${miles} mile${miles > 1 ? 's' : ''})`;
     }
     case 'downstream':

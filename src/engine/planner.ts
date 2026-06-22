@@ -136,7 +136,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
       return buildFusedNearQuery({
         anchor: anchorBlock,
         target: targetBlock,
-        hops: relationship.hops || 1,
+        hops: relationship.hops ?? 1,
         project,
         anchorRegion: anchorRegionOpt,
         targetRegion: targetRegionOpt,
