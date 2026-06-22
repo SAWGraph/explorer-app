@@ -159,6 +159,7 @@ export function PublishWorkflowModal({
                   disabled={isSubmitting}
                   autoFocus
                 />
+                <p className="publish-field-hint">Your email will be publicly visible.</p>
 
                 <label className="publish-field-label" htmlFor="publish-title">
                   Title

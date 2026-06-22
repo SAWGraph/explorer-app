@@ -2088,6 +2088,12 @@
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
 }
 
+.publish-field-hint {
+  margin: 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--color-gray-500);
+}
+
 .publish-field-textarea {
   resize: vertical;
   min-height: 84px;
