@@ -175,22 +175,23 @@ export function MapPopupContent({ feature }: MapPopupProps) {
           <tbody>
             <tr>
               <td className="popup-label">Facility</td>
-              <td><a href={epaUrl} target="_blank" rel="noopener noreferrer">{feature.id}</a></td>
-            </tr>
-            <tr>
-              <td className="popup-label">Name</td>
-              <td>{props.name || 'Facility'}</td>
+              <td>
+                <a href={feature.id} target="_blank" rel="noopener noreferrer">
+                  {props.name || 'Facility'}{registryId ? ` (${registryId})` : ''}
+                </a>
+                {registryId && (
+                  <> · <a href={epaUrl} target="_blank" rel="noopener noreferrer">EPA FRS</a></>
+                )}
+              </td>
             </tr>
             {props.industryCode && (
               <tr>
-                <td className="popup-label">Industry code</td>
-                <td><a href={String(props.industryCode)} target="_blank" rel="noopener noreferrer">{props.industryCode}</a></td>
-              </tr>
-            )}
-            {props.industryName && (
-              <tr>
-                <td className="popup-label">Industry name</td>
-                <td>{props.industryName}</td>
+                <td className="popup-label">Industry</td>
+                <td>
+                  <a href={String(props.industryCode)} target="_blank" rel="noopener noreferrer">
+                    {props.industryName || 'Industry'} (NAICS {String(props.industryCode).split('-').pop()})
+                  </a>
+                </td>
               </tr>
             )}
           </tbody>
