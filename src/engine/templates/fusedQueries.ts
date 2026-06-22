@@ -106,12 +106,17 @@ function neighborPath(hops: number, fromVar: string, toVar: string): string {
   if (hops <= 0) {
     return `BIND(${fromVar} AS ${toVar})`;
   }
+  // ponytail: at hops>=4 the (sfTouches|sameAs) alternation OOMs the engine
+  // (2^N path expansion). sfTouches alone is verified to return the same
+  // result count at >=2 hops on the live endpoint.
+  const useAlternation = hops <= 3;
   if (hops === 1) {
-    return `${fromVar} kwg-ont:sfTouches | owl:sameAs ${toVar} .`;
+    return useAlternation
+      ? `${fromVar} kwg-ont:sfTouches | owl:sameAs ${toVar} .`
+      : `${fromVar} kwg-ont:sfTouches ${toVar} .`;
   }
-  const segments: string[] = [];
-  for (let i = 0; i < hops; i++) segments.push('(kwg-ont:sfTouches | owl:sameAs)');
-  return `${fromVar} ${segments.join('/')} ${toVar} .`;
+  const step = useAlternation ? '(kwg-ont:sfTouches | owl:sameAs)' : 'kwg-ont:sfTouches';
+  return `${fromVar} ${Array(hops).fill(step).join('/')} ${toVar} .`;
 }
 
 interface FusedBodyOpts extends FusedBaseOpts {
