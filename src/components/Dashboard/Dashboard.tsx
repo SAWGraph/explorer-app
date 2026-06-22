@@ -59,8 +59,15 @@ export function Dashboard() {
         <section className='dashboard-section'>
           <div className='dashboard-section-header'>
             <h3>Pick up where you left off</h3>
-            <a href='#' className='section-link'>
-              Take a quick walkthrough 🎉
+            <a
+              href='/q/new'
+              className='section-link'
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/q/new');
+              }}
+            >
+              + Start a new analysis
             </a>
           </div>
           {savedItems.length === 0 ? (

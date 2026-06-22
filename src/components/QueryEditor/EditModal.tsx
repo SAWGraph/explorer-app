@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryStore } from '../../store/queryStore';
 import { useQueryPipeline } from '../../hooks/useQueryPipeline';
 import { QueryEditorContent } from './QueryEditorContent';
@@ -17,7 +18,14 @@ export function EditModal() {
   const stepProgress = useQueryStore((s) => s.stepProgress);
   const question = useQueryStore((s) => s.question);
   const questionSnapshot = useQueryStore((s) => s.questionSnapshot);
+  const activeQueryId = useQueryStore((s) => s.activeQueryId);
   const { runPipeline, isRunning } = useQueryPipeline();
+  const navigate = useNavigate();
+
+  const discardAndMaybeExit = useCallback(() => {
+    discardEditModal();
+    if (activeQueryId === 'new') navigate('/');
+  }, [discardEditModal, activeQueryId, navigate]);
 
   const hasChanges = useMemo(() => {
     if (!questionSnapshot) return false;
@@ -30,8 +38,8 @@ export function EditModal() {
   );
 
   const handleDiscard = useCallback(() => {
-    if (!isRunning) discardEditModal();
-  }, [isRunning, discardEditModal]);
+    if (!isRunning) discardAndMaybeExit();
+  }, [isRunning, discardAndMaybeExit]);
 
   const handleApply = useCallback(async () => {
     clearLastApplyError();
@@ -47,17 +55,17 @@ export function EditModal() {
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isRunning) discardEditModal();
+      if (e.key === 'Escape' && !isRunning) discardAndMaybeExit();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isOpen, isRunning, discardEditModal]);
+  }, [isOpen, isRunning, discardAndMaybeExit]);
 
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" onClick={(e) => {
-      if (e.target === e.currentTarget && !isRunning) discardEditModal();
+      if (e.target === e.currentTarget && !isRunning) discardAndMaybeExit();
     }}>
       <div className="modal-content">
         <div className="modal-header">

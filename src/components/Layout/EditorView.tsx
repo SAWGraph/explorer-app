@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
+import { blankAnalysisQuestion } from '../../constants/blankAnalysis';
 import { useQueryStore } from '../../store/queryStore';
 import { AnalysisQuestionBar } from './AnalysisQuestionBar';
 import { MainContent } from './MainContent';
@@ -16,9 +17,17 @@ export function EditorView() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!queryId || queryId === 'new') return;
+    if (!queryId) return;
 
-    const { loadQuestion } = useQueryStore.getState();
+    const { loadQuestion, openEditModal } = useQueryStore.getState();
+
+    if (queryId === 'new') {
+      loadQuestion('new', blankAnalysisQuestion(), 'New analysis', {
+        autoRun: false,
+      });
+      openEditModal();
+      return;
+    }
 
     if (isSavedQuestionId(queryId)) {
       const savedId = parseSavedQueryParam(queryId);
