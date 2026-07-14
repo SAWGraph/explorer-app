@@ -27,6 +27,8 @@ interface QueryStore {
   questionSnapshot: AnalysisQuestion | null;
   pendingAutoRun: boolean;
   lastApplyError: PipelineError | null;
+  isTourOpen: boolean;
+  pendingTour: 'map' | 'edit' | null;
 
   loadQuestion: (
     id: string,
@@ -56,6 +58,10 @@ interface QueryStore {
   addStepProgress: (progress: StepProgress) => void;
   clearProgress: () => void;
   setPipelineResult: (result: PipelineResult | null) => void;
+
+  openTour: () => void;
+  closeTour: () => void;
+  setPendingTour: (id: 'map' | 'edit' | null) => void;
 }
 
 export const useQueryStore = create<QueryStore>((set) => ({
@@ -70,6 +76,8 @@ export const useQueryStore = create<QueryStore>((set) => ({
   questionSnapshot: null,
   pendingAutoRun: false,
   lastApplyError: null,
+  isTourOpen: false,
+  pendingTour: null,
 
   loadQuestion: (id, question, name = null, options = {}) =>
     set({
@@ -123,4 +131,8 @@ export const useQueryStore = create<QueryStore>((set) => ({
     }),
   clearProgress: () => set({ stepProgress: [] }),
   setPipelineResult: (pipelineResult) => set({ pipelineResult }),
+
+  openTour: () => set({ isTourOpen: true }),
+  closeTour: () => set({ isTourOpen: false }),
+  setPendingTour: (pendingTour) => set({ pendingTour }),
 }));
