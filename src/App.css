@@ -317,6 +317,43 @@
   gap: 0.75rem;
 }
 
+.nl-query-bar {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nl-query-bar input {
+  flex: 1;
+  min-width: 200px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.nl-query-bar button {
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-700);
+  color: white;
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+}
+
+.nl-query-bar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nl-query-error {
+  flex-basis: 100%;
+  color: var(--color-danger, #c0392b);
+  font-size: var(--text-xs);
+}
+
 .question-preview {
   padding: var(--space-md);
   background: var(--color-primary-100);

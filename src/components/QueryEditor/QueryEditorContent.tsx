@@ -1,6 +1,7 @@
 import { useQueryStore } from '../../store/queryStore';
 import { DefinedTerm } from '../common/DefinedTerm';
 import { QuestionPreview } from './QuestionPreview';
+import { NLQueryBar } from './NLQueryBar';
 import { EntityBlock } from './EntityBlock';
 import { RelationshipSelector } from './RelationshipSelector';
 
@@ -18,6 +19,8 @@ export function QueryEditorContent() {
 
   return (
     <div className="query-editor">
+      <NLQueryBar />
+
       <QuestionPreview question={question} />
 
       <EntityBlock
