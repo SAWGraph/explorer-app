@@ -9,6 +9,10 @@ import {
   type SearchFilter,
 } from './SearchQuestionsModal';
 import { SavedQuestionRow } from './SavedQuestionRow';
+import { HowItWorksModal } from '../Layout/HowItWorksModal';
+import { WalkthroughBubble } from '../Layout/WalkthroughBubble';
+import { startTour } from '../../tours/tours';
+import { useQueryStore } from '../../store/queryStore';
 import {
   useDeleteSavedQuestion,
   useSavedQuestionsList,
@@ -21,6 +25,10 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState<SearchFilter>('all');
+  const isTourOpen = useQueryStore((s) => s.isTourOpen);
+  const openTour = useQueryStore((s) => s.openTour);
+  const closeTour = useQueryStore((s) => s.closeTour);
+  const setPendingTour = useQueryStore((s) => s.setPendingTour);
   const savedQuery = useSavedQuestionsList();
   const updateMutation = useUpdateSavedQuestion();
   const deleteMutation = useDeleteSavedQuestion();
@@ -167,6 +175,31 @@ export function Dashboard() {
           }}
         />
       )}
+
+      {isTourOpen && (
+        <HowItWorksModal
+          onClose={closeTour}
+          onStart={(id) => {
+            closeTour();
+            if (id === 'dashboard') {
+              startTour('dashboard', {
+                openSearchModal: () => setSearchOpen(true),
+                // Return to a clean dashboard and reopen the hub for the next track.
+                onFinish: () => {
+                  setSearchOpen(false);
+                  openTour();
+                },
+              });
+            } else {
+              // Map/edit tours live on the editor route; hand off via the store.
+              setPendingTour(id);
+              navigate(id === 'edit' ? '/q/new' : `/q/${PREBUILT_QUERIES[0].id}`);
+            }
+          }}
+        />
+      )}
+
+      <WalkthroughBubble />
     </div>
   );
 }
