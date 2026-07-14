@@ -56,7 +56,7 @@ export function Dashboard() {
       <div className='dashboard-content'>
         <h2 className='dashboard-welcome'>Welcome to Sawgraph!</h2>
 
-        <section className='dashboard-section'>
+        <section className='dashboard-section' data-tour='recent'>
           <div className='dashboard-section-header'>
             <h3>Pick up where you left off</h3>
             <a
@@ -94,7 +94,7 @@ export function Dashboard() {
           )}
         </section>
 
-        <section className='dashboard-section'>
+        <section className='dashboard-section' data-tour='prebuilt'>
           <div className='dashboard-section-header'>
             <h3>
               Prebuilt{' '}
@@ -102,6 +102,7 @@ export function Dashboard() {
             </h3>
             <button
               className='btn-view-more'
+              data-tour='view-more'
               onClick={() => openSearchWith('prebuilt')}
             >
               {gridIcon}
