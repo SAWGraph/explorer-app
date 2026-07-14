@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useQueryStore } from '../../store/queryStore';
 
 const STORAGE_KEY = 'walkthroughDismissed';
 
 export function WalkthroughBubble() {
+  const openTour = useQueryStore((s) => s.openTour);
   const [visible, setVisible] = useState(
     () => localStorage.getItem(STORAGE_KEY) !== '1',
   );
@@ -19,7 +21,10 @@ export function WalkthroughBubble() {
       <a
         href='#'
         className='walkthrough-bubble-link'
-        onClick={(e) => e.preventDefault()}
+        onClick={(e) => {
+          e.preventDefault();
+          openTour();
+        }}
       >
         Take a quick walkthrough 🎉
       </a>

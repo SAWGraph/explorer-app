@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
 import { blankAnalysisQuestion } from '../../constants/blankAnalysis';
 import { useQueryStore } from '../../store/queryStore';
+import { startTour } from '../../tours/tours';
 import { AnalysisQuestionBar } from './AnalysisQuestionBar';
 import { MainContent } from './MainContent';
 import { EditModal } from '../../components/QueryEditor/EditModal';
@@ -48,6 +49,34 @@ export function EditorView() {
 
     loadQuestion(queryId, prebuilt.question, prebuilt.title);
   }, [queryId, navigate]);
+
+  // A tour handed off from the dashboard hub runs here once its anchor mounts.
+  const pendingTour = useQueryStore((s) => s.pendingTour);
+  const setPendingTour = useQueryStore((s) => s.setPendingTour);
+  const openTour = useQueryStore((s) => s.openTour);
+  useEffect(() => {
+    if (!pendingTour) return;
+    const anchor =
+      pendingTour === 'edit' ? '.query-editor .question-preview' : '[data-tour="publish"]';
+    let tries = 0;
+    const iv = setInterval(() => {
+      if (document.querySelector(anchor)) {
+        clearInterval(iv);
+        startTour(pendingTour, {
+          // On Finish, return to the dashboard and reopen the hub.
+          onFinish: () => {
+            navigate('/');
+            openTour();
+          },
+        });
+        setPendingTour(null);
+      } else if (++tries > 50) {
+        clearInterval(iv);
+        setPendingTour(null);
+      }
+    }, 100);
+    return () => clearInterval(iv);
+  }, [pendingTour, setPendingTour, openTour, navigate]);
 
   return (
     <>

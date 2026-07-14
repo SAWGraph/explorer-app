@@ -2287,3 +2287,78 @@
 .walkthrough-bubble-close:hover {
   background: rgba(255, 255, 255, 0.32);
 }
+
+/* "How it works?" tour hub */
+.how-it-works {
+  width: 90%;
+  max-width: 420px;
+  padding: var(--space-xl);
+  background: linear-gradient(180deg, #d9ccff, #efeaff);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.how-it-works-title {
+  margin: 0 0 var(--space-lg);
+  font-size: var(--text-2xl, 1.5rem);
+  font-weight: var(--font-semibold);
+  color: var(--color-gray-900, #111);
+}
+
+.how-it-works-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.how-it-works-track {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius-md);
+}
+
+.how-it-works-track-label {
+  font-size: var(--text-base);
+  color: var(--color-gray-800);
+}
+
+.how-it-works-start {
+  padding: 6px 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-600);
+  color: #fff;
+  font-weight: var(--font-medium);
+  cursor: pointer;
+}
+
+.how-it-works-start:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.how-it-works-skip {
+  margin-top: var(--space-lg);
+  border: none;
+  background: none;
+  color: var(--color-primary-600);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+}
+
+/* driver.js popover — match purple Next button */
+.driver-popover.driverjs-theme .driver-popover-next-btn,
+.driver-popover.driverjs-theme .driver-popover-prev-btn {
+  text-shadow: none;
+}
+.driver-popover .driver-popover-next-btn {
+  background: var(--color-primary-600);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+}

@@ -248,6 +248,7 @@ export function AnalysisQuestionBar() {
       </div>
       <button
         className="btn-secondary question-bar-edit"
+        data-tour="customize"
         onClick={openEditModal}
         disabled={isRunning}
         title="Customize analysis question"
@@ -257,6 +258,7 @@ export function AnalysisQuestionBar() {
       <div className="question-bar-right">
         <button
           className="btn-secondary"
+          data-tour="save"
           onClick={handleSaveClick}
           disabled={
             isRunning ||
@@ -280,6 +282,7 @@ export function AnalysisQuestionBar() {
         <ExportDropdown />
         <button
           className="btn-primary"
+          data-tour="publish"
           onClick={() => {
             setPublishError(null);
             setPublishedUrl(null);
