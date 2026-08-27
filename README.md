@@ -36,6 +36,11 @@ npm run lint     # ESLint
 npm run preview  # Preview production build
 ```
 
+## Deployment
+
+Deployed on **Railway** from the `main` branch. Build config lives in the Railway
+dashboard, not in this repo — there is no `railway.json` or `nixpacks.toml` here.
+
 ## How queries work
 
 An **Analysis Question** has three parts:
