@@ -2,7 +2,16 @@ export interface MaterialType {
   uri: string;
   label: string;
   count?: number;
+  group?: string;
 }
+
+// coso:MaterialSample bucket priority (from MIN(?bucketPrio)) -> display group.
+export const MATERIAL_GROUP_BY_PRIO: Record<string, string> = {
+  '1': 'Biota',
+  '2': 'Solid Material',
+  '3': 'Water',
+  '4': 'Air',
+};
 
 // Fallback material types if discovery query fails
 export const FALLBACK_MATERIAL_TYPES: MaterialType[] = [

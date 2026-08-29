@@ -9,7 +9,7 @@ import {
 } from '../engine/templates/regions';
 import { FALLBACK_NAICS, type NaicsIndustry } from '../constants/naics';
 import { FALLBACK_SUBSTANCES, type Substance } from '../constants/substances';
-import { FALLBACK_MATERIAL_TYPES, type MaterialType } from '../constants/materialTypes';
+import { FALLBACK_MATERIAL_TYPES, MATERIAL_GROUP_BY_PRIO, type MaterialType } from '../constants/materialTypes';
 
 export function useIndustries() {
   return useQuery<NaicsIndustry[]>({
@@ -131,6 +131,7 @@ export function useMaterialTypes(region?: RegionParam) {
         uri: r.matType,
         label: r.label || r.matType.split(/[#/]/).pop() || r.matType,
         count: r.num ? Number(r.num) : undefined,
+        group: MATERIAL_GROUP_BY_PRIO[r.bucketPrio] ?? 'Other',
       }));
     },
     staleTime: Infinity,

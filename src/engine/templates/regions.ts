@@ -91,15 +91,30 @@ export function buildDiscoverSubstancesQuery(region?: { stateCode?: string; coun
   `;
 }
 
+// Priority VALUES: each material type is bucketed into the most specific of the four
+// direct coso:MaterialSample subclasses. The data isn't perfectly disjoint (~11 material
+// types are sampled under >1 bucket), so MIN(?prio) resolves ties: Biota > Solid > Water > Air.
+const MATERIAL_BUCKET_VALUES = `
+    OPTIONAL {
+      ?sample rdf:type ?bucketClass .
+      VALUES (?bucketClass ?prio) {
+        (coso:BiotaSample 1)
+        (coso:SolidMaterialSample 2)
+        (coso:WaterSample 3)
+        (coso:AirSample 4)
+      }
+    }`;
+
 export function buildDiscoverMaterialTypesQuery(region?: { stateCode?: string; countyCodes?: string[] }): string {
   const regionPattern = buildSamplePointRegionPattern(region);
   if (!regionPattern) {
     return `
       ${PREFIXES}
-      SELECT ?matType (SAMPLE(?_label) AS ?label) (COUNT(DISTINCT ?observation) AS ?num) WHERE {
+      SELECT ?matType (SAMPLE(?_label) AS ?label) (COUNT(DISTINCT ?observation) AS ?num) (MIN(?prio) AS ?bucketPrio) WHERE {
         ?observation rdf:type coso:ContaminantObservation ;
                      coso:analyzedSample ?sample .
         ?sample coso:sampleOfMaterialType ?matType .
+        ${MATERIAL_BUCKET_VALUES}
         OPTIONAL { ?matType rdfs:label ?_label . }
         FILTER(STRSTARTS(STR(?matType), "http://w3id.org/"))
       } GROUP BY ?matType
@@ -108,13 +123,14 @@ export function buildDiscoverMaterialTypesQuery(region?: { stateCode?: string; c
   }
   return `
     ${PREFIXES}
-    SELECT ?matType (SAMPLE(?_label) AS ?label) (COUNT(DISTINCT ?observation) AS ?num) WHERE {
+    SELECT ?matType (SAMPLE(?_label) AS ?label) (COUNT(DISTINCT ?observation) AS ?num) (MIN(?prio) AS ?bucketPrio) WHERE {
       ?sp rdf:type coso:SamplePoint .
       ${regionPattern}
       ?observation rdf:type coso:ContaminantObservation ;
                    coso:observedAtSamplePoint ?sp ;
                    coso:analyzedSample ?sample .
       ?sample coso:sampleOfMaterialType ?matType .
+      ${MATERIAL_BUCKET_VALUES}
       OPTIONAL { ?matType rdfs:label ?_label . }
       FILTER(STRSTARTS(STR(?matType), "http://w3id.org/"))
     } GROUP BY ?matType

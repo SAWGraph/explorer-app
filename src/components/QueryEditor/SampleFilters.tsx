@@ -26,6 +26,7 @@ export function SampleFilters({ value, onChange, region }: SampleFiltersProps) {
   const materialOptions = materialTypes.map((m) => ({
     value: m.uri,
     label: withCount(m.label, m.count),
+    group: m.group,
   }));
 
   return (

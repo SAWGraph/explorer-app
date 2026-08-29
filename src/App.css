@@ -1031,6 +1031,18 @@
 }
 
 /* Flat Select option items */
+.hs-group-header {
+  padding: 6px 10px 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-gray-500);
+  background: var(--color-gray-50);
+  position: sticky;
+  top: 0;
+}
+
 .hs-flat-option {
   display: flex;
   align-items: center;
