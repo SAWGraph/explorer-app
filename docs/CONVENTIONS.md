@@ -23,6 +23,7 @@ Standards and patterns to follow (and avoid) in this codebase.
 - Each entity type has its own template file in `src/engine/templates/`
 - Template functions return raw SPARQL strings — no query builder library
 - Build `VALUES` clauses with helper functions (`s2CellsToValuesString`, `buildIndustryValues`) to avoid string injection
+- Changing a discovery query (`src/engine/templates/regions.ts`) means updating its page in `docs/wiki/` in the same PR — run the query against the live endpoint first and document what it actually returns
 
 ---
 
