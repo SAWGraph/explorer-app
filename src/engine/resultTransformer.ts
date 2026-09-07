@@ -173,6 +173,7 @@ export function transformFlowlinesToFeatures(rows: SparqlRow[]): MapFeature[] {
         type: 'stream',
         name: r.streamName || '',
         flowType: r.fl_type || '',
+        ...(r.path_length ? { pathLength: r.path_length } : {}),
       },
     });
   }

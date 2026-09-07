@@ -321,6 +321,12 @@ export function MapPopupContent({ feature }: MapPopupProps) {
                 <td>{props.flowType}</td>
               </tr>
             )}
+            {props.pathLength && (
+              <tr>
+                <td className="popup-label">Flow distance</td>
+                <td>{Number(props.pathLength).toFixed(1)} km</td>
+              </tr>
+            )}
             {feature.id && (
               <tr>
                 <td className="popup-label">Flowline</td>

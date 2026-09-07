@@ -10,6 +10,7 @@ const ENTITY_TYPES: { value: EntityType; label: string }[] = [
   { value: 'samples', label: 'Samples' },
   { value: 'facilities', label: 'Facilities' },
   { value: 'waterBodies', label: 'Surface Water Bodies' },
+  { value: 'streams', label: 'Streams / Flowlines' },
   { value: 'wells', label: 'Wells' },
 ];
 

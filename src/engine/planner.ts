@@ -10,6 +10,7 @@ import {
 } from './templates/fusedQueries';
 import {
   buildFacilitiesByIri,
+  buildStreamsByIri,
   buildWaterBodiesByIri,
   buildWellsByIri,
 } from './templates/hydrate';
@@ -54,6 +55,7 @@ function entityEndpoint(block: EntityBlock): EndpointKey {
       return 'sawgraph';
     case 'waterBodies':
     case 'wells':
+    case 'streams':
       return 'hydrologykg';
   }
 }
@@ -102,6 +104,8 @@ function hydrateStep(
           return buildWaterBodiesByIri(iris, block.waterBodyFilters);
         case 'wells':
           return buildWellsByIri(iris, block.wellFilters);
+        case 'streams':
+          return buildStreamsByIri(iris, block.streamFilters);
       }
     },
   };
@@ -149,6 +153,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
       project,
       anchorRegion: anchorRegionOpt,
       targetRegion: targetRegionOpt,
+      maxDistanceKm: relationship.maxDistanceKm,
     });
   };
 
@@ -166,7 +171,11 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     buildQuery: () => buildIriQuery('anchor'),
   });
 
-  if (relationship.type !== 'near') {
+  // Supporting stream layer. Skipped when a side is already streams — those
+  // flowlines come back as the answer set and would be drawn twice.
+  const streamsAreAnswer =
+    targetBlock.type === 'streams' || anchorBlock.type === 'streams';
+  if (relationship.type !== 'near' && !streamsAreAnswer) {
     steps.push({
       type: 'GET_FLOWLINE_GEOMETRIES',
       endpoint: 'federation',
@@ -177,6 +186,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
           anchor: anchorBlock,
           direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',
           anchorIris: ctx.anchorIris,
+          maxDistanceKm: relationship.maxDistanceKm,
         }),
     });
   }

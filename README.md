@@ -56,8 +56,13 @@ When you click Apply, the query engine:
 2. **Executes** steps sequentially (`engine/executor.ts`), threading S2 cell sets between steps
 3. **Renders** results as map layers (`resultTransformer.ts` → `MapFeature[]`)
 
-Supported entity types: **samples**, **facilities**, **water bodies**
+Supported entity types: **samples**, **facilities**, **water bodies**, **wells**, **streams**
 Supported relationships: **near** (~1–2 km), **downstream**, **upstream**
+
+Downstream/upstream traces accept an optional cumulative flowpath cutoff
+(`Within N km of flow`). Unset, the trace is the full transitive closure.
+`node scripts/flow-distance-check.mjs` verifies the bounded trace against the
+live endpoints.
 
 ## SPARQL endpoints
 

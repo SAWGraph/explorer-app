@@ -20,6 +20,16 @@ const NEAR_DISTANCE_OPTIONS = [
   { value: '4', label: '~4 miles' },
 ];
 
+// Cumulative flowpath length cutoff. '' = unbounded (today's behavior).
+const FLOW_DISTANCE_OPTIONS = [
+  { value: '', label: 'Any distance' },
+  { value: '5', label: 'Within 5 km of flow' },
+  { value: '10', label: 'Within 10 km of flow' },
+  { value: '30', label: 'Within 30 km of flow' },
+  { value: '50', label: 'Within 50 km of flow' },
+  { value: '100', label: 'Within 100 km of flow' },
+];
+
 export function RelationshipSelector({ value, onChange }: RelationshipSelectorProps) {
   const selected = RELATIONSHIP_TYPES.find((r) => r.value === value.type) || RELATIONSHIP_TYPES[0];
   const currentHops = value.hops ?? 1;
@@ -40,6 +50,20 @@ export function RelationshipSelector({ value, onChange }: RelationshipSelectorPr
           isClearable={false}
           placeholder="Select relationship..."
         />
+        {(value.type === 'downstream' || value.type === 'upstream') && (
+          <FlatSelect
+            options={FLOW_DISTANCE_OPTIONS}
+            selectedValues={[value.maxDistanceKm ? String(value.maxDistanceKm) : '']}
+            onChange={(vals) => {
+              const km = vals[0] ? parseInt(vals[0]) : undefined;
+              onChange({ ...value, maxDistanceKm: km });
+            }}
+            isMulti={false}
+            isClearable={false}
+            searchable={false}
+            placeholder="Flow distance..."
+          />
+        )}
         {value.type === 'near' && (
           <FlatSelect
             options={NEAR_DISTANCE_OPTIONS}
