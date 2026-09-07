@@ -22,7 +22,7 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
       value.sampleFilters?.materialTypes?.length ||
       value.facilityFilters?.industryCodes?.length ||
       value.waterBodyFilters?.ftypes?.length ||
-      value.wellFilters?.wellTypes?.length ||
+      value.wellFilters?.wellCategories?.length ||
       value.aquiferFilters?.aquiferTypes?.length
     )
   );

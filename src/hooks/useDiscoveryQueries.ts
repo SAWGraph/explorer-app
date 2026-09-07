@@ -1,15 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { executeSparql } from '../engine/sparqlClient';
+import type { SparqlRow } from '../types/sparql';
 import {
   buildDiscoverIndustriesQuery,
   buildDiscoverSubstancesQuery,
   buildDiscoverMaterialTypesQuery,
   buildDiscoverCountiesQuery,
   buildIndustryCountsQuery,
+  buildDiscoverIllinoisPurposesQuery,
+  buildDiscoverMaineTypesQuery,
+  buildDiscoverMaineUsesQuery,
 } from '../engine/templates/regions';
 import { FALLBACK_NAICS, type NaicsIndustry } from '../constants/naics';
 import { FALLBACK_SUBSTANCES, type Substance } from '../constants/substances';
 import { FALLBACK_MATERIAL_TYPES, MATERIAL_GROUP_BY_PRIO, type MaterialType } from '../constants/materialTypes';
+import {
+  FALLBACK_WELL_CLASSIFICATIONS,
+  WELL_GROUP_LABEL,
+  encodeWellToken,
+  type WellClassification,
+  type WellField,
+} from '../constants/wellClassifications';
 
 export function useIndustries() {
   return useQuery<NaicsIndustry[]>({
@@ -154,5 +165,70 @@ export function useCounties(stateCode?: string) {
     },
     enabled: !!stateCode,
     staleTime: Infinity,
+  });
+}
+
+function localName(uri: string): string {
+  return uri.split(/[#/.]/).pop() || uri;
+}
+
+// Illinois active/plugged twins share a label once the trailing "Plugged" is
+// stripped (some lack the comma, e.g. "Mine Service Plugged"). Collapse them
+// into one entry whose token carries both IRIs.
+function collapseIllinois(rows: SparqlRow[]): WellClassification[] {
+  const byLabel = new Map<string, { uris: string[]; count: number }>();
+  for (const r of rows) {
+    const raw = r.label || localName(r.value);
+    const label = raw.replace(/,?\s*Plugged$/i, '').trim();
+    const entry = byLabel.get(label) ?? { uris: [], count: 0 };
+    entry.uris.push(r.value);
+    entry.count += r.num ? Number(r.num) : 0;
+    byLabel.set(label, entry);
+  }
+  return [...byLabel.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([label, { uris, count }]) => ({
+      key: encodeWellToken('ilPurpose', uris),
+      label,
+      count,
+      state: 'IL' as const,
+      field: 'ilPurpose' as const,
+      group: WELL_GROUP_LABEL.ilPurpose,
+    }));
+}
+
+function maineEntries(
+  rows: SparqlRow[],
+  field: Extract<WellField, 'meType' | 'meUse'>,
+): WellClassification[] {
+  return rows.map((r) => ({
+    key: encodeWellToken(field, [r.value]),
+    label: localName(r.value),
+    count: r.num ? Number(r.num) : undefined,
+    state: 'ME' as const,
+    field,
+    group: WELL_GROUP_LABEL[field],
+  }));
+}
+
+export function useWellClassifications() {
+  return useQuery<WellClassification[]>({
+    queryKey: ['wellClassifications'],
+    queryFn: async () => {
+      const [il, meType, meUse] = await Promise.all([
+        executeSparql('hydrologykg', buildDiscoverIllinoisPurposesQuery()),
+        executeSparql('hydrologykg', buildDiscoverMaineTypesQuery()),
+        executeSparql('hydrologykg', buildDiscoverMaineUsesQuery()),
+      ]);
+      const merged = [
+        ...collapseIllinois(il),
+        ...maineEntries(meType, 'meType'),
+        ...maineEntries(meUse, 'meUse'),
+      ];
+      return merged.length ? merged : FALLBACK_WELL_CLASSIFICATIONS;
+    },
+    staleTime: Infinity,
+    retry: 1,
+    placeholderData: FALLBACK_WELL_CLASSIFICATIONS,
   });
 }

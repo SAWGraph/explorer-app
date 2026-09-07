@@ -7,11 +7,11 @@ import {
   buildFusedFlowlineQuery,
   buildFusedSampleAggregateQuery,
   buildFusedSampleDetailsQuery,
+  buildFusedWellQuery,
 } from './templates/fusedQueries';
 import {
   buildFacilitiesByIri,
   buildWaterBodiesByIri,
-  buildWellsByIri,
 } from './templates/hydrate';
 import { buildAquifersByIri } from './templates/aquifers';
 import { buildRegionBoundaryQuery } from './templates/spatial';
@@ -74,11 +74,14 @@ function hydrateStep(
   fused: FusedContext,
 ): PipelineStep {
   const type = side === 'target' ? 'HYDRATE_TARGET_BY_IRI' : 'HYDRATE_ANCHOR_BY_IRI';
-  // Sample hydration is server-fused (re-derives sample IRIs via inner
-  // subquery) — statewide queries can have 1000+ sample IRIs and inlining
-  // them as VALUES makes the request body 502 the gateway. Other entity
-  // types stay on IRI-based hydration where the IRI list is small.
-  const endpoint = block.type === 'samples' ? 'federation' : entityEndpoint(block);
+  // Samples and wells are server-fused (re-derive their entity set inside one
+  // federated query) — statewide sets are thousands of IRIs and inlining them
+  // as VALUES makes the request body exceed the gateway limit (502/413). Other
+  // entity types stay on IRI-based hydration where the IRI list is small.
+  const endpoint =
+    block.type === 'samples' || block.type === 'wells'
+      ? 'federation'
+      : entityEndpoint(block);
   const description = `Loading ${side === 'target' ? 'target' : 'anchor'} ${block.type} details`;
 
   return {
@@ -96,14 +99,22 @@ function hydrateStep(
           sampleSide: side === 'target' ? 'target' : 'anchor',
         });
       }
+      if (block.type === 'wells') {
+        return buildFusedWellQuery({
+          anchor: fused.anchorBlock,
+          target: fused.targetBlock,
+          relationship: fused.relationship,
+          anchorRegion: fused.anchorRegion,
+          targetRegion: fused.targetRegion,
+          wellSide: side === 'target' ? 'target' : 'anchor',
+        });
+      }
       const iris = side === 'target' ? ctx.targetIris : ctx.anchorIris;
       switch (block.type) {
         case 'facilities':
           return buildFacilitiesByIri(iris, block.facilityFilters);
         case 'waterBodies':
           return buildWaterBodiesByIri(iris, block.waterBodyFilters);
-        case 'wells':
-          return buildWellsByIri(iris, block.wellFilters);
         case 'aquifers':
           return buildAquifersByIri(iris);
       }

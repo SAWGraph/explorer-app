@@ -137,3 +137,34 @@ export function buildDiscoverMaterialTypesQuery(region?: { stateCode?: string; c
     ORDER BY DESC(?num) ?label
   `;
 }
+
+// Well classification discovery (Approach B), all on the hydrologykg endpoint.
+// Illinois wells carry a purpose (with rdfs:label); Maine wells carry a
+// construction type and a use (no labels; derive from the URI local name).
+export function buildDiscoverIllinoisPurposesQuery(): string {
+  return `
+    ${PREFIXES}
+    SELECT ?value (SAMPLE(?l) AS ?label) (COUNT(DISTINCT ?well) AS ?num) WHERE {
+      ?well rdf:type il_isgs:ISGS-Well ; il_isgs:wellPurpose ?value .
+      OPTIONAL { ?value rdfs:label ?l . }
+    } GROUP BY ?value ORDER BY DESC(?num)
+  `;
+}
+
+export function buildDiscoverMaineTypesQuery(): string {
+  return `
+    ${PREFIXES}
+    SELECT ?value (COUNT(DISTINCT ?well) AS ?num) WHERE {
+      ?well rdf:type me_mgs:MGS-Well ; me_mgs:ofWellType ?value .
+    } GROUP BY ?value ORDER BY DESC(?num)
+  `;
+}
+
+export function buildDiscoverMaineUsesQuery(): string {
+  return `
+    ${PREFIXES}
+    SELECT ?value (COUNT(DISTINCT ?well) AS ?num) WHERE {
+      ?well rdf:type me_mgs:MGS-Well ; me_mgs:hasUse ?value .
+    } GROUP BY ?value ORDER BY DESC(?num)
+  `;
+}

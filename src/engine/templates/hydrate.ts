@@ -2,7 +2,6 @@ import { PREFIXES } from '../../constants/prefixes';
 import type {
   FacilityFilters,
   WaterBodyFilters,
-  WellFilters,
 } from '../../types/query';
 import { wrapUri } from './samples';
 import { buildIndustryValues } from './facilities';
@@ -65,43 +64,3 @@ export function buildWaterBodiesByIri(
   `;
 }
 
-export function buildWellsByIri(wellIris: string[], filters?: WellFilters): string {
-  const wellTypes = filters?.wellTypes;
-  let typeFilter: string;
-  if (!wellTypes?.length) {
-    typeFilter = `{ ?well rdf:type il_isgs:ISGS-Well } UNION { ?well rdf:type me_mgs:MGS-Well }`;
-  } else {
-    const clauses: string[] = [];
-    for (const t of wellTypes) {
-      if (t === 'ISGS-Well') clauses.push('{ ?well rdf:type il_isgs:ISGS-Well }');
-      else if (t === 'MGS-Well') clauses.push('{ ?well rdf:type me_mgs:MGS-Well }');
-    }
-    typeFilter = clauses.length
-      ? clauses.join(' UNION ')
-      : `{ ?well rdf:type il_isgs:ISGS-Well } UNION { ?well rdf:type me_mgs:MGS-Well }`;
-  }
-  const vals = wellIris.map(wrapUri).join(' ');
-
-  return `
-    ${PREFIXES}
-    SELECT DISTINCT ?well ?wellWKT ?wellName ?s2cell
-      ?meUse ?meWellType ?meDepth ?meOverburden
-      ?ilOwner ?ilDepth ?ilPurpose ?ilYield
-    WHERE {
-      VALUES ?well { ${vals} }
-      ?s2cell spatial:connectedTo ?well ;
-              rdf:type kwg-ont:S2Cell_Level13 .
-      ${typeFilter}
-      ?well geo:hasGeometry/geo:asWKT ?wellWKT .
-      OPTIONAL { ?well rdfs:label ?wellName . }
-      OPTIONAL { ?well me_mgs:hasUse ?meUse . }
-      OPTIONAL { ?well me_mgs:ofWellType ?meWellType . }
-      OPTIONAL { ?well me_mgs:wellDepth/qudt:numericValue ?meDepth . }
-      OPTIONAL { ?well me_mgs:wellOverburden/qudt:numericValue ?meOverburden . }
-      OPTIONAL { ?well il_isgs:hasOwner ?ilOwner . }
-      OPTIONAL { ?well il_isgs:wellDepth/qudt:numericValue ?ilDepth . }
-      OPTIONAL { ?well il_isgs:wellPurpose ?ilPurpose . }
-      OPTIONAL { ?well il_isgs:wellYield/qudt:numericValue ?ilYield . }
-    }
-  `;
-}

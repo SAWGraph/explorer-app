@@ -45,7 +45,9 @@ export interface WaterBodyFilters {
 }
 
 export interface WellFilters {
-  wellTypes?: string[];
+  // Encoded category tokens: `${field}||${iri1} ${iri2} ...`
+  // where field is 'ilPurpose' | 'meType' | 'meUse'. See wellClassifications.ts.
+  wellCategories?: string[];
 }
 
 // Canonical aquifer-type kinds ('surficial' | 'bedrock'), each mapped to the
