@@ -151,6 +151,18 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
       return 'surface water bodies';
     case 'wells':
       return 'wells';
+    case 'aquifers': {
+      const kinds = block.aquiferFilters?.aquiferTypes ?? [];
+      const labels: Record<string, string> = {
+        surficial: 'sand & gravel',
+        bedrock: 'bedrock',
+      };
+      // One kind selected → adjective form; none/both → bare "aquifers".
+      if (kinds.length === 1 && labels[kinds[0]]) {
+        return `${labels[kinds[0]]} aquifers`;
+      }
+      return 'aquifers';
+    }
   }
 }
 

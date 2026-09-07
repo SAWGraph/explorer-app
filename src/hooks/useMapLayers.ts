@@ -18,6 +18,9 @@ export interface MapLayerData {
   wells: MapFeature[];
   streams: MapFeature[];
   regionBoundaries: MapFeature[];
+  // KG IRIs of aquifers matched by the current query (empty when the query has
+  // no aquifer side). Used to scope the aquifer overlay to near-sample aquifers.
+  matchedAquiferIris: string[];
 }
 
 export function useMapLayers(result: PipelineResult | null): MapLayerData {
@@ -29,6 +32,7 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       wells: [],
       streams: [],
       regionBoundaries: [],
+      matchedAquiferIris: [],
     };
 
     if (!result || result.status !== 'success') return empty;
@@ -54,6 +58,14 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       enrichSampleFeaturesWithDetails(sampleFeatures, sampleDetailRows);
     }
 
+    const matchedAquiferIris = [
+      ...new Set(
+        allRows
+          .filter((r) => r.aquifer)
+          .map((r) => r.aquifer as string),
+      ),
+    ];
+
     return {
       samples: sampleFeatures,
       facilities: transformFacilitiesToFeatures(facilityRows),
@@ -61,6 +73,7 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       wells: transformWellsToFeatures(wellRows),
       streams: transformFlowlinesToFeatures(flowlineRows),
       regionBoundaries: transformRegionBoundaries(boundaryRows),
+      matchedAquiferIris,
     };
   }, [result]);
 }

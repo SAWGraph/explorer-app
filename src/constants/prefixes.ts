@@ -20,6 +20,8 @@ PREFIX me_egad_data: <http://w3id.org/sawgraph/v1/me-egad-data#>
 PREFIX nhdplusv2: <http://nhdplusv2.spatialai.org/v1/nhdplusv2#>
 PREFIX il_isgs: <http://sawgraph.spatialai.org/v1/il-isgs#>
 PREFIX me_mgs: <http://sawgraph.spatialai.org/v1/me-mgs#>
+PREFIX gwml2: <http://gwml2.org/def/gwml2#>
+PREFIX saw_water: <http://sawgraph.spatialai.org/v1/saw_water#>
 PREFIX schema: <https://schema.org/>
 PREFIX sosa: <http://www.w3.org/ns/sosa/>
 PREFIX dcterms: <http://purl.org/dc/terms/>
