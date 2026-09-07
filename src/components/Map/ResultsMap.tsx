@@ -78,11 +78,16 @@ export function ResultsMap({ layers }: ResultsMapProps) {
       <MapCenterController layers={layers} />
 
       <Pane name="aquiferPane" style={{ zIndex: 340 }}>
-        <AquiferBoundaryLayer visible={!!visibility.aquiferBoundaries} />
+        <AquiferBoundaryLayer
+          visible={!!visibility.aquiferBoundaries}
+          matchedIris={layers.matchedAquiferIris}
+        />
       </Pane>
 
       {LAYER_REGISTRY.map(({ key }) => {
-        const features = layers[key as keyof MapLayerData] || [];
+        // Registry keys are all feature layers; matchedAquiferIris (string[]) is
+        // not in the registry, so this narrowing is safe.
+        const features = (layers[key as keyof MapLayerData] ?? []) as MapFeature[];
         const Component = LAYER_COMPONENTS[key];
         if (!visibility[key] || !features.length || !Component) return null;
         const pane = LAYER_PANE_CONFIG[key];

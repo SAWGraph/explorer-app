@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
 import type { FeatureCollection } from 'geojson';
@@ -18,9 +18,12 @@ const renderer = L.canvas({ padding: 0.5 });
 
 interface AquiferBoundaryLayerProps {
   visible: boolean;
+  // KG IRIs of aquifers matched by the current query. When non-empty, the
+  // overlay is scoped to those (near-sample aquifers); when empty it shows all.
+  matchedIris?: string[];
 }
 
-export function AquiferBoundaryLayer({ visible }: AquiferBoundaryLayerProps) {
+export function AquiferBoundaryLayer({ visible, matchedIris }: AquiferBoundaryLayerProps) {
   const [data, setData] = useState<FeatureCollection | null>(cache);
 
   useEffect(() => {
@@ -45,11 +48,31 @@ export function AquiferBoundaryLayer({ visible }: AquiferBoundaryLayerProps) {
     };
   }, [visible, data]);
 
-  if (!visible || !data) return null;
+  // Scope to matched aquifers when the query returned some. Maine features are
+  // keyed by KG IRI so they filter exactly; Illinois features use a synthetic
+  // isgs.* id (no KG-IRI join), so they can't be matched and are left in.
+  // ponytail: IL scoping needs a KG-IRI bridge in the precompute — follow-up.
+  const filtered = useMemo<FeatureCollection | null>(() => {
+    if (!data) return null;
+    if (!matchedIris?.length) return data;
+    const matched = new Set(matchedIris);
+    return {
+      ...data,
+      features: data.features.filter((f) => {
+        const id = f.properties?.id;
+        if (typeof id !== 'string' || !id.startsWith('http')) return true; // IL / non-KG
+        return matched.has(id);
+      }),
+    };
+  }, [data, matchedIris]);
+
+  if (!visible || !filtered) return null;
 
   return (
     <GeoJSON
-      data={data}
+      // GeoJSON's `data` is not reactive; remount when the scoped set changes.
+      key={matchedIris?.length ? matchedIris.slice().sort().join('|') : 'all'}
+      data={filtered}
       style={(feature) => {
         const bedrock = feature?.properties?.kind === 'bedrock';
         const fill = bedrock ? WATER_COLORS.watershed : WATER_COLORS.aquifer;
