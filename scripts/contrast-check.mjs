@@ -123,6 +123,10 @@ const MARKERS = [
   // Wells
   { layer: 'Wells',               role: 'fill',   hex: '#74a9cf' },
   { layer: 'Wells',               role: 'stroke', hex: '#045a8d' },
+  // Aquifers (extent overlay) — light fill + dark stroke, like Water Bodies
+  { layer: 'Aquifers surficial',  role: 'fill',   hex: '#74a9cf' },
+  { layer: 'Aquifers bedrock',    role: 'fill',   hex: '#d0d1e6' },
+  { layer: 'Aquifers',            role: 'stroke', hex: '#045a8d' },
   // Streams
   { layer: 'Streams',             role: 'stroke', hex: '#1b6d9e' },
   // Region Boundaries — stroke darkened to #4a5568

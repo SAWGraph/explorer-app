@@ -5,6 +5,9 @@ export interface LayerConfig {
   label: string;
   defaultVisible: boolean;
   legendSvg: string;
+  // Static overlays (e.g. precomputed aquifer boundaries) self-load and are
+  // always offered in the panel, independent of query results.
+  static?: boolean;
 }
 
 export const LAYER_REGISTRY: LayerConfig[] = [
@@ -49,6 +52,14 @@ export const LAYER_REGISTRY: LayerConfig[] = [
     defaultVisible: false,
     legendSvg:
       '<svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,2"/></svg>',
+  },
+  {
+    key: 'aquiferBoundaries',
+    label: 'Aquifers (extent)',
+    defaultVisible: false,
+    static: true,
+    legendSvg:
+      '<svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1" fill="#74a9cf" fill-opacity="0.4" stroke="#1b6d9e" stroke-width="1.5"/></svg>',
   },
 ];
 

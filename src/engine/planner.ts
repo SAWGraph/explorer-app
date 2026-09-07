@@ -13,6 +13,7 @@ import {
   buildWaterBodiesByIri,
   buildWellsByIri,
 } from './templates/hydrate';
+import { buildAquifersByIri } from './templates/aquifers';
 import { buildRegionBoundaryQuery } from './templates/spatial';
 
 export type PipelineStepType =
@@ -54,6 +55,7 @@ function entityEndpoint(block: EntityBlock): EndpointKey {
       return 'sawgraph';
     case 'waterBodies':
     case 'wells':
+    case 'aquifers':
       return 'hydrologykg';
   }
 }
@@ -102,6 +104,8 @@ function hydrateStep(
           return buildWaterBodiesByIri(iris, block.waterBodyFilters);
         case 'wells':
           return buildWellsByIri(iris, block.wellFilters);
+        case 'aquifers':
+          return buildAquifersByIri(iris);
       }
     },
   };

@@ -11,6 +11,7 @@ const ENTITY_TYPES: { value: EntityType; label: string }[] = [
   { value: 'facilities', label: 'Facilities' },
   { value: 'waterBodies', label: 'Surface Water Bodies' },
   { value: 'wells', label: 'Wells' },
+  { value: 'aquifers', label: 'Aquifers' },
 ];
 
 export function EntityTypeSelector({ value, onChange }: EntityTypeSelectorProps) {

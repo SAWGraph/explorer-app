@@ -4,6 +4,7 @@ import { SampleFilters } from './SampleFilters';
 import { FacilityFilters } from './FacilityFilters';
 import { WaterBodyFilters } from './WaterBodyFilters';
 import { WellFilters } from './WellFilters';
+import { AquiferFilters } from './AquiferFilters';
 import { RegionSelector } from './RegionSelector';
 import { useState } from 'react';
 
@@ -21,7 +22,8 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
       value.sampleFilters?.materialTypes?.length ||
       value.facilityFilters?.industryCodes?.length ||
       value.waterBodyFilters?.ftypes?.length ||
-      value.wellFilters?.wellTypes?.length
+      value.wellFilters?.wellTypes?.length ||
+      value.aquiferFilters?.aquiferTypes?.length
     )
   );
 
@@ -67,6 +69,12 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
               value={value.wellFilters}
               onChange={(f) => onChange({ ...value, wellFilters: f })}
               stateCode={value.region?.stateCode}
+            />
+          )}
+          {value.type === 'aquifers' && (
+            <AquiferFilters
+              value={value.aquiferFilters}
+              onChange={(f) => onChange({ ...value, aquiferFilters: f })}
             />
           )}
         </>

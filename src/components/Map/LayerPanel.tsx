@@ -41,7 +41,7 @@ export function LayerPanel({ visibility, onToggle, layers }: LayerPanelProps) {
   }, [map]);
 
   const visibleEntries = LAYER_REGISTRY.filter(
-    (entry) => (layers[entry.key as keyof MapLayerData] || []).length > 0,
+    (entry) => entry.static || (layers[entry.key as keyof MapLayerData] || []).length > 0,
   );
 
   if (!ready || !containerRef.current || visibleEntries.length === 0) return null;
@@ -57,7 +57,10 @@ export function LayerPanel({ visibility, onToggle, layers }: LayerPanelProps) {
       </div>
       <div className="custom-layer-panel__body">
         {visibleEntries.map((entry) => {
-          const count = (layers[entry.key as keyof MapLayerData] || []).length;
+          // Static overlays (aquifers) aren't in the result set — no count.
+          const count = entry.static
+            ? null
+            : (layers[entry.key as keyof MapLayerData] || []).length;
           return (
             <label key={entry.key} className="custom-layer-panel__row">
               <input
@@ -70,7 +73,7 @@ export function LayerPanel({ visibility, onToggle, layers }: LayerPanelProps) {
                 dangerouslySetInnerHTML={{ __html: entry.legendSvg }}
               />
               <span className="custom-layer-panel__label">
-                {entry.label} ({count})
+                {entry.label}{count !== null ? ` (${count})` : ''}
               </span>
             </label>
           );

@@ -3,10 +3,12 @@ import type {
   EntityBlock,
   FacilityFilters,
   WellFilters,
+  AquiferFilters,
   SpatialRelationship,
 } from '../../types/query';
 import { wrapUri, buildSampleFilterClauses } from './samples';
 import { buildIndustryValues } from './facilities';
+import { AQUIFER_TYPE_VALUES } from './aquifers';
 
 // Returns the entity IRI variable for the block, suffixed to disambiguate
 // anchor vs target sides in a fused query.
@@ -20,6 +22,8 @@ export function entityIriVar(block: EntityBlock, suffix: string): string {
       return `?waterBody${suffix}`;
     case 'wells':
       return `?well${suffix}`;
+    case 'aquifers':
+      return `?aquifer${suffix}`;
   }
 }
 
@@ -37,6 +41,17 @@ function buildWellTypeFilterSuffixed(filters: WellFilters | undefined, suffix: s
   return clauses.length
     ? clauses.join(' UNION ')
     : `{ ${wellVar} rdf:type il_isgs:ISGS-Well } UNION { ${wellVar} rdf:type me_mgs:MGS-Well }`;
+}
+
+function buildAquiferTypeFilterSuffixed(filters: AquiferFilters | undefined, suffix: string): string {
+  const kinds = filters?.aquiferTypes;
+  if (!kinds?.length) return '';
+  const vals = kinds
+    .flatMap((k) => AQUIFER_TYPE_VALUES[k] ?? [])
+    .map((v) => `"${v}"`);
+  if (!vals.length) return '';
+  return `?aquifer${suffix} saw_water:aquiferType ?aqType${suffix} .
+      VALUES ?aqType${suffix} { ${vals.join(' ')} }`;
 }
 
 // SPARQL fragment binding the block's entity inside ?s2cell (the s2Var name
@@ -84,6 +99,12 @@ export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: stri
     case 'wells': {
       const typeFilter = buildWellTypeFilterSuffixed(block.wellFilters, suffix);
       return `${s2Var} spatial:connectedTo ?well${suffix} .
+      ${typeFilter}`;
+    }
+    case 'aquifers': {
+      const typeFilter = buildAquiferTypeFilterSuffixed(block.aquiferFilters, suffix);
+      return `${s2Var} spatial:connectedTo ?aquifer${suffix} .
+      ?aquifer${suffix} rdf:type gwml2:GW_Aquifer .
       ${typeFilter}`;
     }
   }
