@@ -75,7 +75,7 @@ export function TreeNode({
           />
           <span>
             {node.code} - {node.label}
-            {count !== undefined && count > 0 ? ` (${count})` : ''}
+            {count !== undefined && count > 0 ? ` (${count.toLocaleString()})` : ''}
           </span>
         </label>
       </div>

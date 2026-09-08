@@ -321,7 +321,7 @@ export function HierarchicalSelect({
                         onChange={() => handleSelectAllVisible(visibleRoots)}
                         onClick={(e) => e.stopPropagation()}
                       />
-                      <span>{allChecked ? 'Deselect all' : 'Select all'}{query.trim() ? ` (${visibleRoots.length})` : ''}</span>
+                      <span>{allChecked ? 'Deselect all' : 'Select all'} ({visibleRoots.length.toLocaleString()})</span>
                     </div>
                   );
                 })()}

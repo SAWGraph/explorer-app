@@ -297,7 +297,7 @@ export function FlatSelect({
                         onChange={handleSelectAll}
                         onClick={(e) => e.stopPropagation()}
                       />
-                      <span>{allSelected ? 'Deselect all' : 'Select all'}{q ? ` (${selectable.length})` : ''}</span>
+                      <span>{allSelected ? 'Deselect all' : 'Select all'} ({selectable.length.toLocaleString()})</span>
                     </div>
                   )}
                   {groupedForRender(filtered).map((entry) =>

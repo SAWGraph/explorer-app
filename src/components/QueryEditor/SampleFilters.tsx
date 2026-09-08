@@ -12,7 +12,7 @@ interface SampleFiltersProps {
 }
 
 function withCount(label: string, count?: number): string {
-  return count && count > 0 ? `${label} (${count})` : label;
+  return count && count > 0 ? `${label} (${count.toLocaleString()})` : label;
 }
 
 export function SampleFilters({ value, onChange, region }: SampleFiltersProps) {
