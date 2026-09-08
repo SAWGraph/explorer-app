@@ -76,6 +76,11 @@ Everything on this page is one of two controls.
 is the shared one: a searchable list rendered through a portal, single or multi select, with
 support for disabled options and a loading state. Every dropdown uses it except one.
 
+Multi select lists are headed by a Select all row, which carries the number of options it
+would tick, like `Select all (79)`. That number counts what the checkbox actually toggles, so
+it excludes disabled options and narrows to the matches while a search term is typed. Counts
+are comma formatted throughout, both on the Select all row and on individual options.
+
 [`HierarchicalSelect`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/HierarchicalSelect/HierarchicalSelect.tsx)
 is the exception, used only by Industry, because NAICS codes are a hierarchy and a flat list
 of 5596 of them is unusable.

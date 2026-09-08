@@ -332,6 +332,28 @@ Same predicates as HY_WaterBody (73K instances each, same entities with dual typ
 ### Facility Labels
 - `rdfs:label` — 1.2M in fiokg, 3.6M in federation
 
+### Substance Labels
+
+Substances are `comptox:ChemicalEntity` (`http://w3id.org/DSSTox/v1/`), reached from an
+observation via `coso:ofDSSToxSubstance`. 101 of them are typed in sawgraph, and every
+observed substance is typed, so the type pattern drops nothing.
+
+| Predicate | Coverage | Notes |
+|-----------|----------|-------|
+| `rdfs:label` | 69 of 101 | Full chemical name, e.g. "Perfluorooctanoic acid" |
+| `skos:altLabel` | 25 of 101 | Acronym, e.g. "PFOA" |
+| `dcterms:alternative` | **0** | Does not exist on substances, on any endpoint |
+
+**Both label predicates must be queried as `OPTIONAL`.** The 32 substances with no
+`rdfs:label` carry 47,642 observations, 5.0% of the 944,541 with a substance link. A required
+label pattern does not return them unlabelled, it drops them entirely. Fall back to the
+DTXSID from the URI instead.
+
+**Trap:** `dcterms:alternative` in the facility table above is a *facility* predicate.
+Measured on fiokg: 3,824,195 triples, of which 3,742,487 are on `fio:Facility` and **0 on
+`comptox:ChemicalEntity`**. Using it for substance names returns zero rows. See
+`docs/DEBUGGING.md`, 2026-09-08.
+
 ---
 
 ## Class Counts
@@ -348,6 +370,7 @@ Same predicates as HY_WaterBody (73K instances each, same entities with dual typ
 | `coso:MaterialSample` | sawgraph | ~28K |
 | `coso:WaterSample` | sawgraph | ~21K |
 | `coso:ContaminantObservation` | sawgraph | ~705K |
+| `comptox:ChemicalEntity` | sawgraph | 101 (69 with `rdfs:label`) |
 | `kwg-ont:S2Cell_Level13` | spatialkg/hydrologykg | ~7.4M |
 | `kwg-ont:AdministrativeRegion_3` | spatialkg | ~35K (counties) |
 | `kwg-ont:AdministrativeRegion_2` | spatialkg | ~6K (states) |
