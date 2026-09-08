@@ -1,5 +1,7 @@
 import type { WellFilters as WellFiltersType } from '../../types/query';
 import { FlatSelect } from './FlatSelect/FlatSelect';
+import { useWellClassifications } from '../../hooks/useDiscoveryQueries';
+import { WELL_STATE_FIPS } from '../../constants/wellClassifications';
 
 interface WellFiltersProps {
   value?: WellFiltersType;
@@ -7,41 +9,39 @@ interface WellFiltersProps {
   stateCode?: string;
 }
 
-const WELL_TYPE_OPTIONS = [
-  { value: 'ISGS-Well', label: 'Illinois Wells (ISGS)' },
-  { value: 'MGS-Well', label: 'Maine Wells (MGS)' },
-];
-
-const WELL_TO_STATE: Record<string, { fips: string; stateName: string; sourceLabel: string }> = {
-  'ISGS-Well': { fips: '17', stateName: 'Illinois', sourceLabel: 'Illinois Wells (ISGS)' },
-  'MGS-Well': { fips: '23', stateName: 'Maine', sourceLabel: 'Maine Wells (MGS)' },
-};
+function withCount(label: string, count?: number): string {
+  return count && count > 0 ? `${label} (${count})` : label;
+}
 
 export function WellFilters({ value, onChange, stateCode }: WellFiltersProps) {
-  const selected = value?.wellTypes ?? [];
-  const mismatches = stateCode
-    ? selected.filter((t) => WELL_TO_STATE[t] && WELL_TO_STATE[t].fips !== stateCode)
-    : [];
+  const { data: classifications = [], isLoading } = useWellClassifications();
+
+  // A chosen region state limits the visible groups to that state; with no
+  // state chosen every group shows and each pick self-scopes to its state.
+  const visible =
+    stateCode === WELL_STATE_FIPS.IL
+      ? classifications.filter((c) => c.state === 'IL')
+      : stateCode === WELL_STATE_FIPS.ME
+        ? classifications.filter((c) => c.state === 'ME')
+        : classifications;
+
+  const options = visible.map((c) => ({
+    value: c.key,
+    label: withCount(c.label, c.count),
+    group: c.group,
+  }));
 
   return (
     <div className="well-filters">
       <div className="filter-field">
-        <label>Well Source:</label>
+        <label>Well classification:</label>
         <FlatSelect
-          options={WELL_TYPE_OPTIONS}
-          selectedValues={selected}
-          onChange={(vals) => onChange({ ...value, wellTypes: vals })}
+          options={options}
+          selectedValues={value?.wellCategories ?? []}
+          onChange={(vals) => onChange({ ...value, wellCategories: vals })}
           placeholder="All wells..."
+          isLoading={isLoading}
         />
-        {mismatches.length > 0 && (
-          <div className="filter-warning" role="alert">
-            {mismatches.map((t) => (
-              <div key={t}>
-                {WELL_TO_STATE[t].sourceLabel} only exist in {WELL_TO_STATE[t].stateName} — the selected state will return no results.
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -2,11 +2,13 @@ import { PREFIXES } from '../../constants/prefixes';
 import type {
   EntityBlock,
   FacilityFilters,
-  WellFilters,
+  AquiferFilters,
   SpatialRelationship,
 } from '../../types/query';
 import { wrapUri, buildSampleFilterClauses } from './samples';
 import { buildIndustryValues } from './facilities';
+import { AQUIFER_TYPE_VALUES } from './aquifers';
+import { buildWellCategoryFilter } from './wells';
 
 // Returns the entity IRI variable for the block, suffixed to disambiguate
 // anchor vs target sides in a fused query.
@@ -20,23 +22,20 @@ export function entityIriVar(block: EntityBlock, suffix: string): string {
       return `?waterBody${suffix}`;
     case 'wells':
       return `?well${suffix}`;
+    case 'aquifers':
+      return `?aquifer${suffix}`;
   }
 }
 
-function buildWellTypeFilterSuffixed(filters: WellFilters | undefined, suffix: string): string {
-  const wellVar = `?well${suffix}`;
-  const types = filters?.wellTypes;
-  if (!types?.length) {
-    return `{ ${wellVar} rdf:type il_isgs:ISGS-Well } UNION { ${wellVar} rdf:type me_mgs:MGS-Well }`;
-  }
-  const clauses: string[] = [];
-  for (const t of types) {
-    if (t === 'ISGS-Well') clauses.push(`{ ${wellVar} rdf:type il_isgs:ISGS-Well }`);
-    else if (t === 'MGS-Well') clauses.push(`{ ${wellVar} rdf:type me_mgs:MGS-Well }`);
-  }
-  return clauses.length
-    ? clauses.join(' UNION ')
-    : `{ ${wellVar} rdf:type il_isgs:ISGS-Well } UNION { ${wellVar} rdf:type me_mgs:MGS-Well }`;
+function buildAquiferTypeFilterSuffixed(filters: AquiferFilters | undefined, suffix: string): string {
+  const kinds = filters?.aquiferTypes;
+  if (!kinds?.length) return '';
+  const vals = kinds
+    .flatMap((k) => AQUIFER_TYPE_VALUES[k] ?? [])
+    .map((v) => `"${v}"`);
+  if (!vals.length) return '';
+  return `?aquifer${suffix} saw_water:aquiferType ?aqType${suffix} .
+      VALUES ?aqType${suffix} { ${vals.join(' ')} }`;
 }
 
 // SPARQL fragment binding the block's entity inside ?s2cell (the s2Var name
@@ -82,8 +81,14 @@ export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: stri
       ${filterClauses}`;
     }
     case 'wells': {
-      const typeFilter = buildWellTypeFilterSuffixed(block.wellFilters, suffix);
+      const typeFilter = buildWellCategoryFilter(block.wellFilters?.wellCategories, `?well${suffix}`);
       return `${s2Var} spatial:connectedTo ?well${suffix} .
+      ${typeFilter}`;
+    }
+    case 'aquifers': {
+      const typeFilter = buildAquiferTypeFilterSuffixed(block.aquiferFilters, suffix);
+      return `${s2Var} spatial:connectedTo ?aquifer${suffix} .
+      ?aquifer${suffix} rdf:type gwml2:GW_Aquifer .
       ${typeFilter}`;
     }
   }
@@ -275,6 +280,54 @@ export function buildFusedSampleAggregateQuery(opts: FusedSampleSideOpts): strin
       ${body}
       ${spVar} geo:hasGeometry/geo:asWKT ?spWKT .
     } GROUP BY ${spVar} ?spWKT ${s2Var}
+  `;
+}
+
+export interface FusedWellSideOpts extends FusedBaseOpts {
+  relationship: SpatialRelationship;
+  wellSide: 'anchor' | 'target';
+}
+
+// Well hydration without IRI inlining. Re-derives the well set inside the same
+// fused query body (which already applies the region + well-category filters via
+// bindEntityInCell), then projects geometry + attributes from the well variable.
+// Replaces buildWellsByIri (templates/hydrate.ts): statewide well sets are ~20k+
+// IRIs and inlining them as VALUES makes the request body exceed hydrologykg's
+// ~1MB limit (413). Server-deriving keeps the request ~1KB. Runs on federation.
+export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
+  const body = buildFusedWhereBody({
+    anchor: opts.anchor,
+    target: opts.target,
+    anchorRegion: opts.anchorRegion,
+    targetRegion: opts.targetRegion,
+    mode: relationshipMode(opts.relationship),
+    hops: opts.relationship.hops,
+  });
+  const suffix = opts.wellSide === 'anchor' ? 'A' : 'C';
+  const wellVar = `?well${suffix}`;
+  const s2Var = opts.wellSide === 'anchor' ? '?s2anchor' : '?s2target';
+
+  // Projecting only ?s2cell (not the anchor cell) collapses the near-join
+  // fan-out to one row per well/cell — parity with the old buildWellsByIri.
+  return `
+    ${PREFIXES}
+    SELECT DISTINCT
+      (${wellVar} AS ?well) ?wellWKT (${s2Var} AS ?s2cell)
+      ?wellName ?meUse ?meWellType ?meDepth ?meOverburden
+      ?ilOwner ?ilDepth ?ilPurpose ?ilYield
+    WHERE {
+      ${body}
+      ${wellVar} geo:hasGeometry/geo:asWKT ?wellWKT .
+      OPTIONAL { ${wellVar} rdfs:label ?wellName . }
+      OPTIONAL { ${wellVar} me_mgs:hasUse ?meUse . }
+      OPTIONAL { ${wellVar} me_mgs:ofWellType ?meWellType . }
+      OPTIONAL { ${wellVar} me_mgs:wellDepth/qudt:numericValue ?meDepth . }
+      OPTIONAL { ${wellVar} me_mgs:wellOverburden/qudt:numericValue ?meOverburden . }
+      OPTIONAL { ${wellVar} il_isgs:hasOwner ?ilOwner . }
+      OPTIONAL { ${wellVar} il_isgs:wellDepth/qudt:numericValue ?ilDepth . }
+      OPTIONAL { ${wellVar} il_isgs:wellPurpose ?ilPurpose . }
+      OPTIONAL { ${wellVar} il_isgs:wellYield/qudt:numericValue ?ilYield . }
+    }
   `;
 }
 

@@ -109,7 +109,6 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
       blockA: {
         type: 'wells',
         region: { stateCode: '23' },
-        wellFilters: { wellTypes: ['MGS-Well'] },
       },
       relationship: { type: 'near', hops: 1 },
       blockC: {
@@ -134,7 +133,6 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
       blockA: {
         type: 'wells',
         region: { stateCode: '23' },
-        wellFilters: { wellTypes: ['MGS-Well'] },
       },
       relationship: { type: 'near', hops: 1 },
       blockC: {
@@ -156,7 +154,6 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
       blockA: {
         type: 'wells',
         region: { stateCode: '23' },
-        wellFilters: { wellTypes: ['MGS-Well'] },
       },
       relationship: { type: 'near', hops: 1 },
       blockC: {

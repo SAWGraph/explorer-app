@@ -5,7 +5,7 @@ export interface AnalysisQuestion {
   blockC: EntityBlock;
 }
 
-export type EntityType = 'samples' | 'facilities' | 'waterBodies' | 'wells';
+export type EntityType = 'samples' | 'facilities' | 'waterBodies' | 'wells' | 'aquifers';
 
 export interface EntityBlock {
   type: EntityType;
@@ -14,6 +14,7 @@ export interface EntityBlock {
   facilityFilters?: FacilityFilters;
   waterBodyFilters?: WaterBodyFilters;
   wellFilters?: WellFilters;
+  aquiferFilters?: AquiferFilters;
 }
 
 export interface RegionFilter {
@@ -44,7 +45,15 @@ export interface WaterBodyFilters {
 }
 
 export interface WellFilters {
-  wellTypes?: string[];
+  // Encoded category tokens: `${field}||${iri1} ${iri2} ...`
+  // where field is 'ilPurpose' | 'meType' | 'meUse'. See wellClassifications.ts.
+  wellCategories?: string[];
+}
+
+// Canonical aquifer-type kinds ('surficial' | 'bedrock'), each mapped to the
+// raw (inconsistent) source vocabulary in the query builder.
+export interface AquiferFilters {
+  aquiferTypes?: string[];
 }
 
 export interface SpatialRelationship {

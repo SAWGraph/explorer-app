@@ -12,6 +12,20 @@ SELECT ?predicate (COUNT(*) AS ?count) WHERE {
 
 ---
 
+## Prefixes
+
+| Prefix | Namespace |
+|--------|-----------|
+| `gwml2:` | `http://gwml2.org/def/gwml2#` |
+| `hyf:` | `https://www.opengis.net/def/schema/hy_features/hyf/` |
+| `hyfo:` | `http://hyfo.spatialai.org/v1/hyfo#` |
+| `il-isgs:` | `http://sawgraph.spatialai.org/v1/il_isgs_data#` (Illinois source graph) |
+| `me-mgs:` | `http://sawgraph.spatialai.org/v1/me_mgs_data#` (Maine source graph) |
+
+Note: `gwml2:` is `gwml2.org`, **not** the OGC `opengis.net/def/gwml` namespace the UML diagrams suggest.
+
+---
+
 ## S2 Cell Predicates
 
 ### S2 Cells in hydrologykg
@@ -176,7 +190,8 @@ Federation has ~3.5x more facility data than fiokg alone (28M type assertions vs
 | `hyf:HY_Lake` | 60K | Lakes subset |
 | `kwg-ont:AdministrativeRegion` | 39K | |
 | `kwg-ont:AdministrativeRegion_3` | 35K | Counties |
-| `gwml2:GW_Aquifer` | 8K | Aquifers |
+| `gwml2:GW_Aquifer` | 8.4K | Aquifers (ME 4,972 + IL 3,469) |
+| `gwml2:GW_AquiferSystem` | 1.9K | Aquifer systems (ME 1,502 + IL 439) |
 | `us-sdwis:PublicWaterSystem` | 6K | Public water systems |
 
 ### Predicates FROM `hyf:HY_HydroFeature` (outgoing)
@@ -336,7 +351,8 @@ Same predicates as HY_WaterBody (73K instances each, same entities with dual typ
 | `kwg-ont:S2Cell_Level13` | spatialkg/hydrologykg | ~7.4M |
 | `kwg-ont:AdministrativeRegion_3` | spatialkg | ~35K (counties) |
 | `kwg-ont:AdministrativeRegion_2` | spatialkg | ~6K (states) |
-| `gwml2:GW_Aquifer` | hydrologykg | ~8K |
+| `gwml2:GW_Aquifer` | hydrologykg | ~8.4K (ME 4,972 + IL 3,469) |
+| `gwml2:GW_AquiferSystem` | hydrologykg | ~1.9K (ME 1,502 + IL 439) |
 | `us-sdwis:PublicWaterSystem` | hydrologykg | ~6K |
 
 ---

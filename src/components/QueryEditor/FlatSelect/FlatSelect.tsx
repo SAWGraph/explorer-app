@@ -5,6 +5,7 @@ export interface FlatSelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  group?: string;
 }
 
 interface FlatSelectProps {
@@ -16,6 +17,31 @@ interface FlatSelectProps {
   isLoading?: boolean;
   isClearable?: boolean;
   searchable?: boolean;
+}
+
+interface RenderEntry {
+  header?: string;
+  option?: FlatSelectOption;
+}
+
+// Flat list unless options carry `group`. Groups keep first-appearance order
+// (options arrive pre-sorted), with "Other" pushed last.
+function groupedForRender(options: FlatSelectOption[]): RenderEntry[] {
+  if (!options.some((o) => o.group)) return options.map((option) => ({ option }));
+  const groups = new Map<string, FlatSelectOption[]>();
+  for (const o of options) {
+    const g = o.group || 'Other';
+    (groups.get(g) ?? groups.set(g, []).get(g)!).push(o);
+  }
+  const order = [...groups.keys()].sort((a, b) =>
+    a === 'Other' ? 1 : b === 'Other' ? -1 : 0,
+  );
+  const out: RenderEntry[] = [];
+  for (const g of order) {
+    out.push({ header: g });
+    for (const option of groups.get(g)!) out.push({ option });
+  }
+  return out;
 }
 
 interface DropdownPosition {
@@ -274,29 +300,38 @@ export function FlatSelect({
                       <span>{allSelected ? 'Deselect all' : 'Select all'}{q ? ` (${selectable.length})` : ''}</span>
                     </div>
                   )}
-                  {filtered.map((option) => {
-                const isSelected = selectedSet.has(option.value);
-                const isDisabled = option.disabled === true;
-                return (
-                  <div
-                    key={option.value}
-                    className={`hs-flat-option${isSelected ? ' hs-flat-option--selected' : ''}${isDisabled ? ' hs-flat-option--disabled' : ''}`}
-                    onClick={() => handleToggleOption(option.value, isDisabled)}
-                  >
-                    {isMulti && (
-                      <input
-                        type="checkbox"
-                        className="hs-tree-checkbox"
-                        checked={isSelected}
-                        disabled={isDisabled}
-                        onChange={() => handleToggleOption(option.value, isDisabled)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    )}
-                    <span>{option.label}</span>
+                  {groupedForRender(filtered).map((entry) =>
+                entry.header ? (
+                  <div key={`__grp_${entry.header}`} className="hs-group-header">
+                    {entry.header}
                   </div>
-                );
-              })}
+                ) : (
+                  (() => {
+                    const option = entry.option!;
+                    const isSelected = selectedSet.has(option.value);
+                    const isDisabled = option.disabled === true;
+                    return (
+                      <div
+                        key={option.value}
+                        className={`hs-flat-option${isSelected ? ' hs-flat-option--selected' : ''}${isDisabled ? ' hs-flat-option--disabled' : ''}`}
+                        onClick={() => handleToggleOption(option.value, isDisabled)}
+                      >
+                        {isMulti && (
+                          <input
+                            type="checkbox"
+                            className="hs-tree-checkbox"
+                            checked={isSelected}
+                            disabled={isDisabled}
+                            onChange={() => handleToggleOption(option.value, isDisabled)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                        <span>{option.label}</span>
+                      </div>
+                    );
+                  })()
+                )
+              )}
                 </>
               );
             })()}
