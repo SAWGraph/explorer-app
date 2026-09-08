@@ -83,8 +83,8 @@ export function buildDiscoverSubstancesQuery(region?: { stateCode?: string; coun
       ?observation rdf:type coso:ContaminantObservation ;
                    ${regionPattern ? 'coso:observedAtSamplePoint ?sp ;' : ''}
                    coso:ofDSSToxSubstance ?substance .
-      ?substance a comptox:ChemicalEntity ;
-                 dcterms:alternative ?_label .
+      ?substance a comptox:ChemicalEntity .
+      OPTIONAL { ?substance rdfs:label ?_label . }
       OPTIONAL { ?substance skos:altLabel ?_short . }
     } GROUP BY ?substance
     ORDER BY DESC(?num) ?label

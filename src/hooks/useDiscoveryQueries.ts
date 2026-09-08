@@ -117,7 +117,7 @@ export function useSubstances(region?: RegionParam) {
       if (rows.length === 0) return key ? [] : FALLBACK_SUBSTANCES;
       return rows.map((r) => ({
         uri: r.substance,
-        label: r.label,
+        label: r.label || r.substance.split('/').pop() || r.substance,
         shortLabel: r.short_label,
         count: r.num ? Number(r.num) : undefined,
       }));
