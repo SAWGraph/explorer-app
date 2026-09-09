@@ -76,6 +76,7 @@ export function buildDiscoverSubstancesQuery(region?: { stateCode?: string; coun
     SELECT ?substance
       (SAMPLE(?_label) AS ?label)
       (SAMPLE(?_short) AS ?short_label)
+      (MIN(?_viaParam) AS ?param_label)
       (COUNT(DISTINCT ?observation) AS ?num)
     WHERE {
       ${spType}
@@ -86,6 +87,7 @@ export function buildDiscoverSubstancesQuery(region?: { stateCode?: string; coun
       ?substance a comptox:ChemicalEntity .
       OPTIONAL { ?substance rdfs:label ?_label . }
       OPTIONAL { ?substance skos:altLabel ?_short . }
+      OPTIONAL { ?pL comptox:sameAsDSSToxSubstance ?substance ; rdfs:label ?_viaParam . }
     } GROUP BY ?substance
     ORDER BY DESC(?num) ?label
   `;
