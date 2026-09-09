@@ -203,3 +203,19 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 **Fix**: Switched to `rdfs:label`, then made both label patterns `OPTIONAL` and added a DTXSID fallback in the hook. Fixing only the predicate still hid 32 of 101 substances (47,642 observations, 5.0% of everything with a substance link) because the label was still required. Live counts: 0 rows → 69 → 101 unfiltered, and 0 → 69 → 79 for Maine.
 **Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
 **Prevention**: A label pattern in a discovery query must be `OPTIONAL` with a URI-tail fallback. A required label does not degrade, it deletes: the row disappears along with its data, and the dropdown looks merely short rather than broken. This one mistake caused both the total outage and the 32 hidden substances. Cross-repo confirmation: `SAWGraph/streamlit-app/filters/substance.py:67` carries the identical bug and returns 0 rows live today, while `core/sparql.py:586` and `analyses/pfas_upstream/queries.py:147` in the same repo use `rdfs:label`; `analyses/aquifer_wells/queries.py:96-97` asks for both predicates but marks each `OPTIONAL`, and therefore survives.
+
+---
+
+## 2026-09-09 — QLever aggregate quirks while building the substance label fallback
+
+**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
+**Symptom**: Three separate failures while adding a fallback that borrows a substance name from the source parameter it was matched to.
+**Root cause**: All three are QLever aggregate behaviours, not SPARQL semantics.
+
+1. `COALESCE(SAMPLE(?a), SAMPLE(?b))` returns HTTP 500 on `federation` with `Assertion 'singleResult.size() == 1' failed. An expression returned a vector expression result that contained an unexpected amount of entries ... GroupByImpl.cpp:436`. The same query succeeds on `sawgraph`, so it passes a casual test. `SAMPLE(COALESCE(?a, ?b))` runs on both.
+2. `SAMPLE(?x)` where `?x` is bound inside a nested `OPTIONAL` can return **unbound even when some rows in the group bind it**. This is the dangerous one: it fails silently, costing 8 of 69 acronyms with no error. Requiring the value in the OPTIONAL's own pattern (`OPTIONAL { ?p pred ?s ; rdfs:label ?_x . }`) rather than nesting a second OPTIONAL inside fixes it.
+3. `SAMPLE()` picks arbitrarily across the 41 substances matched by more than one parameter, so labels changed between runs. `MIN()` is deterministic and, because `X` sorts before `X_A`, happens to prefer the unsuffixed base form.
+
+**Fix**: Project the borrowed name as its own column with `MIN(?_viaParam)`, require `rdfs:label` inside the OPTIONAL, and coalesce in the hook rather than in SPARQL.
+**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`
+**Prevention**: Test aggregate expressions against **both** `sawgraph` and `federation`; they do not behave identically. And when an aggregate feeds a fallback chain, assert the expected coverage count rather than eyeballing the first few rows, since a silently unbound `SAMPLE` looks exactly like missing data.

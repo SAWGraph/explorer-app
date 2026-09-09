@@ -338,16 +338,53 @@ Substances are `comptox:ChemicalEntity` (`http://w3id.org/DSSTox/v1/`), reached 
 observation via `coso:ofDSSToxSubstance`. 101 of them are typed in sawgraph, and every
 observed substance is typed, so the type pattern drops nothing.
 
-| Predicate | Coverage | Notes |
-|-----------|----------|-------|
-| `rdfs:label` | 69 of 101 | Full chemical name, e.g. "Perfluorooctanoic acid" |
-| `skos:altLabel` | 25 of 101 | Acronym, e.g. "PFOA" |
-| `dcterms:alternative` | **0** | Does not exist on substances, on any endpoint |
+A substance carries 39 distinct predicates. Only these can name it:
 
-**Both label predicates must be queried as `OPTIONAL`.** The 32 substances with no
-`rdfs:label` carry 47,642 observations, 5.0% of the 944,541 with a substance link. A required
-label pattern does not return them unlabelled, it drops them entirely. Fall back to the
-DTXSID from the URI instead.
+| Field | Coverage | Verdict |
+|-------|----------|---------|
+| `skos:altLabel` on the substance | 25 of 101 | **Best acronym.** Canonical casing: `PFOS`, `PFHxS` |
+| `rdfs:label` on the substance | 69 of 101 | **Best full name.** `Perfluorooctanoic acid` |
+| `rdfs:label` on the source parameter | **101 of 101** | Polluted in general, good as a last resort |
+| `skos:altLabel` on the source parameter | 68 of 101 | Rejected, see below |
+| `dcterms:alternative` | **0** | Does not exist on substances, on any endpoint |
+| `owl:sameAs` | 101 of 101 | Self-referential, useless |
+| `hasCASRN`, `hasInChIKey`, `hasSMILES`, `dcterms:identifier` | 40 of 101 | Identifiers, and all sit inside the labelled 69 |
+| `rdfs:seeAlso`, `rdfs:isDefinedBy` | 68 of 101 | Provenance URIs |
+| 30 physicochemical properties (`logP`, `meltingPoint`, …) | 40 of 101 | Not names |
+
+Regenerate with:
+
+```sparql
+SELECT ?p (COUNT(DISTINCT ?s) AS ?substances) WHERE {
+  ?s a comptox:ChemicalEntity . ?s ?p ?v
+} GROUP BY ?p ORDER BY DESC(?substances)
+```
+
+**The label chain is `skos:altLabel` → `rdfs:label` → source parameter's `rdfs:label` →
+DTXSID.** The source parameter is reached by the inbound
+`?param comptox:sameAsDSSToxSubstance ?substance`. This resolves all 101.
+
+**Every label predicate must be queried as `OPTIONAL`.** The 32 substances with no
+`rdfs:label` of their own carry 47,642 observations, 5.0% of the 944,541 with a substance
+link, and they hold only `rdf:type` and `owl:sameAs`. A required label pattern does not
+return them unlabelled, it drops them entirely.
+
+**Do not use the parameter's `skos:altLabel` as an acronym.** Its `_A` suffix marks the
+*acid* as distinct from the anion: `PFOS_A` is Perfluorooctanesulfonic acid
+(`DTXSID3031864`), `PFOS` is Perfluorooctanesulfonate (`DTXSID80108992`). `_L` and `_BR` mark
+linear and branched isomers. Borrowing these collapses 10 pairs of genuinely different
+substances into identical labels; stripping the suffixes makes it worse, not better.
+
+**Parameter name quality**, for the 171 distinct values: 31 contain `***retired***use …`
+(which names its own replacement, so split on it and take the right side), 78 are ALL CAPS,
+21 are CAS-index style (`1-Octanesulfonic acid, 1,1,2,2,3,3,…`), and one is misspelled
+(`PERFLOUROOCTANE`). 41 substances have several conflicting values, so aggregate with `MIN()`
+for determinism. For the 32 that actually need it, 31 have exactly one value and 30 need no
+cleanup.
+
+**Known upstream error:** `me-egad#parameter.PFECHS_A` is aligned to `DTXSID7022546`, which
+is `Acetohydroxamic acid`, not a PFAS. 2 observations. Belongs in an issue against
+`SAWGraph/pfas-kg`.
 
 **Trap:** `dcterms:alternative` in the facility table above is a *facility* predicate.
 Measured on fiokg: 3,824,195 triples, of which 3,742,487 are on `fio:Facility` and **0 on
