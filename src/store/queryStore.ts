@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from '../types/query';
 import type { StepProgress, PipelineResult, PipelineError } from '../engine/executor';
 import { deepClone } from '../utils/clone';
+import { migrateQuestion } from '../utils/migrateQuestion';
 
 function defaultEntityBlock(type: EntityBlock['type']): EntityBlock {
   return { type };
@@ -79,8 +80,11 @@ export const useQueryStore = create<QueryStore>((set) => ({
   isTourOpen: false,
   pendingTour: null,
 
-  loadQuestion: (id, question, name = null, options = {}) =>
-    set({
+  loadQuestion: (id, rawQuestion, name = null, options = {}) => {
+    // Saved and published questions can predate the namespace split; every
+    // load path funnels through here, so migrate once at the door.
+    const question = migrateQuestion(rawQuestion);
+    return set({
       activeQueryId: id,
       activeQueryName: name,
       question,
@@ -89,7 +93,8 @@ export const useQueryStore = create<QueryStore>((set) => ({
       pipelineResult: null,
       pendingAutoRun: options.autoRun ?? true,
       lastApplyError: null,
-    }),
+    });
+  },
   setActiveQueryId: (activeQueryId) => set({ activeQueryId }),
   setActiveQueryName: (activeQueryName) => set({ activeQueryName }),
   markBaseline: () =>
