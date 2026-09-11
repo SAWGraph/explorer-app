@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import type { NaicsIndustry } from '../../../constants/naics';
+import type { TreeItem } from './useNaicsTree';
 import { useNaicsTree, getAllDescendantCodes, rollupCounts, expandSelections, filterTree } from './useNaicsTree';
 import { TreeNode } from './TreeNode';
 
 interface HierarchicalSelectProps {
-  industries: NaicsIndustry[];
+  items: TreeItem[];
   selectedCodes: string[];
   onChange: (codes: string[], labels: Record<string, string>) => void;
   placeholder?: string;
   counts?: Record<string, number>;
+  // Set when the code is a URI rather than something a reader recognises, so it
+  // is kept out of labels, chips and the search.
+  labelOnly?: boolean;
 }
 
 interface DropdownPosition {
@@ -20,11 +23,12 @@ interface DropdownPosition {
 }
 
 export function HierarchicalSelect({
-  industries,
+  items,
   selectedCodes,
   onChange,
   placeholder = 'Any industry...',
   counts,
+  labelOnly,
 }: HierarchicalSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -35,7 +39,7 @@ export function HierarchicalSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const { roots, nodeMap, userSelections } = useNaicsTree(industries, selectedCodes);
+  const { roots, nodeMap, userSelections } = useNaicsTree(items, selectedCodes);
 
   const allSelectedSet = useMemo(
     () => new Set(expandSelections(userSelections, nodeMap)),
@@ -48,8 +52,8 @@ export function HierarchicalSelect({
   );
 
   const { roots: visibleRoots, expand: searchExpand } = useMemo(
-    () => filterTree(roots, query),
-    [roots, query],
+    () => filterTree(roots, query, !labelOnly),
+    [roots, query, labelOnly],
   );
 
   const effectiveExpanded = query.trim() ? searchExpand : expandedNodes;
@@ -217,8 +221,10 @@ export function HierarchicalSelect({
         result.push({ code: node.code, label: node.label });
       }
     }
-    return result.sort((a, b) => a.code.localeCompare(b.code));
-  }, [userSelections, nodeMap]);
+    return result.sort((a, b) =>
+      labelOnly ? a.label.localeCompare(b.label) : a.code.localeCompare(b.code),
+    );
+  }, [userSelections, nodeMap, labelOnly]);
 
   const hasValue = chips.length > 0;
 
@@ -245,7 +251,7 @@ export function HierarchicalSelect({
           {chips.map((chip) => (
             <span key={chip.code} className="hs-chip">
               <span className="hs-chip-label">
-                {chip.code} - {chip.label}
+                {labelOnly ? chip.label : `${chip.code} - ${chip.label}`}
               </span>
               <button
                 className="hs-chip-remove"
@@ -302,7 +308,7 @@ export function HierarchicalSelect({
             style={dropdownStyle}
           >
             {roots.length === 0 ? (
-              <div className="hs-empty">No industries available</div>
+              <div className="hs-empty">No options available</div>
             ) : visibleRoots.length === 0 ? (
               <div className="hs-empty">No matches</div>
             ) : (
@@ -336,6 +342,7 @@ export function HierarchicalSelect({
                   onToggleExpand={handleToggleExpand}
                   onToggleSelect={handleToggleSelect}
                   counts={rolledCounts}
+                  labelOnly={labelOnly}
                 />
               ))}
               </>

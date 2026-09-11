@@ -65,7 +65,8 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
       const mats = block.sampleFilters?.materialTypes ?? [];
       const subLabels = block.sampleFilters?.substanceLabels ?? {};
       const subItems = subs.map((uri) => subLabels[uri] || extractLabel(uri));
-      const matItems = mats.map(extractLabel);
+      const matLabels = block.sampleFilters?.materialTypeLabels ?? {};
+      const matItems = mats.map((uri) => matLabels[uri] || extractLabel(uri));
 
       const subAll =
         totals?.substances !== undefined &&

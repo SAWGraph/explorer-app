@@ -1,9 +1,17 @@
+import { useMemo } from 'react';
 import type { SampleFilters as SampleFiltersType, RegionFilter } from '../../types/query';
 import {
   useSubstances,
   useMaterialTypes,
 } from '../../hooks/useDiscoveryQueries';
 import { FlatSelect } from './FlatSelect/FlatSelect';
+import { HierarchicalSelect } from './HierarchicalSelect/HierarchicalSelect';
+
+// Material types have no hierarchy of their own — discovery buckets each one into
+// a coso:MaterialSample subclass. These synthetic parents make the bucket
+// tickable and collapsible; they are expanded back to their children before
+// anything is stored, so the SPARQL only ever sees real material-type URIs.
+const GROUP_PREFIX = '__group:';
 
 interface SampleFiltersProps {
   value?: SampleFiltersType;
@@ -23,11 +31,41 @@ export function SampleFilters({ value, onChange, region }: SampleFiltersProps) {
     value: s.uri,
     label: withCount(s.shortLabel || s.label, s.count),
   }));
-  const materialOptions = materialTypes.map((m) => ({
-    value: m.uri,
-    label: withCount(m.label, m.count),
-    group: m.group,
-  }));
+  const { materialItems, materialCounts, childrenByGroup } = useMemo(() => {
+    const childrenByGroup = new Map<string, string[]>();
+    const materialCounts: Record<string, number> = {};
+    for (const m of materialTypes) {
+      const group = GROUP_PREFIX + (m.group ?? 'Other');
+      const kids = childrenByGroup.get(group) ?? [];
+      kids.push(m.uri);
+      childrenByGroup.set(group, kids);
+      if (m.count) materialCounts[m.uri] = m.count;
+    }
+    // Groups first, so buildTree sees each parent before its children.
+    const materialItems = [
+      ...[...childrenByGroup.keys()].map((group) => ({
+        code: group,
+        label: group.slice(GROUP_PREFIX.length),
+      })),
+      ...materialTypes.map((m) => ({
+        code: m.uri,
+        label: m.label,
+        parent: GROUP_PREFIX + (m.group ?? 'Other'),
+      })),
+    ];
+    return { materialItems, materialCounts, childrenByGroup };
+  }, [materialTypes]);
+
+  // A fully selected group shows as one chip rather than N. Derived, never stored.
+  const selectedMaterials = value?.materialTypes;
+  const selectedMaterialCodes = useMemo(() => {
+    const codes = [...(selectedMaterials ?? [])];
+    const selected = new Set(codes);
+    for (const [group, kids] of childrenByGroup) {
+      if (kids.length > 0 && kids.every((uri) => selected.has(uri))) codes.push(group);
+    }
+    return codes;
+  }, [selectedMaterials, childrenByGroup]);
 
   return (
     <div className='sample-filters'>
@@ -50,11 +88,23 @@ export function SampleFilters({ value, onChange, region }: SampleFiltersProps) {
 
       <div className='filter-field'>
         <label>Material:</label>
-        <FlatSelect
-          options={materialOptions}
-          selectedValues={value?.materialTypes ?? []}
-          onChange={(vals) => onChange({ ...value, materialTypes: vals })}
+        <HierarchicalSelect
+          items={materialItems}
+          selectedCodes={selectedMaterialCodes}
+          onChange={(codes) => {
+            const uris = codes.flatMap((code) =>
+              code.startsWith(GROUP_PREFIX) ? childrenByGroup.get(code) ?? [] : [code],
+            );
+            const labels: Record<string, string> = {};
+            for (const uri of uris) {
+              const m = materialTypes.find((mat) => mat.uri === uri);
+              if (m) labels[uri] = m.label;
+            }
+            onChange({ ...value, materialTypes: uris, materialTypeLabels: labels });
+          }}
           placeholder='Any material type...'
+          counts={materialCounts}
+          labelOnly
         />
       </div>
 

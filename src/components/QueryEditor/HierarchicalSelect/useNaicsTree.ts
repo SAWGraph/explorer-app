@@ -1,5 +1,12 @@
 import { useMemo } from 'react';
-import type { NaicsIndustry } from '../../../constants/naics';
+
+// Any flat list that forms a tree. NAICS derives the tree from code prefixes;
+// callers with no such convention (material types) pass `parent` explicitly.
+export interface TreeItem {
+  code: string;
+  label: string;
+  parent?: string;
+}
 
 export interface NaicsTreeNode {
   code: string;
@@ -7,17 +14,21 @@ export interface NaicsTreeNode {
   children: NaicsTreeNode[];
 }
 
-export function buildTree(industries: NaicsIndustry[]): {
+export function buildTree(items: TreeItem[]): {
   roots: NaicsTreeNode[];
   nodeMap: Map<string, NaicsTreeNode>;
 } {
   const nodeMap = new Map<string, NaicsTreeNode>();
   const roots: NaicsTreeNode[] = [];
 
-  // Sort shorter codes first so parents exist before children
-  const sorted = [...industries].sort(
-    (a, b) => a.code.length - b.code.length || a.code.localeCompare(b.code)
-  );
+  // Parents must exist before their children. NAICS has no order worth keeping,
+  // so sort shorter codes first. A caller using explicit parents supplies its own
+  // order (parents first) and we keep it — material types arrive sorted by count,
+  // and sorting them by URI would throw that away.
+  const usesExplicitParents = items.some((i) => i.parent !== undefined);
+  const sorted = usesExplicitParents
+    ? items
+    : [...items].sort((a, b) => a.code.length - b.code.length || a.code.localeCompare(b.code));
 
   for (const ind of sorted) {
     if (nodeMap.has(ind.code)) continue; // deduplicate
@@ -29,18 +40,15 @@ export function buildTree(industries: NaicsIndustry[]): {
     };
     nodeMap.set(ind.code, node);
 
-    // Find parent by trimming code one character at a time
-    let parentFound = false;
-    for (let len = ind.code.length - 1; len >= 1; len--) {
-      const prefix = ind.code.substring(0, len);
-      const parent = nodeMap.get(prefix);
-      if (parent) {
-        parent.children.push(node);
-        parentFound = true;
-        break;
-      }
+    // Explicit parent wins; otherwise find it by trimming the code one character
+    // at a time (NAICS codes nest by prefix).
+    let parent = ind.parent ? nodeMap.get(ind.parent) : undefined;
+    for (let len = ind.code.length - 1; !parent && len >= 1; len--) {
+      parent = nodeMap.get(ind.code.substring(0, len));
     }
-    if (!parentFound) {
+    if (parent) {
+      parent.children.push(node);
+    } else {
       roots.push(node);
     }
   }
@@ -115,6 +123,7 @@ export function getCheckState(
 export function filterTree(
   roots: NaicsTreeNode[],
   query: string,
+  matchCode = true,
 ): { roots: NaicsTreeNode[]; expand: Set<string> } {
   const q = query.trim().toLowerCase();
   if (!q) return { roots, expand: new Set() };
@@ -122,7 +131,8 @@ export function filterTree(
 
   function visit(node: NaicsTreeNode): NaicsTreeNode | null {
     const selfMatch =
-      node.code.toLowerCase().includes(q) || node.label.toLowerCase().includes(q);
+      node.label.toLowerCase().includes(q) ||
+      (matchCode && node.code.toLowerCase().includes(q));
     const keptChildren = node.children
       .map(visit)
       .filter((c): c is NaicsTreeNode => c !== null);
@@ -152,8 +162,8 @@ export function rollupCounts(
   return result;
 }
 
-export function useNaicsTree(industries: NaicsIndustry[], selectedCodes: string[]) {
-  const { roots, nodeMap } = useMemo(() => buildTree(industries), [industries]);
+export function useNaicsTree(items: TreeItem[], selectedCodes: string[]) {
+  const { roots, nodeMap } = useMemo(() => buildTree(items), [items]);
 
   const allSelectedSet = useMemo(() => new Set(selectedCodes), [selectedCodes]);
 
