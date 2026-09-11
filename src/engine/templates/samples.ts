@@ -41,13 +41,8 @@ export function buildSampleFilterClauses(filters?: SampleFilters, suffix = ''): 
     filters.minConcentration != null || filters.maxConcentration != null;
   const excludeNondetects = filters.includeNondetects === false;
 
-  if (hasRange || excludeNondetects) {
-    clauses += `OPTIONAL { ?result${suffix} qudt:quantityValue/qudt:numericValue ?numericResult${suffix} }\n      `;
-    clauses += `OPTIONAL { ?result${suffix} qudt:enumeratedValue ?enumDetected${suffix} }\n      `;
-  }
-
   if (hasRange) {
-    clauses += `BIND(COALESCE(xsd:decimal(?numericResult${suffix}), xsd:decimal(?result_value${suffix})) as ?numericValue${suffix})\n      `;
+    clauses += `BIND(xsd:decimal(?numericResult${suffix}) as ?numericValue${suffix})\n      `;
     clauses += `VALUES ?unit${suffix} { <${NG_PER_L_UNIT_URI}> }\n      `;
 
     const numericChecks: string[] = [];
@@ -61,12 +56,11 @@ export function buildSampleFilterClauses(filters?: SampleFilters, suffix = ''): 
 
     if (excludeNondetects) {
       clauses += `FILTER(${numericExpr})\n      `;
-      clauses += `FILTER(!BOUND(?enumDetected${suffix}))\n      `;
     } else {
-      clauses += `FILTER((${numericExpr}) || BOUND(?enumDetected${suffix}))\n      `;
+      clauses += `FILTER((${numericExpr}) || BOUND(?nonDetect${suffix}))\n      `;
     }
   } else if (excludeNondetects) {
-    clauses += `FILTER(!BOUND(?enumDetected${suffix}))\n      `;
+    clauses += `FILTER(BOUND(?numericResult${suffix}))\n      `;
   }
 
   return clauses;
