@@ -56,6 +56,9 @@ export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: stri
     }
     case 'samples': {
       const filters = buildSampleFilterClauses(block.sampleFilters, suffix);
+      // ponytail: coso:measurementUnit exists only on detects, so the join below
+      // also excludes non-detects. Dropping it is correct but triples the matched
+      // rows and the endpoint OOMs on statewide pipelines. Revisit if capacity grows.
       return `?sp${suffix} rdf:type coso:SamplePoint ;
                 spatial:connectedTo ${s2Var} .
       ?observation${suffix} rdf:type coso:ContaminantObservation ;

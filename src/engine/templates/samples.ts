@@ -7,6 +7,13 @@ export function wrapUri(uri: string): string {
 
 const NG_PER_L_UNIT_URI = 'http://qudt.org/vocab/unit/NanoGM-PER-L';
 
+// The ng/L unit is only consulted by the concentration-range filter. A
+// non-detect has no coso:measurementUnit at all, so binding it unconditionally
+// silently drops ~70% of results. Callers emit the triple only when needed.
+export function needsUnitJoin(filters?: SampleFilters): boolean {
+  return filters?.minConcentration != null || filters?.maxConcentration != null;
+}
+
 // Binds ?numericResult, ?nonDetect and a single-valued ?result_value from
 // qudt:quantityValue. coso:measurementValue is deliberately not used: it is
 // multi-valued for non-detects, returning both "non-detect" and "non-quantified",
@@ -21,8 +28,7 @@ export function resultValueClauses(suffix = ''): string {
 }
 
 // Emits the SPARQL fragment that filters by substance / material / concentration
-// range. Requires the caller to bind ?result and ?unit, and to emit
-// resultValueClauses() beforehand, which provides ?result_value and friends.
+// range. Requires the caller to bind ?result, ?result_value, and ?unit before
 // this fragment appears. `suffix` (default '') is appended to every variable
 // so the same fragment can be used inside fused queries where anchor and
 // target sides need disambiguated vars (e.g. '?resultC').
@@ -43,9 +49,12 @@ export function buildSampleFilterClauses(filters?: SampleFilters, suffix = ''): 
 
   if (hasRange) {
     clauses += `BIND(xsd:decimal(?numericResult${suffix}) as ?numericValue${suffix})\n      `;
-    clauses += `VALUES ?unit${suffix} { <${NG_PER_L_UNIT_URI}> }\n      `;
 
-    const numericChecks: string[] = [];
+    const numericChecks: string[] = [
+      // ponytail: the unit test belongs on the numeric branch. A non-detect has
+      // no coso:measurementUnit, so requiring it globally silently drops them.
+      `?unit${suffix} = <${NG_PER_L_UNIT_URI}>`,
+    ];
     if (filters.minConcentration != null) {
       numericChecks.push(`?numericValue${suffix} >= ${filters.minConcentration}`);
     }

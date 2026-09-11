@@ -1,6 +1,6 @@
 import { PREFIXES } from '../../constants/prefixes';
 import type { SampleFilters } from '../../types/query';
-import { wrapUri, buildSampleFilterClauses, resultValueClauses } from './samples';
+import { wrapUri, buildSampleFilterClauses, resultValueClauses, needsUnitJoin } from './samples';
 
 function spValues(spIris: string[]): string {
   return spIris.map(wrapUri).join(' ');
@@ -35,7 +35,7 @@ export function buildSampleRetrievalByIriQuery(
       ?sample rdfs:label ?sampleLabel ;
           coso:sampleOfMaterialType ?matType .
       ?matType rdfs:label ?matTypeLabel .
-      ?result coso:measurementUnit ?unit .
+      ${needsUnitJoin(filters) ? '?result coso:measurementUnit ?unit .' : ''}
       ${resultValueClauses()}
       ${filterClauses}
     } GROUP BY ?sp ?spWKT ?s2cell
