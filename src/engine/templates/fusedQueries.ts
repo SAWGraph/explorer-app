@@ -5,7 +5,7 @@ import type {
   AquiferFilters,
   SpatialRelationship,
 } from '../../types/query';
-import { wrapUri, buildSampleFilterClauses } from './samples';
+import { wrapUri, buildSampleFilterClauses, resultValueClauses } from './samples';
 import { buildIndustryValues } from './facilities';
 import { AQUIFER_TYPE_VALUES } from './aquifers';
 import { buildWellCategoryFilter } from './wells';
@@ -65,8 +65,8 @@ export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: stri
           coso:hasResult ?result${suffix} .
       ?sample${suffix} coso:sampleOfMaterialType ?matType${suffix} .
       ?matType${suffix} rdfs:label ?matTypeLabel${suffix} .
-      ?result${suffix} coso:measurementValue ?result_value${suffix} ;
-                       coso:measurementUnit ?unit${suffix} .
+      ?result${suffix} coso:measurementUnit ?unit${suffix} .
+      ${resultValueClauses(suffix)}
       ${filters}`;
     }
     case 'waterBodies': {
@@ -261,7 +261,7 @@ export function buildFusedSampleAggregateQuery(opts: FusedSampleSideOpts): strin
   const suffix = opts.sampleSide === 'anchor' ? 'A' : 'C';
   const s2Var = opts.sampleSide === 'anchor' ? '?s2anchor' : '?s2target';
   const spVar = `?sp${suffix}`;
-  const resultVar = `?result_value${suffix}`;
+  const numericVar = `?numericResult${suffix}`;
   const substanceVar = `?substance${suffix}`;
   const matLabelVar = `?matTypeLabel${suffix}`;
   const observationVar = `?observation${suffix}`;
@@ -272,7 +272,7 @@ export function buildFusedSampleAggregateQuery(opts: FusedSampleSideOpts): strin
     SELECT
       (COUNT(DISTINCT ${observationVar}) as ?resultCount)
       (COUNT(DISTINCT ${sampleVar}) as ?sampleCount)
-      (MAX(${resultVar}) as ?max)
+      (MAX(${numericVar}) as ?max)
       (GROUP_CONCAT(DISTINCT ${substanceVar}; separator="; ") as ?substances)
       (GROUP_CONCAT(DISTINCT ${matLabelVar}; separator="; ") as ?materials)
       (${spVar} AS ?sp) ?spWKT (${s2Var} AS ?s2cell)
@@ -389,8 +389,8 @@ export function buildFusedSampleDetailsQuery(opts: FusedSampleSideOpts): string 
       OPTIONAL { ?substanceUri skos:altLabel ?altLabel }
       OPTIONAL { ?substanceUri rdfs:label ?rdfLabel }
       BIND(COALESCE(?altLabel, ?rdfLabel, REPLACE(STR(?substanceUri), "^.*[#/]", "")) AS ?substance)
-      ?result coso:measurementValue ?result_value ;
-              coso:measurementUnit ?unit .
+      ?result coso:measurementUnit ?unit .
+      ${resultValueClauses()}
       OPTIONAL { ?unit qudt:symbol ?unit_sym0 }
       BIND(COALESCE(?unit_sym0, REPLACE(STR(?unit), "^.*[#/]", "")) AS ?unit_sym)
       ${outerFilter}

@@ -1,6 +1,6 @@
 import { PREFIXES } from '../../constants/prefixes';
 import type { SampleFilters } from '../../types/query';
-import { wrapUri, buildSampleFilterClauses } from './samples';
+import { wrapUri, buildSampleFilterClauses, resultValueClauses } from './samples';
 
 function spValues(spIris: string[]): string {
   return spIris.map(wrapUri).join(' ');
@@ -18,7 +18,7 @@ export function buildSampleRetrievalByIriQuery(
     SELECT
       (COUNT(DISTINCT ?observation) as ?resultCount)
       (COUNT(DISTINCT ?sample) as ?sampleCount)
-      (MAX(?result_value) as ?max)
+      (MAX(?numericResult) as ?max)
       (GROUP_CONCAT(DISTINCT ?substance; separator="; ") as ?substances)
       (GROUP_CONCAT(DISTINCT ?matTypeLabel; separator="; ") as ?materials)
       ?sp ?spWKT ?s2cell
@@ -35,8 +35,8 @@ export function buildSampleRetrievalByIriQuery(
       ?sample rdfs:label ?sampleLabel ;
           coso:sampleOfMaterialType ?matType .
       ?matType rdfs:label ?matTypeLabel .
-      ?result coso:measurementValue ?result_value ;
-          coso:measurementUnit ?unit .
+      ?result coso:measurementUnit ?unit .
+      ${resultValueClauses()}
       ${filterClauses}
     } GROUP BY ?sp ?spWKT ?s2cell
   `;
@@ -86,8 +86,8 @@ export function buildSampleDetailByIriQuery(
       OPTIONAL { ?substanceUri skos:altLabel ?altLabel }
       OPTIONAL { ?substanceUri rdfs:label ?rdfLabel }
       BIND(COALESCE(?altLabel, ?rdfLabel, REPLACE(STR(?substanceUri), "^.*[#/]", "")) AS ?substance)
-      ?result coso:measurementValue ?result_value ;
-          coso:measurementUnit ?unit .
+      ?result coso:measurementUnit ?unit .
+      ${resultValueClauses()}
       OPTIONAL { ?unit qudt:symbol ?unit_sym0 }
       BIND(COALESCE(?unit_sym0, REPLACE(STR(?unit), "^.*[#/]", "")) AS ?unit_sym)
       OPTIONAL { ?observation sosa:resultTime ?date }
