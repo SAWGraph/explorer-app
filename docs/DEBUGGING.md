@@ -219,3 +219,37 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 **Fix**: Project the borrowed name as its own column with `MIN(?_viaParam)`, require `rdfs:label` inside the OPTIONAL, and coalesce in the hook rather than in SPARQL.
 **Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`
 **Prevention**: Test aggregate expressions against **both** `sawgraph` and `federation`; they do not behave identically. And when an aggregate feeds a fallback chain, assert the expected coverage count rather than eyeballing the first few rows, since a silently unbound `SAMPLE` looks exactly like missing data.
+
+---
+
+## 2026-09-11 — A dead IRI returns 200 with no rows, it does not error
+
+**Component**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Symptom**: The "PFHpA Groundwater Samples Downstream from Facilities in Cumberland County" card ran every pipeline step, reported success, and drew an empty map. No error anywhere.
+**Root cause**: The card's material filter pinned `http://w3id.org/sawgraph/v1/me-egad-data#sampleMaterialType.GW`, which matches zero triples. The August 2026 reload moved the two halves of the graph in opposite directions: instance data to `v2/me-egad-data#` and `v2/us-wqp-data#`, controlled vocabulary out of `-data` and into the roots `v1/me-egad#` and `v1/us-wqp#`. Material types are vocabulary, so the root form is the live one. All six `FALLBACK_MATERIAL_TYPES` entries carried the same dead namespace, and one also used `sampleMaterialType.SO` for sludge, a code that appears nowhere in the vocabulary — the real one is `.SU`.
+
+The failure mode is the point. The filter it builds is `VALUES ?matType { <dead-iri> }`, which is valid SPARQL. The endpoint answers 200 with zero rows, and nothing downstream can distinguish that from an honest "no data matches". Verified live: with the dead IRI, 0 sample points; with the root form, 65 sample points and 171 observations.
+
+**Fix**: `ef0c40b` — both files moved to `v1/me-egad#`, sludge corrected to `.SU`.
+**Files touched**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Prevention**: Same family as the `dcterms:alternative` bug above — *a required pattern that cannot match does not degrade, it deletes*. Extend that to IRIs: a hardcoded IRI is a silent single point of failure the moment a namespace moves. When a query returns nothing, count the triples on the IRIs it names (`SELECT (COUNT(*) AS ?n) WHERE { { <iri> ?p ?o } UNION { ?s ?p2 <iri> } }`) before investigating anything else. Source of truth for the source-specific vocabularies is `SAWGraph/pfas-kg` under `datasets/*/controlledVocab/`, not `contaminoso`, which defines only the shapes.
+
+---
+
+## 2026-09-11 — QLever reports a query timeout as HTTP 429
+
+**Component**: any pipeline step against `apps.okn.us`
+**Symptom**: `429 Too Many Requests` in the network tab after ~30s, which reads as rate limiting and sends you looking for a request budget that does not exist.
+**Root cause**: QLever uses 429 for query timeouts. The response body carries the real reason:
+
+```json
+{ "exception": "Operation timed out. Last operation: Join on ?s2anchor" }
+{ "exception": "Operation timed out. Last operation: Sort (internal order) on ?resultC" }
+```
+
+A related failure appears as HTTP 500 with `Tried to allocate 409.6 MB, but only 351 MB were available`. Both are resource exhaustion; only the reporting differs. Available memory is not stable — observed at 370 MB, 351 MB and 88 MB within one afternoon on the same endpoint, so the same query can pass and fail minutes apart. This matches the endpoint flakiness recorded in changelog week 37 entry 5.
+
+**Fix**: None needed in the app. Diagnostic note only.
+**Prevention**: Always read the response body before concluding rate limiting; the status code alone is misleading. A 429 that took 30 seconds is a timeout, not a throttle — a real throttle returns immediately. Retry on an idle endpoint before investigating a query, and be aware a green run proves less than a red one here.
+
+Trimming unused bindings measurably helps. The downstream `FIND_TARGET_IRIS` query selects only `?spC` but also binds `?matTypeLabelC` and computes `?result_valueC`, neither projected nor filtered on. Removing just those two took the query from a hard timeout to 24.7s before it hit the memory ceiling. Same pattern as the Indiana card in changelog week 37 entry 5.

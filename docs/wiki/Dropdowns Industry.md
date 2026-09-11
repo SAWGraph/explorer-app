@@ -37,6 +37,12 @@ then for each code trims one character off the end at a time until it finds a co
 already exists, and attaches itself there. `325320` looks for `32532`, then `3253`, and stops
 at the first hit. Anything that never finds a parent becomes a root.
 
+`buildTree` has a second mode, used by the Material dropdown: an item may name its `parent`
+outright, and an explicit parent wins over prefix trimming. When any item does that, the
+caller's ordering is kept as given rather than sorted by code length — material types arrive
+sorted by observation count and sorting them by URI would throw that away. Industry supplies
+no explicit parents, so it takes the trimming path and the sort exactly as described above.
+
 This is why the tree structure depends entirely on which codes happen to be present. If an
 intermediate code is missing from the data, its children attach to whatever ancestor does
 exist, and the tree is a little flatter than the real NAICS hierarchy at that point.
@@ -83,7 +89,7 @@ some labels carry trailing whitespace straight from the source data.
 
 ## How it is wired up
 
-* The control is `HierarchicalSelect`, not the shared `FlatSelect`, rendered at
+* The control is `HierarchicalSelect`, shared with the Material dropdown, rendered at
   [`FacilityFilters.tsx:19`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/FacilityFilters.tsx#L19).
   Its parts are
   [`HierarchicalSelect.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/HierarchicalSelect/HierarchicalSelect.tsx),
@@ -91,7 +97,7 @@ some labels carry trailing whitespace straight from the source data.
   and
   [`useNaicsTree.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts).
 * Its options come from
-  [`useIndustries()`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L14),
+  [`useIndustries()`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L25),
   called at
   [`FacilityFilters.tsx:12`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/FacilityFilters.tsx#L12).
 * The query text is built by

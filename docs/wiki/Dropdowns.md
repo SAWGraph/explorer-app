@@ -13,7 +13,8 @@ Which PFAS chemicals to look for. Shown for Samples. Endpoint `sawgraph` with no
 
 **[Material](Dropdowns%20Material)**
 What the sample was taken from. Shown for Samples. Same endpoint switch as Substance.
-Falls back to six material types.
+Grouped into Water, Biota, Solid Material, Air and Other, and those headings are
+themselves tickable and collapsible. Falls back to six material types.
 
 **[Industry](Dropdowns%20Industry)**
 NAICS codes, as a searchable tree. Shown for Facilities. Endpoint `fiokg`. Falls back to
@@ -73,8 +74,9 @@ source that contradicts the selected state raises a warning.
 Everything on this page is one of two controls.
 
 [`FlatSelect`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/FlatSelect/FlatSelect.tsx)
-is the shared one: a searchable list rendered through a portal, single or multi select, with
-support for disabled options and a loading state. Every dropdown uses it except one.
+is the flat one: a searchable list rendered through a portal, single or multi select, with
+support for disabled options and a loading state. It can show group headings, but they are
+plain text — you cannot tick or collapse them.
 
 Multi select lists are headed by a Select all row, which carries the number of options it
 would tick, like `Select all (79)`. That number counts what the checkbox actually toggles, so
@@ -82,8 +84,19 @@ it excludes disabled options and narrows to the matches while a search term is t
 are comma formatted throughout, both on the Select all row and on individual options.
 
 [`HierarchicalSelect`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/HierarchicalSelect/HierarchicalSelect.tsx)
-is the exception, used only by Industry, because NAICS codes are a hierarchy and a flat list
-of 5596 of them is unusable.
+is the tree: every node carries a checkbox and, if it has children, a fold arrow. Ticking a
+parent takes everything under it, partial selections show an indeterminate box, and counts
+roll up from the leaves.
+
+Which one a dropdown gets comes down to whether its options have a hierarchy worth
+navigating. **Industry** uses the tree because NAICS codes nest and a flat list of 5,596 is
+unusable. **Material** uses it because 171 options are lopsided — 131 of them are fish
+species — and being able to say "all water samples" in one click, or fold Biota away, is the
+difference between usable and not. Everything else is a flat list.
+
+The two arrive at their tree differently. Industry has no explicit parent in the data, so
+the tree is derived from NAICS code prefixes. Material passes an explicit parent, because a
+material type URI says nothing about which bucket it belongs to. `buildTree` handles both.
 
 ## Filters that are not dropdowns
 

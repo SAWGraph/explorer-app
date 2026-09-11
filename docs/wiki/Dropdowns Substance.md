@@ -129,11 +129,11 @@ all of them named, none falling through to a DTXSID.
 ## How it is wired up
 
 * The control is a shared `FlatSelect`, rendered at
-  [`SampleFilters.tsx:35`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SampleFilters.tsx#L35).
+  [`SampleFilters.tsx:74`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SampleFilters.tsx#L74).
 * Its options come from
-  [`useSubstances(region)`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L97),
+  [`useSubstances(region)`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L116),
   called at
-  [`SampleFilters.tsx:19`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SampleFilters.tsx#L19).
+  [`SampleFilters.tsx:27`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SampleFilters.tsx#L27).
 * The query text is built by
   [`buildDiscoverSubstancesQuery()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts#L71),
   and the region part by
@@ -153,7 +153,7 @@ one fetch per region per session, and `retry: 1`. `FALLBACK_SUBSTANCES` doubles 
 is still in flight.
 
 The label shown in the list is `shortLabel || label`, with the count appended by `withCount()`
-at [`SampleFilters.tsx:14`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SampleFilters.tsx#L14).
+at [`SampleFilters.tsx:22`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SampleFilters.tsx#L22).
 Selecting an option stores both the substance URI and its display label on the question, so
 the Analysis Question sentence can say "PFOA" instead of a DSSTox URI.
 

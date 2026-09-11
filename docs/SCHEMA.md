@@ -24,6 +24,42 @@ SELECT ?predicate (COUNT(*) AS ?count) WHERE {
 
 Note: `gwml2:` is `gwml2.org`, **not** the OGC `opengis.net/def/gwml` namespace the UML diagrams suggest.
 
+### Instance data vs controlled vocabulary (August 2026 reload)
+
+The reload moved the two halves of the SAWGraph source data in **opposite directions**.
+Getting this backwards produces queries that are valid, return 200, and match nothing.
+
+| What | Where it lives | Example |
+|---|---|---|
+| Instance data — samples, sample points, observations | `v2/<source>-data#` | `v2/me-egad-data#d.egad.sample.136913…` |
+| Controlled vocabulary — material types, parameters, qualifiers | `v1/<source>#` (root) | `v1/me-egad#sampleMaterialType.GW` |
+
+A single WQP sample carries both at once, which is the clearest illustration:
+
+```
+instance:    http://w3id.org/sawgraph/v2/us-wqp-data#d.wqp.sample.11113300-A302638001
+vocabulary:  http://w3id.org/sawgraph/v1/us-wqp#sampleMedia.water
+```
+
+Verified live 2026-09-11, counting triples on all four spellings of one vocabulary term:
+
+| IRI | Triples |
+|---|---|
+| `v1/me-egad#sampleMaterialType.GW` | **46,110** |
+| `v1/me-egad-data#sampleMaterialType.GW` | 0 |
+| `v2/me-egad#sampleMaterialType.GW` | 0 |
+| `v2/me-egad-data#sampleMaterialType.GW` | 0 |
+
+Confirmed by Katrina Schweikert's note on the reload: *"all controlled vocabulary terms are
+in the root namespaces (me_egad and us_wqp)"*.
+
+Source of truth for the source-specific vocabularies is **`SAWGraph/pfas-kg`**, under
+`datasets/<state>/<source>/controlledVocab/`. Maine's material types are
+`datasets/maine/egad/controlledVocab/sample_type.ttl`, which declares
+`@prefix me_egad: <http://w3id.org/sawgraph/v1/me-egad#>` and defines 47 terms.
+`SAWGraph/contaminoso` defines the shapes (`coso:MaterialSample` and its subclasses),
+**not** the source terms — do not look for a material type there.
+
 ---
 
 ## S2 Cell Predicates
@@ -154,6 +190,38 @@ Federation has ~3.5x more facility data than fiokg alone (28M type assertions vs
 | `me_egad:sampleCollectionLocation` | 16K | |
 | `us-wqp:hasProjectId` | 5K | WQP-specific |
 | `us-wqp:sampleID` | 5K | |
+
+#### Material type inventory
+
+`coso:sampleOfMaterialType` is what the Material dropdown offers. Measured live 2026-09-11:
+**171 distinct values**, drawn from four unrelated source vocabularies that were never
+reconciled with each other.
+
+| Values | Observations | Vocabulary | Example |
+|---|---|---|---|
+| 79 | 163,405 | `v1/us-wqp#biologicalTaxon.*` | `Lepomis macrochirus` |
+| 47 | 833,058 | `v1/me-egad#sampleMaterialType.*` | `GROUNDWATER`, `LEACHATE` |
+| 39 | 33,790 | `v1/me-egad#sampleMaterialTypeQualifier.*` | `DEER`, `SPLIT` |
+| 6 | 208,219 | `v1/us-wqp#sampleMedia.*` | `Water`, `Tissue` |
+
+Consequences worth knowing before writing a query against it:
+
+- **Labels are inconsistent by source.** EGAD shouts (`GROUNDWATER`), WQP is title case
+  (`Tissue`). Upstream, not a rendering artefact.
+- **It includes things that are not materials.** Fish species sit alongside groundwater, and
+  the qualifier vocabulary mixes animals (`DEER`, `TURKEY`) with QA/QC flags (`SPLIT`,
+  `FIELD BLANK`, `NORMAL ENVIRONMENTAL SAMPLE`).
+- **`us-wqp#sampleMedia.water` is ambiguous.** It spans groundwater and surface water with
+  no way to separate them.
+- **14 samples (177 observations) have no `coso:sampleOfMaterialType` at all.** They are
+  unreachable through any material filter, though they appear when none is applied. One is
+  identified as "PFAS SLUDGE" and typed `coso:RawWaterSample`, so the information exists —
+  just not on this predicate.
+
+The grouping the dropdown shows is not in the data. It is computed per query by left joining
+each sample to the four direct subclasses of `coso:MaterialSample` and taking `MIN` of a
+hardcoded priority. The buckets are not naturally disjoint: 171 material types produce 178
+type-to-bucket links, and `MIN` resolves the 7 overlaps.
 
 ### Predicates TO `coso:MaterialSample` (incoming)
 
