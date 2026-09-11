@@ -27,11 +27,12 @@ Two quirks worth knowing about before you trust what you see:
   Cumberland County surfaces `Mytilus edulis`, the blue mussel, sitting in the list next to
   `GROUNDWATER`. That is what the graph says, and the filter only excludes URIs outside the
   `http://w3id.org/` namespace.
-* **The URIs change with the region.** Without a region the query hits `sawgraph`, which
-  names groundwater `me-egad#sampleMaterialType.GW`. With a region it hits `federation`,
-  which names the same thing `me-egad-data#sampleMaterialType.GW`. Same label, different URI.
-  A selection made before picking a state will therefore not match anything after picking
-  one. See [If it looks wrong](#if-it-looks-wrong).
+* **The URIs used to change with the region, and no longer do.** `sawgraph` and
+  `federation` once named groundwater differently, `me-egad#sampleMaterialType.GW` against
+  `me-egad-data#sampleMaterialType.GW`, so a selection made before picking a state stopped
+  matching after. Fixed upstream: controlled vocabulary now lives in the root namespaces,
+  `me-egad#` and `us-wqp#`, and both endpoints agree. Verified 2026-09-09, all six fallback
+  material types return identical counts on both.
 
 ## The SPARQL query
 
@@ -128,14 +129,16 @@ by splitting the URI on `#` or `/` and taking the tail.
 **Exactly six materials with tidy title case labels and no counts.** That is
 `FALLBACK_MATERIAL_TYPES`. Real results shout in uppercase and carry counts.
 
-**A selection stops matching after picking a state.** This is the `me-egad` versus
-`me-egad-data` URI split described above. The two endpoints name the same material
-differently, and the stored selection is a URI. Reselect the material after setting the
-region.
+**A selection stops matching after picking a state.** Historic, fixed upstream in the
+September 2026 rebuild. The two endpoints used to name the same material differently and the
+stored selection is a URI, so it stopped matching. Both now use the root `me-egad#`
+namespace. If you see this again, compare the material URIs the two endpoints return before
+assuming it is an app bug.
 
 **Species names in a materials list.** Genuinely in the graph, under
-`us-wqp-data#biologicalTaxon.*`. The namespace filter does not exclude them. If they should
-not be offered, the filter needs to be narrower than `http://w3id.org/`.
+`http://w3id.org/sawgraph/v1/us-wqp#biologicalTaxon.*`. The namespace filter does not exclude
+them. If they should not be offered, the filter needs to be narrower than
+`http://w3id.org/`.
 
 **Labels that are URI tails, like `sampleMaterialType.WW`.** That material has no
 `rdfs:label`, so the hook fell back to the URI tail.
