@@ -1,0 +1,130 @@
+name: Dashboard health
+
+# Runs the eight dashboard questions against the live endpoints once a week and
+# writes down what happened: worked or not, how long, how many rows. The point
+# is dating a regression. Without this, "the Indiana question broke sometime in
+# the last month" is the best anyone can say.
+#
+# Both branches are measured because they hit the same SPARQL endpoints — so a
+# difference between main and development is a difference in *our* code.
+#
+# No secrets. This never reads or writes the result cache: a cached answer would
+# report on the cache rather than on the graph.
+#
+# The schedule only fires once this file is on the default branch (main) —
+# GitHub ignores cron in workflows that live only on a feature branch.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+# These queries are heavy on a shared endpoint. Never two runs at once.
+concurrency:
+  group: health-check
+  cancel-in-progress: false
+
+permissions:
+  contents: write # commit the history file and status page
+  issues: write # open an issue when a question regresses
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out development (the branch results are committed to)
+        uses: actions/checkout@v4
+        with:
+          ref: development
+
+      - name: Check out main alongside it
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-ref
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # react-leaflet's peer range does not include React 19 (see CLAUDE.md)
+      - run: npm ci --legacy-peer-deps
+
+      - name: Measure development
+        id: dev
+        # bash, not the default sh-with-e: without pipefail the exit code would
+        # be tee's, and a regression would sail through as a pass.
+        shell: bash
+        run: npm run health-check -- development | tee dev.log
+        continue-on-error: true
+
+      - name: Install main's dependencies
+        working-directory: main-ref
+        run: npm ci --legacy-peer-deps
+
+      # Runs main's code, but appends to development's history file so both
+      # branches land in one commit and one status page.
+      - name: Measure main
+        id: main
+        working-directory: main-ref
+        shell: bash
+        run: npm run health-check -- main --out "$GITHUB_WORKSPACE/docs/health/history.jsonl" | tee "$GITHUB_WORKSPACE/main.log"
+        continue-on-error: true
+
+      - name: Commit the results
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs/health/
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "chore: dashboard health $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Dashboard health"
+            echo
+            echo '```'
+            tail -24 dev.log 2>/dev/null || echo "development: no output"
+            echo
+            tail -24 main.log 2>/dev/null || echo "main: no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Exit code 2 from the script means a question that worked last week does
+      # not work now. An issue rather than just a red X, because a red X in a
+      # weekly job is easy to miss for another week.
+      - name: Open an issue for regressions
+        if: steps.dev.outcome == 'failure' || steps.main.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "The weekly health check found a dashboard question that worked before and does not now."
+            echo
+            echo "See [the run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) and [docs/health/STATUS.md](${{ github.server_url }}/${{ github.repository }}/blob/development/docs/health/STATUS.md)."
+            echo
+            for log in dev.log main.log; do
+              [ -f "$log" ] || continue
+              echo "### ${log%.log}"
+              echo '```'
+              sed -n '/REGRESSIONS/,$p' "$log" 2>/dev/null | head -40
+              echo '```'
+            done
+          } > issue.md
+          gh issue create \
+            --title "Dashboard health: a question regressed ($(date -u +%Y-%m-%d))" \
+            --body-file issue.md \
+            --label bug
+
+      - name: Fail if a question regressed
+        if: steps.dev.outcome == 'failure' || steps.main.outcome == 'failure'
+        run: exit 1

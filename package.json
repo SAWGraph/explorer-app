@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "warm-cache": "tsx scripts/warm-cache.mts",
     "check-cache-key": "tsx scripts/check-cache-key.mts",
-    "query-matrix": "tsx scripts/query-matrix.mts"
+    "query-matrix": "tsx scripts/query-matrix.mts",
+    "health-check": "tsx scripts/health-check.mts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",

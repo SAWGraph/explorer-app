@@ -106,6 +106,7 @@ Inside `docs/`:
 | `ARCHITECTURE.md`   | System design, module boundaries, data flow                     |
 | `SCHEMA.md`         | Predicate inventories, class counts, endpoint roles             |
 | `QUERY-MATRIX.md`   | Every query shape, measured — plus the error catalogue (Part 4) |
+| `health/STATUS.md`  | Weekly dashboard health: working, timings, row-count drift       |
 | `DEBUGGING.md`      | Documented bugs with root causes and fixes                      |
 | `CONVENTIONS.md`    | Coding standards, endpoint selection rules                      |
 | `wiki/`             | One page per filter dropdown; source of truth for the GitHub Wiki |
