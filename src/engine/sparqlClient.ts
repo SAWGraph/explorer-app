@@ -7,6 +7,13 @@ import {
   isRetryable,
 } from './sparqlErrors';
 
+// The engine's own limit is 30s, so a request still open well past that is not
+// working — it is stalled behind an overloaded endpoint. Without this the client
+// waits forever: the matrix sweep recorded single requests hanging for 959s and
+// 1,918s, which also defeats the per-step budget (that is checked between
+// slices, not during one).
+const REQUEST_TIMEOUT_MS = 60_000;
+
 export interface SparqlOptions {
   // Cache the result for the lifetime of the page. Only for queries whose answer
   // cannot change within a session — region boundaries, entity-set probes.
@@ -39,6 +46,8 @@ async function requestWithRetry(
   attempt: number,
 ): Promise<SparqlRow[]> {
   let response: Response;
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
   try {
     response = await fetch(ENDPOINTS[endpoint], {
       method: 'POST',
@@ -47,9 +56,19 @@ async function requestWithRetry(
         'Accept': 'application/sparql-results+json',
       },
       body: query,
+      signal: abort.signal,
     });
   } catch (err) {
+    // Report a stall as a timeout, not a network fault: it means the same thing
+    // (too much work) and, unlike a network fault, it tells the executor that
+    // splitting the query is worth trying. No retry — a stalled endpoint will
+    // just stall again.
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new SparqlError('timeout', 0, `No response within ${REQUEST_TIMEOUT_MS / 1000}s`);
+    }
     throw new SparqlError('network', 0, err instanceof Error ? err.message : String(err));
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!response.ok) {

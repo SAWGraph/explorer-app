@@ -7,7 +7,12 @@ import { SparqlError, isSplittable } from './sparqlErrors';
 
 export interface PartialFailure {
   step: string;
-  scopes: string[];
+  // Slices the engine refused even at their smallest.
+  failed: string[];
+  // Slices never attempted because the step ran out of budget. These are not
+  // "too large" — re-running continues from a warmer cache and usually gets
+  // further, so the two must not be reported as the same thing.
+  skipped: string[];
 }
 
 export interface PipelineSuccess {
@@ -44,16 +49,19 @@ export interface StepProgress {
   chunksTotal?: number;
 }
 
-// Splitting a very large question can produce dozens of slices, each taking
-// seconds — "facilities downstream of facilities in Maine" divides into 16
-// counties and still cannot finish. Past this point a user is better served by
-// a partial map (or a clear "too large" message) than by an open-ended spinner.
+// One limit: how long a single step may spend in total.
 //
-// Budgeted per step rather than per pipeline: a question whose every step makes
-// steady progress should be allowed to finish — Illinois downstream questions
-// legitimately take ~3.5 minutes across all steps — while a single step that
-// cannot get anywhere is cut off quickly.
-const STEP_BUDGET_MS = 120_000;
+// Two earlier attempts were both worse. Budgeting elapsed time at 120s cut off
+// runs that were succeeding — "wells near 4 miles" had 13 of 16 county slices
+// working and was killed for being big. Budgeting only *wasted* time (90s of
+// failed attempts) then broke the opposite case: Illinois downstream has 4
+// slices where the first two fail slowly and the last two succeed, so it gave
+// up before reaching the slices that had the answer.
+//
+// Every slice gets attempted; only the total is bounded. With a 60s cap per
+// request (sparqlClient) that admits up to ~5 slices of pure failure before
+// stopping, which is enough for every shape measured in docs/QUERY-MATRIX.md.
+const STEP_CEILING_MS = 300_000;
 
 // Queries that have already failed as a whole in this session. Re-running the
 // same question would otherwise pay the engine's full 30s timeout again before
@@ -63,6 +71,7 @@ const knownTooLarge = new Set<string>();
 interface StepOutcome {
   rows: SparqlRow[];
   failedScopes: string[];
+  skippedScopes: string[];
   lastError?: SparqlError | Error;
 }
 
@@ -75,23 +84,24 @@ interface StepOutcome {
 async function runStep(
   step: PipelineStep,
   context: PipelineContext,
-  deadline: number,
   report: (chunksDone: number, chunksTotal: number) => void,
 ): Promise<StepOutcome> {
+  const startedAt = Date.now();
   const queue: (Scope | undefined)[] = step.initialScopes?.(context) ?? [undefined];
   const rows: SparqlRow[] = [];
   const seen = new Set<string>();
   const failedScopes: string[] = [];
+  const skippedScopes: string[] = [];
   let lastError: SparqlError | Error | undefined;
   let done = 0;
 
   while (queue.length > 0) {
     const scope = queue.shift()!;
 
-    // Out of time. Keep whatever came back and record the rest as skipped; if
-    // nothing came back, the step reports failure below rather than running on.
-    if (Date.now() > deadline) {
-      failedScopes.push(
+    // Out of budget. Record the rest as skipped (not failed) and keep what we
+    // have — those slices were never refused, just never reached.
+    if (Date.now() - startedAt > STEP_CEILING_MS) {
+      skippedScopes.push(
         ...[scope, ...queue].map((s, i) => s?.label ?? `remaining slice ${i + 1}`),
       );
       break;
@@ -141,7 +151,7 @@ async function runStep(
   }
 
   report(done, done);
-  return { rows, failedScopes, lastError };
+  return { rows, failedScopes, skippedScopes, lastError };
 }
 
 export async function executePipeline(
@@ -164,8 +174,7 @@ export async function executePipeline(
 
     let outcome: StepOutcome;
     try {
-      const deadline = Date.now() + STEP_BUDGET_MS;
-      outcome = await runStep(step, context, deadline, (chunksDone, chunksTotal) => {
+      outcome = await runStep(step, context, (chunksDone, chunksTotal) => {
         if (chunksTotal > 1) {
           onProgress({ ...base, status: 'running', chunksDone, chunksTotal });
         }
@@ -180,8 +189,9 @@ export async function executePipeline(
       };
     }
 
-    // Every slice failed and nothing came back: this step has no answer to give.
-    if (outcome.failedScopes.length > 0 && outcome.rows.length === 0 && !step.optional) {
+    // Nothing came back at all: this step has no answer to give.
+    const missing = [...outcome.failedScopes, ...outcome.skippedScopes];
+    if (missing.length > 0 && outcome.rows.length === 0 && !step.optional) {
       onProgress({ ...base, status: 'failed' });
       return {
         status: 'error',
@@ -190,8 +200,12 @@ export async function executePipeline(
         error: outcome.lastError ?? new Error('Query failed'),
       };
     }
-    if (outcome.failedScopes.length > 0) {
-      partial.push({ step: step.description, scopes: outcome.failedScopes });
+    if (missing.length > 0) {
+      partial.push({
+        step: step.description,
+        failed: outcome.failedScopes,
+        skipped: outcome.skippedScopes,
+      });
     }
 
     const results = outcome.rows;

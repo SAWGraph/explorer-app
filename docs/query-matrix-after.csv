@@ -1,0 +1,125 @@
+matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg,chunksMax,partialSlices
+M1,"samples near(1) samples [ME]",samples,near,1,samples,ME,"none",FIND_TARGET_IRIS,engine,success,28821,4398,0,ok,"",0,0
+M1,"samples near(1) facilities [ME]",samples,near,1,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,1418,2273,0,ok,"",0,0
+M1,"samples near(1) waterBodies [ME]",samples,near,1,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,1643,2199,0,ok,"",0,0
+M1,"samples near(1) wells [ME]",samples,near,1,wells,ME,"none",FIND_TARGET_IRIS,engine,success,5290,4279,0,ok,"",0,0
+M1,"samples near(1) aquifers [ME]",samples,near,1,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,1811,2759,0,ok,"",0,0
+M1,"facilities near(1) samples [ME]",facilities,near,1,samples,ME,"none",FIND_TARGET_IRIS,engine,success,12509,1358,0,ok,"",0,0
+M1,"facilities near(1) facilities [ME]",facilities,near,1,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,1634,2976,0,ok,"",0,0
+M1,"facilities near(1) waterBodies [ME]",facilities,near,1,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,863,1591,0,ok,"",0,0
+M1,"facilities near(1) wells [ME]",facilities,near,1,wells,ME,"none",FIND_TARGET_IRIS,engine,success,2402,2900,0,ok,"",0,0
+M1,"facilities near(1) aquifers [ME]",facilities,near,1,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,1582,1728,0,ok,"",0,0
+M1,"waterBodies near(1) samples [ME]",waterBodies,near,1,samples,ME,"none",FIND_TARGET_IRIS,engine,success,18042,591,0,ok,"",0,0
+M1,"waterBodies near(1) facilities [ME]",waterBodies,near,1,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,902,1015,0,ok,"",0,0
+M1,"waterBodies near(1) waterBodies [ME]",waterBodies,near,1,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,1434,6612,0,ok,"",0,0
+M1,"waterBodies near(1) wells [ME]",waterBodies,near,1,wells,ME,"none",FIND_TARGET_IRIS,engine,success,3793,3553,0,ok,"",0,0
+M1,"waterBodies near(1) aquifers [ME]",waterBodies,near,1,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,2672,3165,0,ok,"",0,0
+M1,"wells near(1) samples [ME]",wells,near,1,samples,ME,"none",FIND_TARGET_IRIS,engine,success,17597,14897,0,ok,"",0,0
+M1,"wells near(1) facilities [ME]",wells,near,1,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,1917,25668,0,ok,"",0,0
+M1,"wells near(1) waterBodies [ME]",wells,near,1,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,3053,52861,0,ok,"",0,0
+M1,"wells near(1) wells [ME]",wells,near,1,wells,ME,"none",FIND_TARGET_IRIS,engine,success,9761,83038,0,ok,"",0,0
+M1,"wells near(1) aquifers [ME]",wells,near,1,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,3069,40080,0,ok,"",0,0
+M1,"aquifers near(1) samples [ME]",aquifers,near,1,samples,ME,"none",FIND_TARGET_IRIS,engine,success,6268,899,0,ok,"",0,0
+M1,"aquifers near(1) facilities [ME]",aquifers,near,1,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,1230,1504,0,ok,"",0,0
+M1,"aquifers near(1) waterBodies [ME]",aquifers,near,1,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,739,3712,0,ok,"",0,0
+M1,"aquifers near(1) wells [ME]",aquifers,near,1,wells,ME,"none",FIND_TARGET_IRIS,engine,success,1106,3659,0,ok,"",0,0
+M1,"aquifers near(1) aquifers [ME]",aquifers,near,1,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,724,4972,0,ok,"",0,0
+M9,"samples near(1) facilities [1 county (Cumberland)]",samples,near,1,facilities,1 county (Cumberland),"none",FIND_TARGET_IRIS,engine,success,848,430,0,ok,"",0,0
+M9,"samples near(1) facilities [3 counties]",samples,near,1,facilities,3 counties,"none",FIND_TARGET_IRIS,engine,success,1389,1048,0,ok,"",0,0
+M9,"samples downstream facilities [1 county (Cumberland)]",samples,downstream,,facilities,1 county (Cumberland),"none",FIND_TARGET_IRIS,engine,success,12166,339,0,ok,"",0,0
+M9,"samples downstream facilities [3 counties]",samples,downstream,,facilities,3 counties,"none",FIND_TARGET_IRIS,engine,success,16505,902,0,ok,"",0,0
+M4,"samples near(0) facilities [ME]",samples,near,0,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,755,985,0,ok,"",0,0
+M4,"samples near(0) wells [ME]",samples,near,0,wells,ME,"none",FIND_TARGET_IRIS,engine,success,501,3254,0,ok,"",0,0
+M4,"wells near(0) facilities [ME]",wells,near,0,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,527,5462,0,ok,"",0,0
+M4,"waterBodies near(0) facilities [ME]",waterBodies,near,0,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,364,352,0,ok,"",0,0
+M4,"samples near(0) waterBodies [ME]",samples,near,0,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,335,709,0,ok,"",0,0
+M4,"samples near(2) facilities [ME]",samples,near,2,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,7046,3061,0,ok,"",0,0
+M4,"samples near(2) wells [ME]",samples,near,2,wells,ME,"none",FIND_TARGET_IRIS,engine,success,12370,4438,0,ok,"",0,0
+M4,"wells near(2) facilities [ME]",wells,near,2,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,18817,45280,0,ok,"",0,0
+M4,"waterBodies near(2) facilities [ME]",waterBodies,near,2,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,6447,1628,0,ok,"",0,0
+M4,"samples near(2) waterBodies [ME]",samples,near,2,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,10823,3120,0,ok,"",0,0
+M4,"samples near(3) facilities [ME]",samples,near,3,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,20812,3734,0,ok,"",0,0
+M4,"samples near(3) wells [ME]",samples,near,3,wells,ME,"none",FIND_TARGET_IRIS,engine,success,21254,4500,0,ok,"",0,0
+M4,"wells near(3) facilities [ME]",wells,near,3,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,16681,59773,0,ok,"",0,0
+M4,"waterBodies near(3) facilities [ME]",waterBodies,near,3,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,9754,2245,0,ok,"",0,0
+M4,"samples near(3) waterBodies [ME]",samples,near,3,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,error,122626,0,0,failed,"SPARQL out-of-memory (500): Tried to allocate 1.4 GB, but only 227.8 MB were available",16,0
+M4,"samples near(4) facilities [ME]",samples,near,4,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,14519,4100,0,ok,"",0,0
+M4,"samples near(4) wells [ME]",samples,near,4,wells,ME,"none",FIND_TARGET_IRIS,engine,success,23713,4521,0,ok,"",0,0
+M4,"wells near(4) facilities [ME]",wells,near,4,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,130167,27668,0,ok-partial,"",16,11
+M4,"waterBodies near(4) facilities [ME]",waterBodies,near,4,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,105532,2727,0,ok,"",16,0
+M4,"samples near(4) waterBodies [ME]",samples,near,4,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,3913,4242,0,ok,"",0,0
+M8,"substance filter (PFOS)",samples,near,1,facilities,ME,"substance",FIND_TARGET_IRIS,engine,success,17282,1375,0,ok,"",0,0
+M8,"material filter (GW)",samples,near,1,facilities,ME,"material",FIND_TARGET_IRIS,engine,empty,995,0,0,empty,"No results at step: Finding nearby samples",0,0
+M8,"concentration range 10-1000",samples,near,1,facilities,ME,"range",FIND_TARGET_IRIS,engine,success,13511,944,0,ok,"",0,0
+M8,"exclude non-detects",samples,near,1,facilities,ME,"nondetect",FIND_TARGET_IRIS,engine,success,8113,1892,0,ok,"",0,0
+M8,"substance + downstream",samples,downstream,,facilities,ME,"substance+ds",FIND_TARGET_IRIS,engine,success,28260,1406,0,ok,"",0,0
+M8,"NAICS 2-digit (whole sector 31)",samples,near,1,facilities,ME,"naics-sector",FIND_TARGET_IRIS,engine,success,12370,334,0,ok,"",0,0
+M8,"aquifer type filter",samples,near,1,aquifers,ME,"aquifer-type",FIND_TARGET_IRIS,engine,success,121194,167,0,ok-partial,"",16,15
+M8,"waterbody ftype filter",samples,near,1,waterBodies,ME,"wb-ftype",FIND_TARGET_IRIS,engine,success,2291,1583,0,ok,"",0,0
+M2,"samples downstream samples [ME]",samples,downstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,12322,3214,0,ok,"",0,0
+M2,"samples downstream facilities [ME]",samples,downstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,13925,2412,0,ok,"",0,0
+M2,"samples downstream waterBodies [ME]",samples,downstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,21127,2610,0,ok,"",0,0
+M2,"samples downstream wells [ME]",samples,downstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,success,48404,3202,0,ok,"",0,0
+M2,"samples downstream aquifers [ME]",samples,downstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,26517,2741,0,ok,"",0,0
+M2,"facilities downstream samples [ME]",facilities,downstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,29074,1657,0,ok,"",0,0
+M2,"facilities downstream facilities [ME]",facilities,downstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,error,163342,0,0,failed,"SPARQL timeout (429): Operation timed out. Last operation: Join on ?s2neighbor",16,0
+M2,"facilities downstream waterBodies [ME]",facilities,downstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,133024,1068,0,ok-partial,"",16,7
+M2,"facilities downstream wells [ME]",facilities,downstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,success,123269,743,0,ok-partial,"",16,12
+M2,"facilities downstream aquifers [ME]",facilities,downstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,135441,1016,0,ok-partial,"",16,7
+M2,"waterBodies downstream samples [ME]",waterBodies,downstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,13564,1511,0,ok,"",0,0
+M2,"waterBodies downstream facilities [ME]",waterBodies,downstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,121757,1032,0,ok-partial,"",16,7
+M2,"waterBodies downstream waterBodies [ME]",waterBodies,downstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,33371,6095,0,ok,"",0,0
+M2,"waterBodies downstream wells [ME]",waterBodies,downstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,success,29810,3991,0,ok,"",0,0
+M2,"waterBodies downstream aquifers [ME]",waterBodies,downstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,101485,4041,0,ok,"",16,0
+M2,"wells downstream samples [ME]",wells,downstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,24669,28920,0,ok,"",0,0
+M2,"wells downstream facilities [ME]",wells,downstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,134449,3889,0,ok-partial,"",16,14
+M2,"wells downstream waterBodies [ME]",wells,downstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,132771,17375,0,ok-partial,"",16,11
+M2,"wells downstream wells [ME]",wells,downstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,success,127487,3105,0,ok-partial,"",16,15
+M2,"wells downstream aquifers [ME]",wells,downstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,124979,12064,0,ok-partial,"",16,13
+M2,"aquifers downstream samples [ME]",aquifers,downstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,12891,2599,0,ok,"",0,0
+M2,"aquifers downstream facilities [ME]",aquifers,downstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,29557,3242,0,ok,"",0,0
+M2,"aquifers downstream waterBodies [ME]",aquifers,downstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,122191,3031,0,ok-partial,"",16,6
+M2,"aquifers downstream wells [ME]",aquifers,downstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,success,123040,1776,0,ok-partial,"",16,9
+M2,"aquifers downstream aquifers [ME]",aquifers,downstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,128690,854,0,ok-partial,"",16,20
+M3,"samples upstream samples [ME]",samples,upstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,error,99678,0,0,failed,"SPARQL network (0): fetch failed",0,0
+M3,"samples upstream facilities [ME]",samples,upstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,13767,2739,0,ok,"",0,0
+M3,"samples upstream waterBodies [ME]",samples,upstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,12270,6072,0,ok,"",0,0
+M3,"samples upstream wells [ME]",samples,upstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,error,551866,0,0,failed,"SPARQL network (0): fetch failed",0,0
+M3,"samples upstream aquifers [ME]",samples,upstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,15097,4650,0,ok,"",0,0
+M3,"facilities upstream samples [ME]",facilities,upstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,28267,3195,0,ok,"",0,0
+M3,"facilities upstream facilities [ME]",facilities,upstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,error,1918322,0,0,failed,"SPARQL network (0): fetch failed",0,0
+M3,"facilities upstream waterBodies [ME]",facilities,upstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,error,958890,0,0,failed,"SPARQL network (0): fetch failed",0,0
+M3,"facilities upstream wells [ME]",facilities,upstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,error,209172,0,0,failed,"SPARQL network (0): fetch failed",0,0
+M3,"facilities upstream aquifers [ME]",facilities,upstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,122995,2690,0,ok-partial,"",16,12
+M3,"waterBodies upstream samples [ME]",waterBodies,upstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,9531,3064,0,ok,"",0,0
+M3,"waterBodies upstream facilities [ME]",waterBodies,upstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,12450,2770,0,ok,"",0,0
+M3,"waterBodies upstream waterBodies [ME]",waterBodies,upstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,27386,6504,0,ok,"",0,0
+M3,"waterBodies upstream wells [ME]",waterBodies,upstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,success,25719,51437,0,ok,"",0,0
+M3,"waterBodies upstream aquifers [ME]",waterBodies,upstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,14828,4764,0,ok,"",0,0
+M3,"wells upstream samples [ME]",wells,upstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,48346,3221,0,ok,"",0,0
+M3,"wells upstream facilities [ME]",wells,upstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,131202,1729,0,ok-partial,"",16,10
+M3,"wells upstream waterBodies [ME]",wells,upstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,129915,5028,0,ok-partial,"",16,10
+M3,"wells upstream wells [ME]",wells,upstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,success,191792,8834,0,ok-partial,"",16,14
+M3,"wells upstream aquifers [ME]",wells,upstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,127053,4172,0,ok-partial,"",16,11
+M3,"aquifers upstream samples [ME]",aquifers,upstream,,samples,ME,"none",FIND_TARGET_IRIS,engine,success,24083,2935,0,ok,"",0,0
+M3,"aquifers upstream facilities [ME]",aquifers,upstream,,facilities,ME,"none",FIND_TARGET_IRIS,engine,success,17251,1919,0,ok,"",0,0
+M3,"aquifers upstream waterBodies [ME]",aquifers,upstream,,waterBodies,ME,"none",FIND_TARGET_IRIS,engine,success,129101,5101,0,ok-partial,"",16,3
+M3,"aquifers upstream wells [ME]",aquifers,upstream,,wells,ME,"none",FIND_TARGET_IRIS,engine,success,121522,26679,0,ok-partial,"",16,11
+M3,"aquifers upstream aquifers [ME]",aquifers,upstream,,aquifers,ME,"none",FIND_TARGET_IRIS,engine,success,128409,4290,0,ok-partial,"",16,3
+M6,"samples downstream facilities [17]",samples,downstream,,facilities,17,"none",FIND_TARGET_IRIS,engine,error,124001,0,0,failed,"SPARQL timeout (429): Operation timed out. Last operation: Join on ?s2anchor",4,0
+M6,"samples downstream facilities [18]",samples,downstream,,facilities,18,"none",FIND_TARGET_IRIS,engine,success,19942,234,0,ok,"",0,0
+M6,"samples downstream facilities [25]",samples,downstream,,facilities,25,"none",FIND_TARGET_IRIS,engine,success,134271,115,0,ok-partial,"",14,8
+M6,"samples downstream facilities [33]",samples,downstream,,facilities,33,"none",FIND_TARGET_IRIS,engine,success,74450,43,0,ok,"",3,0
+M6,"samples downstream facilities [01]",samples,downstream,,facilities,01,"none",FIND_TARGET_IRIS,engine,empty,95736,0,0,empty,"No results at step: Finding downstream samples",3,0
+M6,"samples downstream facilities [50]",samples,downstream,,facilities,50,"none",FIND_TARGET_IRIS,engine,success,5012,17,0,ok,"",0,0
+M7,"samples near facilities [NO REGION]",samples,near,1,facilities,none,"none",FIND_TARGET_IRIS,engine,success,1166,4770,0,ok,"",0,0
+M7,"samples downstream facilities [NO REGION]",samples,downstream,,facilities,none,"none",FIND_TARGET_IRIS,engine,error,28640,0,0,failed,"SPARQL out-of-memory (500): Tried to allocate 2.6 GB, but only 1.3 GB were available",0,0
+M7,"wells near facilities [NO REGION]",wells,near,1,facilities,none,"none",FIND_TARGET_IRIS,engine,success,21728,219026,0,ok,"",0,0
+M5,"PREBUILT: Samples Near Agricultural Chemical Facilities in Maine",samples,near,1,facilities,23,"prebuilt",PIPELINE,engine,success,33375,31,0,ok,"",0,0
+M5,"PREBUILT: Samples Near Landfills & DOD Sites in Penobscot and Knox County",samples,near,1,facilities,23019|23013,"prebuilt",PIPELINE,engine,success,10618,61,0,ok,"",0,0
+M5,"PREBUILT: Surface Water Bodies Near Landfills & DOD Sites in Penobscot and Knox County",waterBodies,near,1,facilities,23019|23013,"prebuilt",PIPELINE,engine,success,24072,103,0,ok,"",0,0
+M5,"PREBUILT: Samples Downstream of Waste Treatment Facilities in Indiana",samples,downstream,,facilities,18,"prebuilt",PIPELINE,engine,success,70778,15696,0,ok,"",0,0
+M5,"PREBUILT: Maine Private Wells Near Landfills & DoD Sites",wells,near,1,facilities,23,"prebuilt",PIPELINE,engine,success,22779,751,0,ok,"",0,0
+M5,"PREBUILT: Maine Private Wells Near Wastewater Treatment Facilities",wells,near,1,facilities,23,"prebuilt",PIPELINE,engine,success,13742,2431,0,ok,"",0,0
+M5,"PREBUILT: Maine Private Wells Near Airports & Air Transportation Sites (AFFF)",wells,near,1,facilities,23,"prebuilt",PIPELINE,engine,success,13122,4425,0,ok,"",0,0
+M5,"PREBUILT: PFHpA Groundwater Samples Downstream from Facilities in Cumberland County",samples,downstream,,facilities,23005,"prebuilt",PIPELINE,engine,empty,2435,0,0,empty,"No results at step: Finding downstream samples",0,0

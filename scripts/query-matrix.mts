@@ -22,12 +22,35 @@
 
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { planPipeline } from '../src/engine/planner';
+import { executePipeline } from '../src/engine/executor';
 import { ENDPOINTS } from '../src/constants/endpoints';
 import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
 import type { AnalysisQuestion, EntityType } from '../src/types/query';
 
+// 'raw' posts each step's SPARQL directly — measures the endpoint, not us, and
+// is how the pre-Phase-2 baseline was recorded. 'engine' runs the real pipeline
+// so splitting, merging, partial results and the step budget are all exercised;
+// that is the mode to use for an after-the-change sweep.
+const MODE = (process.env.QUERY_MATRIX_MODE ?? 'raw') as 'raw' | 'engine';
+// Default output is the *baseline* file, which is committed history — an `init`
+// run truncates whatever it points at, so writing there needs to be deliberate.
 const OUT = process.env.QUERY_MATRIX_OUT ?? 'docs/query-matrix.csv';
-if (process.argv[3] === 'init') writeFileSync(OUT, 'matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg\n');
+if (process.argv[3] === 'init' && OUT === 'docs/query-matrix.csv' && !process.env.QUERY_MATRIX_OVERWRITE_BASELINE) {
+  console.error(
+    'Refusing to truncate the committed baseline docs/query-matrix.csv.\n' +
+      'Set QUERY_MATRIX_OUT=docs/query-matrix-after.csv (or another path) for a new sweep,\n' +
+      'or QUERY_MATRIX_OVERWRITE_BASELINE=1 if you really mean to replace the baseline.',
+  );
+  process.exit(1);
+}
+if (process.argv[3] === 'init') {
+  writeFileSync(
+    OUT,
+    MODE === 'engine'
+      ? 'matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg,chunksMax,partialSlices\n'
+      : 'matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg\n',
+  );
+}
 
 const classify = (status: number, ex: string): string => {
   if (status === 200) return 'ok';
@@ -42,7 +65,57 @@ const classify = (status: number, ex: string): string => {
 
 const csv = (s: unknown) => `"${String(s).replace(/"/g, "'").replace(/\s+/g, ' ').slice(0, 180)}"`;
 
+// Runs through the real engine. For phases that measured only the discovery
+// step in the baseline, the step list is truncated to that step so the two
+// sweeps compare like with like — discovery is where almost every failure was.
+async function runViaEngine(
+  matrix: string,
+  label: string,
+  q: AnalysisQuestion,
+  meta: Record<string, unknown>,
+  stepIdx: number | 'all',
+) {
+  const all = planPipeline(q);
+  const steps = stepIdx === 'all' ? all : all.slice(0, (stepIdx as number) + 1);
+  let chunksMax = 0;
+  const t0 = Date.now();
+  const result = await executePipeline(steps, q, (p) => {
+    if ((p.chunksTotal ?? 0) > chunksMax) chunksMax = p.chunksTotal ?? 0;
+  });
+  const ms = Date.now() - t0;
+
+  const rows =
+    result.status === 'success'
+      ? Object.values(result.data).reduce((n, r) => Math.max(n, r.length), 0)
+      : 0;
+  const partialSlices =
+    result.status === 'success'
+      ? (result.partial ?? []).reduce((n, p) => n + p.failed.length + p.skipped.length, 0)
+      : 0;
+  const errorClass =
+    result.status === 'success'
+      ? partialSlices > 0
+        ? 'ok-partial'
+        : 'ok'
+      : result.status === 'empty'
+        ? 'empty'
+        : 'failed';
+  const detail =
+    result.status === 'error' ? result.error.message : result.status === 'empty' ? result.message : '';
+
+  appendFileSync(
+    OUT,
+    [matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters),
+     stepIdx === 'all' ? 'PIPELINE' : steps[steps.length - 1].type, 'engine',
+     result.status, ms, rows, 0, errorClass, csv(detail), chunksMax, partialSlices].join(',') + '\n',
+  );
+  console.log(
+    `${matrix} ${label.padEnd(44).slice(0, 44)} ${result.status.padEnd(8)} ${String(ms).padStart(7)}ms rows=${String(rows).padStart(5)} chunks=${chunksMax} partial=${partialSlices}`,
+  );
+}
+
 async function run(matrix: string, label: string, q: AnalysisQuestion, meta: Record<string, unknown>, stepIdx: number | 'all') {
+  if (MODE === 'engine') return runViaEngine(matrix, label, q, meta, stepIdx);
   const steps = planPipeline(q);
   const ctx: any = { question: q, targetIris: [], anchorIris: [], results: {} };
   const idxs = stepIdx === 'all' ? steps.map((_, i) => i) : [stepIdx];

@@ -70,8 +70,25 @@ but the editor never offers it, so no query in this sheet uses it.
 
 ## Part 3 — Results
 
-**156 queries executed.** Every shape below was run once against the live
-endpoints in a single sweep on 2026-09-13.
+**156 queries executed, covering 95 of the 175 shapes the editor can express.**
+Every shape below was run once against the live endpoints in a single sweep on
+2026-09-13.
+
+**What is and is not covered** — so nobody reads this as exhaustive:
+
+| Dimension | Covered | Not covered |
+| --- | --- | --- |
+| Entity pairs × relationship | **all 75** (25 pairs × near-1 / downstream / upstream) | — |
+| Near distances 0, 2, 3, 4 | 20 of 100 (5 representative pairs) | the other 80 combinations |
+| States | 6 of 13 (IL, IN, MA, NH, AL, VT) | AZ, AR, KS, MN, OH, SC |
+| Filters | 8 cases, all on one base shape | filter × shape interactions |
+| Region scope | none / state / 1 county / 3 counties | arbitrary multi-county selections |
+| Dashboard queries | all 8, every step | — |
+
+The gaps are deliberate: the 80 missing combinations are near-distance variants
+of pairs whose hop-1 behaviour is already recorded, and distance cost is
+characterised separately in 3.4. Fill them by adding pairs to phase M4 in
+`scripts/query-matrix.mts` if a question there ever matters.
 
 | | Runs | Worked | of which slow (>15s) | Failed |
 | --- | --- | --- | --- | --- |
@@ -450,3 +467,95 @@ reason.
 - **The okn.us asks** (access token to raise the 30s limit; a materialized
   downstream relation) would remove the ceiling that everything here works
   around.
+
+---
+
+## Part 7 — Full verification sweep (2026-09-14)
+
+The whole matrix re-run through the real engine (`QUERY_MATRIX_MODE=engine`), so
+splitting, merging, partial results and the step budget were all exercised —
+not just the raw SPARQL. Raw data: `docs/query-matrix-after.csv`.
+
+**124 shapes compared. Of the 37 that failed at baseline, 34 now work. No
+regressions.**
+
+| Outcome | Count |
+| --- | --- |
+| Fixed | **34** |
+| Still failing | **3** |
+| Regressions | **0** |
+| Unchanged, working | 85 |
+
+### 7.1 The 3 that still fail
+
+Every one leaves the **second block** completely unconstrained, which is what
+drives the cost — not the size of the answer.
+
+| Shape | What it asks | Failure |
+| --- | --- | --- |
+| `samples near(3) waterBodies [ME]` | within 3 miles of *any* water body in the graph | OOM, 1.4 GB |
+| `facilities ↓ facilities [ME]` | downstream of *all 1,506,326* facilities | no response in 60s |
+| `samples ↓ facilities [NO REGION]` | the above with no region on either side | OOM, 2.6 GB |
+
+Constraining the second block fixes them (measured in 6.3). Narrowing the
+*first* block does not — the cost is not there.
+
+### 7.2 Small questions stay fast
+
+| Shape | Time | Rows |
+| --- | --- | --- |
+| 1 county, near 1 mile | 0.8s | 430 |
+| 3 counties, near 1 mile | 1.4s | 1,048 |
+| 1 county, downstream | 12.2s | 339 |
+| 0-mile radius, any pair | 0.3–0.8s | — |
+| 2-mile radius | 6–19s | up to 45,280 |
+
+Note `wells near(2) facilities`: **45,280 rows in 18.8s**. Large answers are
+fine. Unbounded *search spaces* are not.
+
+### 7.3 Dashboard queries — all 8 pass, 3 materially faster
+
+| Query | Before | After |
+| --- | --- | --- |
+| Samples Near Agricultural Chemical Facilities | 62.7s | **33.4s** |
+| Surface Water Bodies Near Landfills & DOD | 30.8s | **24.1s** |
+| Samples Near Landfills & DOD (Penobscot/Knox) | 15.4s | **10.6s** |
+| Samples Downstream of Waste Treatment (Indiana) | 67.2s | 70.8s |
+| Maine Private Wells × 3 | 13–19s | 13–23s |
+| PFHpA Groundwater Samples (Cumberland) | 2.1s, empty | 2.4s, **still empty** |
+
+The speed-ups are the deleted `GET_SAMPLE_DETAILS` step. PFHpA returning nothing
+is unchanged and unrelated to performance — a data or query-correctness issue
+that deserves its own investigation.
+
+### 7.4 Three defects the sweep exposed, and fixed
+
+**A missing client timeout.** `executeSparql` had no `AbortController`, so a
+stalled endpoint blocked indefinitely — single requests recorded at **959s and
+1,918s**. The per-step budget could not help, because it is checked *between*
+slices. Worse, a hang never becomes a classified error, so the query never
+split: three shapes recorded as "still failing" were only hanging, and all three
+work now (`facilities upstream facilities` → 224s, 2,813 rows, complete). A 60s
+cap now reports a stall as a timeout, which is splittable.
+
+**Two budget rules, both wrong, in opposite directions.** Budgeting *elapsed*
+time killed runs that were succeeding: `wells near(4)` had 13 of 16 county
+slices working and was cut off at 120s for being big. Budgeting only *wasted*
+time then broke the opposite case: Illinois has slices that fail slowly before
+the ones that succeed, so it gave up before reaching the answer. Both are gone.
+One rule remains — every slice is attempted, only the 300s step total is
+bounded. Both cases now complete: Illinois 248s, `wells near(4)` 283s with
+69,127 rows and nothing missing.
+
+**"Failed" and "skipped" were the same number.** A slice the engine refused and
+a slice never attempted were both reported as "too large". They need opposite
+advice — narrow the question vs. just run it again — and are now tracked and
+worded separately.
+
+### 7.5 Caveat on the recorded partial counts
+
+`query-matrix-after.csv` was captured *before* the budget fix, so its
+`partialSlices` numbers are pessimistic: they count slices skipped by a rule
+that has since been replaced. The one case re-measured afterwards
+(`wells near(4)`) went from 11 missing to **0**. Several other partials in that
+file are likely complete now; they have not been re-run.
