@@ -11,9 +11,13 @@ A comprehensive guide to understanding how this application works, from knowledg
 3. [Folder Structure](#folder-structure)
 4. [Data Flow](#data-flow)
 5. [The Query Pipeline](#the-query-pipeline)
-6. [SPARQL Queries](#sparql-queries)
-7. [Key Design Decisions](#key-design-decisions)
-8. [The Endpoints](#the-endpoints)
+6. [Bounded Execution](#bounded-execution)
+7. [The Result Cache](#the-result-cache)
+8. [SPARQL Queries](#sparql-queries)
+9. [Key Design Decisions](#key-design-decisions)
+10. [The Endpoints](#the-endpoints)
+11. [Common Patterns](#common-patterns)
+12. [Debugging Tips](#debugging-tips)
 
 ---
 
@@ -62,6 +66,12 @@ This finds all facilities with industry code 3253 and returns their names.
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
+│                      Result Cache                            │
+│  A hit here skips everything below (server/ + Postgres)     │
+└────────────────┬────────────────────────────────────────────┘
+                 │ miss
+                 ▼
+┌─────────────────────────────────────────────────────────────┐
 │                      Query Pipeline                          │
 │  (Planner → Executor → Result Transformer)                  │
 └────────────────┬────────────────────────────────────────────┘
@@ -69,7 +79,7 @@ This finds all facilities with industry code 3253 and returns their names.
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   SPARQL Query Templates                     │
-│  (Facilities, Samples, Water Bodies, Spatial, Hydrology)   │
+│  (fusedQueries · hydrate · regions · wells · aquifers)      │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
@@ -81,65 +91,77 @@ This finds all facilities with industry code 3253 and returns their names.
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Knowledge Graphs                          │
-│  (RDF Triples in GraphDB)                                   │
+│  (RDF triples, served by QLever)                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **The flow:**
-1. User asks: "What samples are near facilities in Maine?"
-2. Query pipeline breaks this into steps
-3. Each step generates a SPARQL query
-4. Query executes against the right endpoint
-5. Results transform into map features
-6. Map displays points/polygons
+1. User builds a question from three blocks: "samples" + "near" + "landfills in Maine"
+2. If that exact question is already cached, the answer comes back in one request
+3. Otherwise the planner breaks it into steps
+4. Each step generates a SPARQL query and runs against the right endpoint
+5. A step that is too big for the engine is split and retried in slices
+6. Results transform into map features
+7. Map displays points, lines and polygons
 
 ---
 
 ## Folder Structure
 
 ```
-sawgraph-query-editor/
+explorer/
 ├── src/
 │   ├── components/          # React UI components
 │   │   ├── Dashboard/       # Pre-built query cards
 │   │   ├── QueryEditor/     # Block A / Relationship / Block C editors
-│   │   ├── Map/             # Leaflet map + layers
-│   │   ├── Pipeline/        # Pipeline progress visualization
+│   │   ├── Map/             # Leaflet map + one layer component per entity type
+│   │   ├── Pipeline/        # Progress strip, partial-results notice
+│   │   ├── Publish/         # Share a question and its result by link
+│   │   ├── DesignSystem/    # Design guide route
+│   │   ├── common/          # FlatSelect, HierarchicalSelect, shared bits
 │   │   └── Layout/          # Header, sidebar, layout
 │   │
-│   ├── engine/              # THE CORE: Query pipeline logic
-│   │   ├── planner.ts       # Converts question → pipeline steps
-│   │   ├── executor.ts      # Executes steps sequentially
-│   │   ├── sparqlClient.ts  # Sends SPARQL to endpoints
+│   ├── engine/              # THE CORE: query planning and execution
+│   │   ├── planner.ts       # Question → pipeline steps
+│   │   ├── executor.ts      # Runs steps, splits what the engine refuses
+│   │   ├── scope.ts         # How to slice a step that was too big
+│   │   ├── sparqlClient.ts  # Sends SPARQL, retries, 60s request timeout
+│   │   ├── sparqlErrors.ts  # Classifies failures (a 429 is usually a timeout)
+│   │   ├── queryBreadth.ts  # Pre-flight warning for questions that reliably fail
+│   │   ├── cacheKey.ts      # Canonical question → cache key
+│   │   ├── wire.ts          # What a cached result looks like on the wire
 │   │   ├── resultTransformer.ts # SPARQL rows → map features
-│   │   └── templates/       # SPARQL query builders
-│   │       ├── facilities.ts
-│   │       ├── samples.ts
-│   │       ├── waterBodies.ts
-│   │       ├── spatial.ts   # Region filters, near expansion
-│   │       └── hydrology.ts # Upstream/downstream tracing
+│   │   └── templates/       # SPARQL builders
+│   │       ├── fusedQueries.ts   # The main one: spatial + hydrological joins
+│   │       ├── hydrate.ts        # Fetch details for a known list of IRIs
+│   │       ├── regions.ts        # Dropdown discovery queries
+│   │       ├── downstreamSamples.ts
+│   │       ├── wells.ts · aquifers.ts
+│   │       ├── facilities.ts · samples.ts  # Shared fragments, not whole queries
+│   │       └── spatial.ts        # Region boundary geometry
 │   │
-│   ├── store/
-│   │   └── queryStore.ts    # Zustand state (question + results)
+│   ├── api/                 # Talks to our own API (not to SPARQL)
+│   │   ├── resultCacheClient.ts
+│   │   └── publishClient.ts
 │   │
-│   ├── hooks/
-│   │   └── useDiscoveryQueries.ts # React Query for dropdown data
-│   │
-│   ├── types/
-│   │   ├── query.ts         # AnalysisQuestion, filters
-│   │   └── sparql.ts        # SPARQL response types
-│   │
-│   └── constants/
-│       ├── endpoints.ts     # SPARQL endpoint URLs
-│       ├── prefixes.ts      # SPARQL namespace prefixes
-│       └── regions.ts       # US states with data
+│   ├── store/queryStore.ts  # Zustand: the question, results, view state
+│   ├── storage/             # localStorage: saved questions, publish tokens
+│   ├── hooks/               # React Query + pipeline hooks
+│   ├── types/               # AnalysisQuestion, MapFeature, SPARQL rows
+│   └── constants/           # Endpoints, prefixes, regions, prebuilt queries
 │
-└── docs/
-    ├── ARCHITECTURE.md      # This file
-    ├── DISCOVERY.md         # Predicate inventories + debugging findings
-    ├── CONVENTIONS.md       # Coding standards and patterns
-    ├── changelog/           # Weekly changelog files (YYYY-Www.md)
-    └── plans/               # Planning workflow (drafts → active → done)
+├── server/                  # Express + Postgres API (deployed separately)
+│   └── src/
+│       ├── resultCache.ts   # Gzipped results in Postgres, with TTLs
+│       ├── routes/results.ts   # Public read, token-gated write
+│       └── routes/publish.ts   # Published questions
+│
+├── scripts/                 # Maintainer tools (tsx)
+│   ├── warm-cache.mts       # Run the dashboard questions, upload the results
+│   ├── check-cache-key.mts  # Assertions on cache-key canonicalisation
+│   └── query-matrix.mts     # Measure every query shape, write the CSV
+│
+└── docs/                    # See CLAUDE.md for the full map
 ```
 
 **Key directories:**
@@ -147,6 +169,7 @@ sawgraph-query-editor/
 - **`components/`** — React UI. Organized by screen area.
 - **`store/`** — Zustand for global state (the current question and results).
 - **`hooks/`** — React Query for async data fetching (dropdown population).
+- **`server/`** — The only part that is not a static bundle. Holds the cache.
 
 ---
 
@@ -157,79 +180,123 @@ sawgraph-query-editor/
 User selects in the UI:
 - **Block A** (target): "Samples"
 - **Relationship**: "near"
-- **Block C** (anchor): "Facilities with NAICS 3253"
-- **Region**: "Maine"
+- **Block C** (anchor): "Landfills" (NAICS 562212)
+- **Region**: "Penobscot County, Maine"
 
-This creates an `AnalysisQuestion` object:
+This creates an `AnalysisQuestion` object (`src/types/query.ts`):
 
 ```typescript
 {
   blockA: {
     type: 'samples',
-    sampleFilters: { substances: [...], materialTypes: [...] },
-    region: { stateCode: '23', countyCodes: ['23019'] }
+    region: {
+      stateCode: '23',
+      countyCodes: ['23019'],
+      countyLabels: { '23019': 'Penobscot County, Maine' }  // display only
+    }
   },
-  relationship: { type: 'near' },
+  relationship: { type: 'near', hops: 1 },
   blockC: {
     type: 'facilities',
-    facilityFilters: { industryCodes: ['3253'] },
-    region: { stateCode: '23' }
+    facilityFilters: { industryCodes: ['562212'] }
   }
 }
 ```
 
+Six entity types are available for either block: `samples`, `facilities`,
+`waterBodies`, `wells`, `aquifers`, `streams`. Four relationships: `near`
+(with `hops`), `within`, `downstream` and `upstream` (each with an optional
+`maxDistanceKm`).
+
+The `*Labels` maps exist only to render chips in the editor. They never reach a
+query, and `cacheKey.ts` strips them, so re-picking the same county with
+different label text still hits the cache.
+
 ### 2. Planner Creates Pipeline Steps
 
-`planner.ts` converts the question into a sequence of steps:
+`planner.ts` converts the question into a sequence of steps. For the question
+above:
 
 ```typescript
 [
-  Step 1: GET_S2_FOR_ANCHOR (Find S2 cells with NAICS 3253 facilities)
-  Step 2: FILTER_S2_TO_REGION (Keep only Maine S2 cells)
-  Step 3: EXPAND_S2_NEAR (Expand to neighboring S2 cells ~10km)
-  Step 4: FILTER_S2_POST_SPATIAL (Filter expanded cells to target region)
-  Step 5: FIND_TARGET_ENTITIES (Find samples in those S2 cells)
-  Step 6: GET_ANCHOR_DETAILS (Get facility details for map)
-  Step 7: GET_REGION_BOUNDARIES (Get Maine boundary polygon)
+  FIND_TARGET_IRIS       // federation — which samples are near a landfill?
+  FIND_ANCHOR_IRIS       // federation — which landfills have a sample nearby?
+  HYDRATE_TARGET_BY_IRI  // federation — details for those samples
+  HYDRATE_ANCHOR_BY_IRI  // federation — details for those landfills
+  GET_REGION_BOUNDARIES  // spatialkg  — the county outline to draw
 ]
 ```
+
+The full vocabulary is seven step types (`planner.ts` `PipelineStepType`). Two
+more appear for hydrological questions: `GET_FLOWLINE_GEOMETRIES` draws the
+river reaches, and `GET_SAMPLE_DETAILS` exists but is no longer emitted —
+per-sample observations are fetched on demand when a popup opens
+(`useSampleDetails.ts`), because fetching them up front cost 18–37 MB per run.
 
 Each step specifies:
 - **Type** (what kind of operation)
 - **Endpoint** (which knowledge graph to query)
 - **Description** (shown to user during execution)
-- **Query builder** (function that generates SPARQL)
+- **Query builder** — `(context, scope?) => string`
+- **`divide`** (optional) — how to slice this step if it is too big
+- **`optional`** (optional) — if true, a failure here does not abort the run
 
-### 3. Executor Runs Steps Sequentially
+**Find first, then hydrate.** The discovery steps return bare IRIs and nothing
+else; the hydrate steps take that list and fetch geometry, labels and
+measurements for exactly those entities. Keeping them apart is what stopped an
+ID-finding query from building every measurement in the state and throwing it
+away — see `docs/QUERY-MATRIX.md` Part 5.
 
-`executor.ts` runs each step in order:
+### 3. Executor Runs the Steps
+
+`executor.ts` runs steps in order, but each step is more than one request.
 
 ```typescript
-for (const step of steps) {
-  // 1. Build SPARQL query using context from previous steps
-  const query = step.buildQuery(context);
+// Simplified from executor.ts runStep()
+const queue: (Scope | undefined)[] = [undefined];   // undefined = the whole query
 
-  // 2. Execute against the endpoint
-  const results = await executeSparql(step.endpoint, query);
-
-  // 3. Update context for next step
-  if (step produces S2 cells) {
-    context.s2Cells = results.map(r => r.s2cell);
+while (queue.length) {
+  const scope = queue.shift();
+  try {
+    rows = await executeSparql(step.endpoint, step.buildQuery(context, scope));
+    merge(rows);                       // deduped by JSON.stringify(row)
+  } catch (err) {
+    if (isSplittable(err) && step.divide) {
+      queue.unshift(...await step.divide(scope));   // try it in smaller pieces
+    } else {
+      failed.push(scope?.label ?? 'whole query');
+    }
   }
-
-  // 4. Store results
-  context.results[step.type] = results;
-
-  // 5. Early exit if no S2 cells (empty result)
-  if (context.s2Cells.length === 0) break;
+  if (Date.now() - stepStart > STEP_CEILING_MS) {   // 300s per step
+    skipped.push(...remaining);
+    break;
+  }
 }
 ```
 
-**Key concept: Threading S2 cells through steps**
-- Step 1 finds S2 cells `['kwgr:s2.level13.123', 'kwgr:s2.level13.456']`
-- Step 2 filters them to `['kwgr:s2.level13.123']`
-- Step 3 expands to `['kwgr:s2.level13.123', 'kwgr:s2.level13.789']`
-- Step 5 uses those cells to find samples
+**Try whole, then split.** Every step is attempted in one request first. Only
+the slices that actually fail get divided, so a question that fits pays nothing
+for the machinery.
+
+**The slice is chosen per question** (`scope.ts` `chooseAxis`). Which axis is
+right flips between states: Maine has 4,528 samples and 2,976 facilities,
+Illinois has 78 and 22,574 — so there is no fixed answer to "which side should
+we chunk". `chooseAxis` probes both sides in parallel, uses whichever it can
+enumerate, and falls back to splitting by county. A slice that still fails is
+`halve`d until it cannot be divided further.
+
+**A run can succeed with pieces missing.** `PartialFailure` distinguishes
+*failed* slices (refused even at minimum size — the question needs changing)
+from *skipped* ones (the 300s ceiling ran out — running it again may finish).
+`PartialResultsNotice.tsx` names them: "York County, Maine could not be
+answered".
+
+**Early exit.** If `FIND_TARGET_IRIS` returns nothing, the run stops there —
+there is no point hydrating an empty list.
+
+**What threads between steps** is `context.targetIris` / `context.anchorIris`,
+the entity IRIs found by the discovery steps. (It used to be S2 cells; see
+Key Design Decision 2.)
 
 ### 4. Result Transformer → Map Features
 
@@ -265,11 +332,17 @@ Handles Point, LineString, Polygon, MultiPolygon geometries.
 
 ### 5. Map Renders Layers
 
-React components in `components/Map/` render features:
-- `SampleLayer` — orange circles
-- `FacilityLayer` — blue markers
-- `WaterBodyLayer` — cyan polygons/lines
-- `RegionLayer` — gray boundary polygons
+React components in `components/Map/` render features, one per entity type:
+- `SampleLayer` — sample points, coloured by concentration
+- `FacilityLayer` — facility markers
+- `WaterBodyLayer` — water body polygons and lines
+- `WellLayer` — wells
+- `StreamLayer` — river reaches from `GET_FLOWLINE_GEOMETRIES`
+- `AquiferBoundaryLayer` — aquifer polygons
+- `RegionBoundaryLayer` — county and state outlines
+
+`useMapLayers.ts` decides which to build by row shape: a `spWKT` column means
+samples, `facWKT` facilities, `wbWKT` water bodies.
 
 ---
 
@@ -277,78 +350,104 @@ React components in `components/Map/` render features:
 
 ### What is a Pipeline Step?
 
-Each step is an object:
+Each step is an object (`planner.ts`):
 
 ```typescript
 {
-  type: 'GET_S2_FOR_ANCHOR',
+  type: 'FIND_TARGET_IRIS',
   endpoint: 'federation',
-  description: 'Finding S2 cells containing matching facilities',
-  buildQuery: (context) => {
-    // Generate SPARQL using:
-    // - User's filters (NAICS codes)
-    // - Previous step results (S2 cells from context)
-    return `SELECT ?s2cell WHERE { ... }`
-  }
+  description: 'Finding nearby samples',
+  buildQuery: (context, scope) => buildFusedNearQuery({ ... }),
+  divide: (scope) => /* smaller scopes to try instead */,
 }
 ```
 
-### Example: "Samples near facilities" Pipeline
+`scope` is what makes a step splittable: `undefined` means "the whole thing",
+and anything else narrows it to a list of anchor IRIs, target IRIs, or counties.
 
-Let's trace a full pipeline execution.
+### Example: "Samples near landfills" Pipeline
 
-#### User Question:
-"What samples in Penobscot County, Maine are near facilities with NAICS 3253?"
+The question: *what samples in Penobscot County, Maine are near a landfill
+(NAICS 562212)?*
 
-#### Step 1: GET_S2_FOR_ANCHOR (Find facility S2 cells)
+#### Step 1: FIND_TARGET_IRIS
 
 **Endpoint:** `federation`
 
-**SPARQL Generated:**
+**SPARQL generated** (prefixes omitted):
 ```sparql
-SELECT DISTINCT ?s2cell WHERE {
-  ?s2cell rdf:type kwg-ont:S2Cell_Level13 ;
-          kwg-ont:sfContains ?facility .
-  ?facility fio:ofIndustry naics:NAICS-3253 .
-} GROUP BY ?s2cell
-```
+SELECT DISTINCT (?spC AS ?iri) WHERE {
+  ?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
+  ?s2anchor kwg-ont:sfContains ?facilityA .
+  ?facilityA fio:ofIndustry ?industryCodeA .
+  ?industryCodeA a naics:NAICS-IndustryCode .
+  VALUES ?selectedIndustryA { naics:NAICS-562212 }
+  FILTER(?industryCodeA = ?selectedIndustryA
+         || EXISTS { ?industryCodeA fio:subcodeOf ?selectedIndustryA })
 
-**What this does:**
-- Find all S2 Level 13 cells
-- That contain facilities
-- With NAICS industry code 3253
-
-**Result:** 1,534 S2 cells (nationwide with NAICS 3253 facilities)
-
-#### Step 2: FILTER_S2_TO_REGION (Filter to Maine)
-
-**Endpoint:** `spatialkg`
-
-**SPARQL Generated:**
-```sparql
-SELECT ?s2cell WHERE {
-  ?s2neighbor spatial:connectedTo kwgr:administrativeRegion.USA.23 .
-  VALUES ?s2neighbor { kwgr:s2.level13.123 kwgr:s2.level13.456 ... }
-  ?s2neighbor kwg-ont:sfTouches | owl:sameAs ?s2cell .
+  ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2target .
+  ?s2target rdf:type kwg-ont:S2Cell_Level13 ;
+            spatial:connectedTo kwgr:administrativeRegion.USA.23019 .
+  ?spC rdf:type coso:SamplePoint ;
+       spatial:connectedTo ?s2target .
 }
 ```
 
-**What this does:**
-- Take the 1,534 S2 cells from Step 1
-- Find which ones are connected to Maine (FIPS code 23)
-- Return those cells + their touching neighbors
+**What this does** — all of it in one query:
+- find the S2 cells holding a landfill (`?s2anchor`)
+- step one cell outwards (`sfTouches`), which is the "near" in the question
+- keep only neighbours inside Penobscot County
+- return the sample points in them
 
-**Result:** 0 S2 cells (no NAICS 3253 facilities in Maine)
+The `FILTER ... EXISTS ... fio:subcodeOf` is what makes picking a parent NAICS
+code also match its children.
 
-**Pipeline exits early** — no point continuing if no S2 cells remain.
+**Result:** 14 sample point IRIs.
 
-#### If there were results... the pipeline would continue:
+#### Step 2: FIND_ANCHOR_IRIS
 
-**Step 3:** Expand S2 cells to neighbors (~10km radius)
-**Step 4:** Filter expanded cells to target region (Penobscot County)
-**Step 5:** Find samples in those S2 cells
-**Step 6:** Get facility details for map display
-**Step 7:** Get county boundary polygon
+The mirror image — the same join, returning `?facilityA` instead. This is not
+redundant: it answers "which landfills actually had a sample nearby", so the map
+draws only the facilities that took part.
+
+**Result:** 5 facility IRIs.
+
+#### Steps 3–4: HYDRATE_*_BY_IRI
+
+Now that the IDs are known, fetch what the map needs for exactly those, with
+the IRIs pinned in a `VALUES` block (`hydrate.ts`):
+
+```sparql
+SELECT (COUNT(DISTINCT ?observation) AS ?resultCount)
+       (MAX(?numericResult) AS ?max)
+       (GROUP_CONCAT(DISTINCT ?substance; separator="; ") AS ?substances)
+       ?sp ?spWKT ?s2cell
+WHERE {
+  VALUES ?sp { <...samplePoint1> <...samplePoint2> ... }
+  ?sp spatial:connectedTo ?s2cell ;
+      geo:hasGeometry/geo:asWKT ?spWKT .
+  ?observation coso:observedAtSamplePoint ?sp ;
+               coso:ofDSSToxSubstance ?substance ;
+               coso:hasResult ?result .
+  ...
+} GROUP BY ?sp ?spWKT ?s2cell
+```
+
+**Result:** 13 sample rows, 5 facility rows. (13, not 14 — one sample point has
+no observation matching the filters.)
+
+#### Step 5: GET_REGION_BOUNDARIES
+
+**Endpoint:** `spatialkg` — the county outline to draw under the points.
+
+**Result:** 16 geometry rows. Whole pipeline: **26.6 s**.
+
+#### When a step finds nothing
+
+Ask the same question with NAICS 3253 (paint manufacturing) instead and Step 1
+returns zero IRIs — there are none in Penobscot County. The run stops there in
+**1.2 s** rather than hydrating an empty list, and the UI shows "no results"
+rather than an error. An empty answer is a valid answer.
 
 ### Why S2 Cells?
 
@@ -367,6 +466,80 @@ Level 13 = ~1.2 km²   ← We use this
 Level 16 = ~76 m²
 Level 30 = ~1 cm²
 ```
+
+---
+
+## Bounded Execution
+
+The graph is served by **QLever**, which gives a query 30 seconds and then kills
+it. The most important thing to know about this: **it reports that timeout as
+HTTP 429 "Too Many Requests"**, with the real cause only in the JSON body. It is
+not rate limiting, and backing off does not help.
+
+`sparqlErrors.ts` classifies what comes back:
+
+| Kind | How it arrives | Splitting helps? |
+| --- | --- | --- |
+| `timeout` | 429 + "Operation timed out" / "Sort operation was canceled" | yes |
+| `out-of-memory` | 500 + "Tried to allocate X, but only Y were available" | yes |
+| `payload-too-large` | 413 / 502 — our request body was too big | yes |
+| `sibling-failure` | 500 + "Waited for a result from another thread" | no — just retry |
+| `network` | fetch rejected, or a 200 whose JSON was truncated | no |
+
+`isSplittable(kind)` is what the executor consults before dividing a step.
+
+Two guards sit around every request: a **60 s client-side timeout**
+(`sparqlClient.ts`) so a hung request cannot stall a run, and one automatic
+retry on retryable kinds — a repeat query starts warm, and 26.5 s cold vs 1.5 s
+warm has been measured on the same query.
+
+`queryBreadth.ts` catches a few shapes before they are ever sent: statewide,
+broad NAICS, no substance filter is a combination that reliably fails, and the
+editor warns rather than spending 30 s proving it.
+
+**The measurements for all of this live in `docs/QUERY-MATRIX.md`** — Part 4 is
+the error catalogue, Parts 6 and 7 the before/after. They are not repeated here
+because they are re-measured as the graph changes.
+
+---
+
+## The Result Cache
+
+A dashboard question takes seconds to compute and gives the same answer to
+everyone who asks it. So the answer is stored and served directly:
+**37 ms cached against 6,604 ms live** on a warm engine, with identical rows.
+
+**The key** (`cacheKey.ts`) is a SHA-256 of the canonicalised question. What
+canonicalisation does matters more than the hash:
+- display-only fields (`countyLabels` and friends) are stripped
+- filter arrays are sorted — clicking three substances in a different order is
+  the same question
+- empty objects and arrays collapse to "not set", so a filter set and then
+  cleared still hits
+- everything else is kept verbatim. A field dropped from the key is a wrong
+  answer served; a field kept unnecessarily is only a cache miss.
+
+`WIRE_VERSION` and `DATA_VERSION` prefix the key so a change to the stored shape,
+or a knowledge-graph reload, makes every existing entry unreachable at once.
+
+**What is stored** (`wire.ts`): successes only. An error is nearly always
+transient endpoint load, and freezing one would turn a bad minute into a bad
+month; an empty result is cheap to recompute. Only the four keys the map
+actually renders are kept — the intermediate IRI lists ran to 22.6 MB on a
+statewide well question and are never drawn.
+
+**Who can write.** Reads are public; writes are not. The publisher writes the
+result it has just computed, authenticated by the `editToken` the server issued
+for that publication. The maintainer script `scripts/warm-cache.mts` writes with
+`CACHE_WRITE_TOKEN`. Nothing else can put an entry in front of someone else's
+map.
+
+**Storage** (`server/src/resultCache.ts`): gzipped into a Postgres `BYTEA`
+column and served with `Content-Encoding: gzip` — never decompressed on the
+server. Capped at 25 MB. Complete results live 30 days; partial ones 6 hours,
+because a partial result is a snapshot of a bad moment.
+
+Add `?cache=off` to any URL to force a live run.
 
 ---
 
@@ -402,48 +575,39 @@ The `?` variables get bound to actual values from the graph.
 
 ### How Our Templates Work
 
-Each template function builds a SPARQL string. Example from `facilities.ts`:
+Templates are functions that return a SPARQL string. The main one is
+`fusedQueries.ts`, and its central idea is a helper that binds one entity inside
+an S2 cell:
 
 ```typescript
-export function buildFacilityS2Query(filters?: FacilityFilters): string {
-  const industryValuesClause = buildIndustryValues(filters?.industryCodes);
-
-  return `
-    ${PREFIXES}
-    SELECT DISTINCT ?s2cell WHERE {
-      ?s2cell rdf:type kwg-ont:S2Cell_Level13 ;
-              kwg-ont:sfContains ?facility .
-      ?facility fio:ofIndustry ?industryGroup ;
-                fio:ofIndustry ?industryCode .
-      ?industryCode a naics:NAICS-IndustryCode .
-      ${industryValuesClause}
-    } GROUP BY ?s2cell
-  `;
+// fusedQueries.ts — simplified
+function bindEntityInCell(block: EntityBlock, cellVar: string, suffix: string) {
+  switch (block.type) {
+    case 'facilities':
+      return `?${cellVar} kwg-ont:sfContains ?facility${suffix} .
+              ${industryFilter(block.facilityFilters)}`;
+    case 'samples':
+      return `?sp${suffix} rdf:type coso:SamplePoint ;
+                spatial:connectedTo ?${cellVar} .
+              ${sampleFilters(block.sampleFilters)}`;
+    // wells, aquifers, streams, water bodies...
+  }
 }
 ```
 
-**If user selects NAICS code "3253":**
+Both blocks of a question go through it, once for the anchor cell and once for
+the target cell, and the relationship supplies the path between the two cells.
+That is the whole trick: "near" is `sfTouches`, and a trace is a flow-path join.
 
-`industryValuesClause` becomes:
-```sparql
-VALUES ?industryCode { naics:NAICS-3253 }
-```
+**One guard is worth knowing about.** `bindEntityInCell` takes a
+`sampleObservations` flag. An ID-finding query needs the sample *points*; a
+detail query needs every observation on them. Serving both callers from one
+branch is what made a query to find sample IDs build every measurement in the
+state and discard it — the bug behind most of `QUERY-MATRIX.md` Part 5.
 
-**Final query:**
-```sparql
-PREFIX fio: <http://w3id.org/fio/v1/fio#>
-PREFIX naics: <http://w3id.org/fio/v1/naics#>
-PREFIX kwg-ont: <http://stko-kwg.geog.ucsb.edu/lod/ontology/>
-
-SELECT DISTINCT ?s2cell WHERE {
-  ?s2cell rdf:type kwg-ont:S2Cell_Level13 ;
-          kwg-ont:sfContains ?facility .
-  ?facility fio:ofIndustry ?industryGroup ;
-            fio:ofIndustry ?industryCode .
-  ?industryCode a naics:NAICS-IndustryCode .
-  VALUES ?industryCode { naics:NAICS-3253 }
-} GROUP BY ?s2cell
-```
+The older `facilities.ts` and `samples.ts` are no longer whole-query builders.
+They survive as fragment helpers — `buildIndustryValues()`,
+`buildSampleFilterClauses()` — called from inside the fused builders.
 
 ### Common SPARQL Patterns
 
@@ -502,31 +666,41 @@ Extracts "23" from "kwgr:administrativeRegion.USA.23".
 - Easy to test — mock step results
 - Easy to change strategy — edit planner, executor stays the same
 
-### 2. Why Thread S2 Cells Between Steps?
+### 2. Why Fuse the Join Into One Query
 
-**Problem:** Can't do cross-endpoint joins in SPARQL (federation endpoint has limitations).
+**The original design** threaded S2 cells between steps: find the cells holding
+facilities on one endpoint, filter them to a region on another, expand to
+neighbours, then look for samples in what was left. S2 cells were the join key
+because a cross-endpoint join seemed impossible.
 
-**Solution:** Use S2 cells as a "join key" passed through pipeline steps:
-1. Find facility S2 cells in `federation`
-2. Filter them in `spatialkg` (has admin region data)
-3. Find samples in those cells in `sawgraph`
+**What replaced it:** the `federation` endpoint does the join itself, so the
+whole chain is one query (`fusedQueries.ts`). S2 cells are still the join
+*mechanism* — `?s2anchor`, `?s2target` and the `sfTouches` between them — but
+they are variables inside a single query rather than lists carried between
+requests.
 
-**Benefits:**
-- Works around federation limitations
-- Fast (S2 cells are pre-indexed)
-- Flexible (any entity can link via S2 cells)
+**Why it is better:**
+- No intermediate list to transfer. A statewide cell list ran to megabytes.
+- The engine can plan the whole join, instead of being handed a `VALUES` block
+  of cells and no context.
+- Fewer requests, so fewer chances to hit the 30 s limit.
+
+**What it costs:** a fused query is one indivisible unit of work, so when it is
+too big there is no natural seam. That is exactly what `scope.ts` exists to
+supply — see [Bounded Execution](#bounded-execution).
 
 ### 3. Why Zustand + React Query?
 
 **Zustand** (`queryStore.ts`) — Global state for:
-- Current question (Block A/B/C)
-- Pipeline results
-- UI state (view mode, progress)
+- The current question, plus a baseline and a snapshot for the edit modal
+- Pipeline results, step progress, and where the result came from
+  (`resultProvenance` — live or cache, and when it was computed)
+- UI state (view mode, modals, tour)
 
 **React Query** (`useDiscoveryQueries.ts`) — Async data fetching for:
-- Dropdown options (NAICS codes, substances, etc.)
-- Cached with `staleTime: Infinity` (doesn't change)
-- Hardcoded fallbacks if endpoints fail
+- Dropdown options (NAICS codes, substances, material types, counties)
+- Long `staleTime` per hook, since this vocabulary changes on graph reloads
+- Hardcoded fallbacks if endpoints fail, so the editor still works
 
 **Benefits:**
 - Separation of concerns (query state vs dropdown data)
@@ -568,7 +742,9 @@ Extracts "23" from "kwgr:administrativeRegion.USA.23".
 
 ## The Endpoints
 
-All endpoints are SPARQL query interfaces to different parts of the knowledge graph.
+All endpoints are SPARQL query interfaces to different parts of the knowledge
+graph, served by QLever. The counts below come from `docs/SCHEMA.md`, which is
+where they get re-verified after a graph reload.
 
 ### fiokg
 **Contains:** Facility data
@@ -580,7 +756,8 @@ All endpoints are SPARQL query interfaces to different parts of the knowledge gr
 - `geo:hasGeometry/geo:asWKT` → Point location
 - `kwg-ont:sfWithin` → S2 cells, admin regions
 
-**Used for:** Facility details (Step 6 in pipelines)
+**Used for:** the NAICS industry dropdown only (`useDiscoveryQueries.ts`).
+Facility queries in the pipeline run on `federation` — see below.
 
 ### sawgraph
 **Contains:** PFAS sample and observation data
@@ -592,7 +769,8 @@ All endpoints are SPARQL query interfaces to different parts of the knowledge gr
 - `coso:measurementValue` → Concentration (ng/L)
 - `spatial:connectedTo` → S2 cells (via SamplePoint)
 
-**Used for:** Sample retrieval, concentration data
+**Used for:** the substance and material-type dropdowns. Sample data reaches
+the pipeline through `federation`.
 
 ### spatialkg
 **Contains:** S2 cells, admin regions, spatial index
@@ -604,7 +782,8 @@ All endpoints are SPARQL query interfaces to different parts of the knowledge gr
 - `kwg-ont:sfTouches` → Neighboring cells
 - `kwg-ont:hasFIPS` → FIPS codes
 
-**Used for:** Region filtering, near expansion, boundaries
+**Used for:** the county dropdown and `GET_REGION_BOUNDARIES`. Region filtering
+and neighbour expansion now happen inside the fused query on `federation`.
 
 ### hydrologykg
 **Contains:** Water bodies, flow paths, wells
@@ -616,14 +795,17 @@ All endpoints are SPARQL query interfaces to different parts of the knowledge gr
 - `nhdplusv2:hasCOMID` → NHDPlus identifiers
 - `schema:name` → Water body names
 
-**Used for:** Water body queries, upstream/downstream tracing
+**Used for:** the hydrology data that the fused trace queries join against.
 
 ### federation
 **Contains:** Nothing directly — it queries across all graphs
 **How it works:** SPARQL federation joins data from multiple endpoints in a single query
 **Caveat:** Performs owl:sameAs reasoning, inflating facility counts (1.3M real → 4.9M with aliases)
 
-**Used for:** Facility S2 lookup (Step 1), cross-graph queries
+**Used for:** almost everything. Every discovery step and every hydrate step
+runs here (`planner.ts`), because a fused query needs facilities, samples,
+spatial and hydrology data in one place. Only `GET_REGION_BOUNDARIES` goes
+elsewhere. Treat this as the primary endpoint, not a special case.
 
 ---
 
@@ -631,107 +813,141 @@ All endpoints are SPARQL query interfaces to different parts of the knowledge gr
 
 ### Pattern 1: Find entities in a region
 
-```typescript
-// Step 1: Find S2 cells with entity
-SELECT ?s2cell WHERE {
-  ?s2cell kwg-ont:sfContains ?entity .
-  ?entity rdf:type SomeClass .
-}
-
-// Step 2: Filter to region
-SELECT ?s2cell WHERE {
-  VALUES ?s2cell { /* cells from step 1 */ }
-  ?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.23 .
-}
-
-// Step 3: Get entity details
-SELECT ?entity ?wkt ?name WHERE {
-  VALUES ?s2cell { /* cells from step 2 */ }
-  ?s2cell kwg-ont:sfContains ?entity .
-  ?entity geo:hasGeometry/geo:asWKT ?wkt ;
-          rdfs:label ?name .
-}
+```sparql
+?s2cell rdf:type kwg-ont:S2Cell_Level13 ;
+        spatial:connectedTo kwgr:administrativeRegion.USA.23019 .   # the county
+?sp rdf:type coso:SamplePoint ;
+    spatial:connectedTo ?s2cell .
 ```
+
+The region is a starting point, not a post-filter: the cells are selected by
+county first, so the engine never looks outside it.
 
 ### Pattern 2: Spatial relationship (near)
 
-```typescript
-// Find S2 cells with anchor entity
-// Filter to region
-// Expand to neighboring cells (via kwg-ont:sfTouches)
-// Filter neighbors to target region
-// Find target entities in expanded cells
+```sparql
+# anchor side
+?s2anchor kwg-ont:sfContains ?facilityA .
+?facilityA fio:ofIndustry naics:NAICS-562212 .
+
+# the "near" — one hop of neighbouring cells
+?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2target .
+
+# target side
+?spC rdf:type coso:SamplePoint ; spatial:connectedTo ?s2target .
 ```
+
+`hops` repeats the middle line. At four or more hops `neighborPath()` drops the
+`owl:sameAs` alternation, because the path expands as 2^N and runs the engine
+out of memory.
 
 ### Pattern 3: Hydrological relationship (downstream)
 
-```typescript
-// Find S2 cells with anchor (facilities)
-// Find flow paths in those cells
-// Follow hyf:downstreamFlowPathTC (transitive closure)
-// Find S2 cells connected to downstream flow paths
-// Find target entities (samples) in those cells
+```sparql
+# anchor cells → the flow paths passing through them
+?s2anchor kwg-ont:sfContains ?facilityA .
+?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .
+?s2neighbor spatial:connectedTo ?upstream_flowline .
+?upstream_flowline rdf:type hyf:HY_FlowPath .
+
+# follow the network downstream
+?upstream_flowline hyf:downstreamFlowPathTC ?ds_flowline .
+
+# back to cells, and to what is in them
+?s2target spatial:connectedTo ?ds_flowline .
+?spC rdf:type coso:SamplePoint ; spatial:connectedTo ?s2target .
 ```
+
+`hyf:downstreamFlowPathTC` is the pre-computed transitive closure, 408M triples.
+`A TC B` means **B is downstream of A**, and it is reflexive — `<X> TC <X>`
+returns a row, so a `?` quantifier after it is redundant.
+
+Unbounded, this follows the river to the sea. `maxDistanceKm` wraps it in a
+subquery that sums `nhdplusv2:hasFlowPathLength` along the path and drops
+anything past the budget, then extends one segment further so the drawn line
+does not stop mid-channel. On one Maine question, a 30 km bound cut 15,782
+reaches to 3,705 while keeping all 616 facilities.
 
 ---
 
 ## Debugging Tips
 
-### 1. Check docs/DISCOVERY.md
+### 1. Read the docs first
 
-- Predicate inventories (what predicates exist on each entity type)
-- Known bugs, data coverage gaps, debugging findings (merged from FINDINGS.md)
+- **`docs/SCHEMA.md`** — does this predicate exist, and on what? Predicate
+  inventories with triple counts, per endpoint.
+- **`docs/QUERY-MATRIX.md`** — Part 4 tells you what an HTTP status actually
+  means. A 429 is almost never rate limiting.
+- **`docs/DEBUGGING.md`** — bugs already diagnosed, with their root causes.
 
-### 2. Inspect Pipeline Steps
+### 2. Bypass the cache
 
-In browser DevTools, set breakpoint in `executor.ts` and log each step's query:
+A result that looks stale may be cached. Add `?cache=off` to the URL to force a
+live run.
 
-```typescript
-console.log(step.description);
-console.log(query);
-console.log(results);
-```
+### 3. Inspect pipeline steps
 
-### 3. Test SPARQL Queries Directly
-
-Copy a query from the console, run it at:
-```
-https://apps.okn.us/fiokg/sparql
-```
-
-### 4. Check S2 Cell Counts
-
-If a step returns 0 results, check if S2 cells are empty:
+Set a breakpoint in `executor.ts` and log the query as built:
 
 ```typescript
-console.log('S2 cells after step:', context.s2Cells.length);
+console.log(step.type, step.description);
+console.log(step.buildQuery(context, scope));   // note: scope is the 2nd arg
+console.log(rows.length);
 ```
 
-### 5. Validate Predicates
+### 4. Test a query directly
 
-Use DISCOVERY.md to check if a predicate exists. Example:
-- Using `kwg-ont:sfContains` for water bodies? ❌ Zero triples
-- Should use `spatial:connectedTo` ✅ 274K triples
+Copy it from the console and run it against the endpoint the step used — they
+are listed in `src/constants/endpoints.ts`. Most discovery steps run on
+`federation`:
+
+```
+https://apps.okn.us/federation/sparql
+```
+
+### 5. If a step returns nothing
+
+Check the IRI lists, not S2 cells:
+
+```typescript
+console.log('target IRIs:', context.targetIris.length);
+console.log('anchor IRIs:', context.anchorIris.length);
+```
+
+An empty `FIND_TARGET_IRIS` ends the run and shows "no results". That is often
+the correct answer — confirm the data exists before treating it as a bug.
+
+### 6. Run the whole matrix
+
+`npm run query-matrix` re-measures every query shape and writes
+`docs/query-matrix.csv`. Slow, but it is how a regression gets proven rather
+than suspected.
 
 ---
 
 ## Summary
 
 **The app in one sentence:**
-A React SPA that converts natural language questions into multi-step SPARQL query pipelines, executes them against distributed knowledge graph endpoints, and visualizes geospatial results on a map.
+A React SPA that lets you build a spatial question from three blocks, compiles
+it into SPARQL, runs it against distributed knowledge graph endpoints — slicing
+the work when it is too big for them — and draws the answer on a map.
 
 **Key concepts:**
 - **Knowledge graphs** — Triples connecting entities
 - **SPARQL** — Query language for graphs
-- **S2 cells** — Spatial index for fast geo queries
-- **Pipeline** — Multi-step query execution
-- **Federation** — Cross-graph querying
+- **S2 cells** — Spatial index, and the join key between entity types
+- **Pipeline** — Planner builds steps, executor runs and splits them
+- **Federation** — One query across several graphs
 
 **Architecture highlights:**
-- Planner creates steps, Executor runs them
-- S2 cells thread between steps as "join keys"
-- Templates generate SPARQL with user filters
+- Planner creates steps, executor runs them and slices what the engine refuses
+- Find IRIs first, hydrate them second — never build detail you will discard
+- Spatial and hydrological joins are fused into one federated query
+- Successful results are cached and served in ~37 ms instead of seconds
+- A run can succeed with pieces missing, and says which pieces
 - Result transformer parses WKT → GeoJSON
 - Zustand for question state, React Query for dropdown data
+
+**Six entity types:** samples, facilities, water bodies, wells, aquifers, streams
 
 **13 states have data:** AL, AZ, AR, IL, IN, KS, ME, MA, MN, NH, OH, SC, VT

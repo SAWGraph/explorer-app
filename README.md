@@ -101,11 +101,14 @@ All hosted at `apps.okn.us`:
 
 Inside `docs/`:
 
-| File              | Contents                                            |
-| ----------------- | --------------------------------------------------- |
-| `ARCHITECTURE.md` | System design, module boundaries, data flow         |
-| `SCHEMA.md`       | Predicate inventories, class counts, endpoint roles |
-| `DEBUGGING.md`    | Documented bugs with root causes and fixes          |
-| `CONVENTIONS.md`  | Coding standards, endpoint selection rules          |
-| `changelog/`      | Weekly changelogs (`YYYY-Www.md`)                   |
-| `plans/`          | Feature planning: `drafts/` → `active/` → `done/`   |
+| File                | Contents                                                        |
+| ------------------- | --------------------------------------------------------------- |
+| `ARCHITECTURE.md`   | System design, module boundaries, data flow                     |
+| `SCHEMA.md`         | Predicate inventories, class counts, endpoint roles             |
+| `QUERY-MATRIX.md`   | Every query shape, measured — plus the error catalogue (Part 4) |
+| `DEBUGGING.md`      | Documented bugs with root causes and fixes                      |
+| `CONVENTIONS.md`    | Coding standards, endpoint selection rules                      |
+| `wiki/`             | One page per filter dropdown; source of truth for the GitHub Wiki |
+| `queries/`          | Write-ups of individual real questions                          |
+| `changelog/`        | Weekly changelogs (`YYYY-Www.md`)                               |
+| `plans/`            | Feature planning: `drafts/` → `active/` → `done/`               |
