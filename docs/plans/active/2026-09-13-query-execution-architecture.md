@@ -1,6 +1,6 @@
 # Query Execution Architecture
 
-**Status**: active — Phases 1 and 2 implemented and verified (2026-09-14); Phase 3 outstanding
+**Status**: active — Phases 1 and 2 implemented and verified (2026-09-14); Phase 3 shipped as a result cache, see 2026-09-14-phase-3-result-cache.md
 **Created**: 2026-09-13
 **Reference sheet**: [`docs/QUERY-MATRIX.md`](../../QUERY-MATRIX.md) — every question the
 UI can build, measured against the live endpoints. This plan is verified against
@@ -178,6 +178,18 @@ Probe results are cached — a side's size only changes when the graph data does
   same river reach reached from two anchors is one line.
 
 ### 4.5 Run it on our server, and remember the answer
+
+> **Superseded 2026-09-14 — see
+> [the Phase 3 plan](./2026-09-14-phase-3-result-cache.md).** Exploration found
+> a cheaper answer than moving execution server-side: the publisher's browser
+> has *already computed* the result, so it can simply hand it over. What shipped
+> is a result cache written only by trusted paths (the publisher via their
+> `editToken`; a maintainer script via `CACHE_WRITE_TOKEN`), with public reads
+> and a fall-through to local execution on a miss. Measured 37 ms cached vs
+> 6.6 s live on a warm engine, 178×. Server-side execution stays deferred; the
+> read path is identical either way, so it can be swapped in later without
+> touching the client. The rest of this section is kept as the original
+> reasoning.
 
 `server/` is already an Express + Postgres service deployed for publishing
 (`server/src/index.ts`, `server/src/routes/publish.ts`). Add `POST /api/query`:

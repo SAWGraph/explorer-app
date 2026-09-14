@@ -1,6 +1,11 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { Router, type Request, type Response } from 'express';
+import express, { Router, type Request, type Response } from 'express';
 import { pool } from '../db.js';
+import { getResult, putResult, sendGzipJson, MAX_RESULT_BYTES } from '../resultCache.js';
+
+// Route-scoped: the app-wide JSON limit stays 64kb (index.ts), only the result
+// upload accepts megabytes.
+const largeJson = express.json({ limit: `${Math.ceil(MAX_RESULT_BYTES / (1024 * 1024))}mb` });
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -125,6 +130,62 @@ publishRouter.patch('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// The result the publisher's browser already computed. Cached under the publish
+// id so every later visitor to /p/:id gets it without re-running the pipeline.
+publishRouter.put('/:id/result', largeJson, async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const body = req.body as { editToken?: unknown; result?: unknown };
+  const editToken = typeof body.editToken === 'string' ? body.editToken : '';
+  if (!editToken) return res.status(401).json({ error: 'editToken is required' });
+  if (!body.result) return res.status(400).json({ error: 'result is required' });
+
+  const serialized = JSON.stringify(body.result);
+  if (Buffer.byteLength(serialized, 'utf8') > MAX_RESULT_BYTES) {
+    return res.status(413).json({ error: 'result too large to cache' });
+  }
+
+  try {
+    const existing = await pool.query(
+      `SELECT question, edit_token_hash FROM published_workflows WHERE id = $1`,
+      [id],
+    );
+    if (existing.rowCount === 0) return res.status(404).json({ error: 'not found' });
+    const storedHash: string | null = existing.rows[0].edit_token_hash;
+    if (!storedHash || !tokensMatch(editToken, storedHash)) {
+      return res.status(403).json({ error: 'invalid editToken' });
+    }
+
+    const cacheKey = `publish:${id}`;
+    await putResult({
+      cacheKey,
+      // The stored question, never one supplied by the caller.
+      question: existing.rows[0].question,
+      body: serialized,
+      partial: Boolean((body.result as { partial?: unknown }).partial),
+      source: 'publish',
+    });
+    await pool.query(`UPDATE published_workflows SET result_key = $1 WHERE id = $2`, [
+      cacheKey,
+      id,
+    ]);
+    return res.status(201).json({ key: cacheKey });
+  } catch (err) {
+    console.error('publish result write failed', err);
+    return res.status(500).json({ error: 'failed to store result' });
+  }
+});
+
+publishRouter.get('/:id/result', async (req: Request, res: Response) => {
+  try {
+    const stored = await getResult(`publish:${String(req.params.id)}`);
+    if (!stored) return res.status(404).json({ error: 'not cached' });
+    return sendGzipJson(res, stored);
+  } catch (err) {
+    console.error('publish result fetch failed', err);
+    return res.status(500).json({ error: 'failed to fetch result' });
+  }
+});
+
 publishRouter.get('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
@@ -132,7 +193,7 @@ publishRouter.get('/:id', async (req: Request, res: Response) => {
       `UPDATE published_workflows
          SET view_count = view_count + 1
        WHERE id = $1
-       RETURNING id, author, title, description, tags, question, created_at, view_count`,
+       RETURNING id, author, title, description, tags, question, created_at, view_count, result_key`,
       [id],
     );
     if (result.rowCount === 0) {
