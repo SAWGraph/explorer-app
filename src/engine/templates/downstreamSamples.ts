@@ -21,11 +21,13 @@ export function buildSampleRetrievalByIriQuery(
       (MAX(?numericResult) as ?max)
       (GROUP_CONCAT(DISTINCT ?substance; separator="; ") as ?substances)
       (GROUP_CONCAT(DISTINCT ?matTypeLabel; separator="; ") as ?materials)
+      (SAMPLE(?spName) as ?samplePointName)
       ?sp ?spWKT ?s2cell
     WHERE {
       VALUES ?sp { ${vals} }
       ?sp spatial:connectedTo ?s2cell ;
           geo:hasGeometry/geo:asWKT ?spWKT .
+      OPTIONAL { ?sp rdfs:label ?spName }
       ?s2cell rdf:type kwg-ont:S2Cell_Level13 .
       ?observation rdf:type coso:ContaminantObservation ;
           coso:observedAtSamplePoint ?sp ;

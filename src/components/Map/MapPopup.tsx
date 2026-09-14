@@ -1,7 +1,75 @@
 import type { MapFeature, SamplePointDetail, SampleRecord } from '../../types/map';
+import { useSampleDetails } from '../../hooks/useSampleDetails';
+import { useQueryStore } from '../../store/queryStore';
 
 interface MapPopupProps {
   feature: MapFeature;
+  // True once this feature's popup is open. Sample observation rows are fetched
+  // on open rather than for every sample up front — see useSampleDetails.
+  isOpen?: boolean;
+}
+
+// Wraps the sample popup so the fetch only starts when the popup is open.
+function SamplePopup({ feature, isOpen }: { feature: MapFeature; isOpen: boolean }) {
+  const question = useQueryStore((s) => s.question);
+  const sampleFilters =
+    question.blockA.type === 'samples'
+      ? question.blockA.sampleFilters
+      : question.blockC.sampleFilters;
+  const { data, isLoading, isError } = useSampleDetails(feature.id, isOpen, sampleFilters);
+  const props = feature.properties;
+
+  if (data) {
+    return (
+      <SampleDetailPopup
+        id={feature.id}
+        detail={data}
+        resultCount={props.resultCount}
+        sampleCount={props.sampleCount}
+      />
+    );
+  }
+
+  return (
+    <div className="map-popup">
+      <table className="popup-table">
+        <tbody>
+          {props.sampleCount && (
+            <tr>
+              <td className="popup-label">Samples</td>
+              <td>{props.sampleCount}</td>
+            </tr>
+          )}
+          <tr>
+            <td className="popup-label">Results</td>
+            <td>{props.resultCount}</td>
+          </tr>
+          {props.maxConcentration && (
+            <tr>
+              <td className="popup-label">Max</td>
+              <td>{props.maxConcentration}</td>
+            </tr>
+          )}
+          {props.substances && (
+            <tr>
+              <td className="popup-label">Substances</td>
+              <td>{String(props.substances).split('; ').slice(0, 3).join(', ')}</td>
+            </tr>
+          )}
+          {props.materials && (
+            <tr>
+              <td className="popup-label">Materials</td>
+              <td>{props.materials}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <div className="popup-detail-status">
+        {isLoading && 'Loading measurements…'}
+        {isError && 'Could not load measurements for this sample point.'}
+      </div>
+    </div>
+  );
 }
 
 function SampleDetailPopup({
@@ -112,58 +180,11 @@ function extractIlWellId(uri: string): string | null {
   return match ? match[1] : null;
 }
 
-export function MapPopupContent({ feature }: MapPopupProps) {
+export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
   const props = feature.properties;
 
-  // Rich sample popup when detail data is available
-  if (props.type === 'sample' && feature.sampleDetails) {
-    return (
-      <SampleDetailPopup
-        id={feature.id}
-        detail={feature.sampleDetails}
-        resultCount={props.resultCount}
-        sampleCount={props.sampleCount}
-      />
-    );
-  }
-
   if (props.type === 'sample') {
-    return (
-      <div className="map-popup">
-        <table className="popup-table">
-          <tbody>
-            {props.sampleCount && (
-              <tr>
-                <td className="popup-label">Samples</td>
-                <td>{props.sampleCount}</td>
-              </tr>
-            )}
-            <tr>
-              <td className="popup-label">Results</td>
-              <td>{props.resultCount}</td>
-            </tr>
-            {props.maxConcentration && (
-              <tr>
-                <td className="popup-label">Max</td>
-                <td>{props.maxConcentration}</td>
-              </tr>
-            )}
-            {props.substances && (
-              <tr>
-                <td className="popup-label">Substances</td>
-                <td>{String(props.substances).split('; ').slice(0, 3).join(', ')}</td>
-              </tr>
-            )}
-            {props.materials && (
-              <tr>
-                <td className="popup-label">Materials</td>
-                <td>{props.materials}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    );
+    return <SamplePopup feature={feature} isOpen={isOpen} />;
   }
 
   if (props.type === 'facility') {

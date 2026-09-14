@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
+import { userMessageFor } from '../../engine/sparqlErrors';
 
 const MESSAGES = [
   'Please wait while we prepare the data for you…',
@@ -12,6 +13,7 @@ export function PipelineProgressStrip() {
   const isRunning = useQueryStore((s) => s.isRunning);
   const isEditModalOpen = useQueryStore((s) => s.isEditModalOpen);
   const pipelineResult = useQueryStore((s) => s.pipelineResult);
+  const stepProgress = useQueryStore((s) => s.stepProgress);
   const [msgIndex, setMsgIndex] = useState(0);
 
   useEffect(() => {
@@ -31,13 +33,24 @@ export function PipelineProgressStrip() {
 
   if (!isRunning && !isError) return null;
 
+  // When a step has been split into slices, show real progress instead of a
+  // rotating reassurance message.
+  const chunked = stepProgress.find(
+    (p) => p?.status === 'running' && (p.chunksTotal ?? 0) > 1,
+  );
+
   let message: string;
-  if (isRunning) {
+  if (isRunning && chunked) {
+    message = `${chunked.description} — ${chunked.chunksDone ?? 0} of ${chunked.chunksTotal} areas done…`;
+  } else if (isRunning) {
     message = MESSAGES[msgIndex];
   } else if (pipelineResult?.status === 'empty') {
     message = 'No results found for this query. Try adjusting the filters.';
   } else {
-    message = 'Something went wrong. You can edit the question and try again.';
+    // Nine distinct failures used to share one message; tell the user which.
+    message = userMessageFor(
+      pipelineResult?.status === 'error' ? pipelineResult.error : undefined,
+    );
   }
 
   // Running outside modal (initial load from dashboard) → full-screen blocking overlay

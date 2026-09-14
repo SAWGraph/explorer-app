@@ -253,3 +253,42 @@ A related failure appears as HTTP 500 with `Tried to allocate 409.6 MB, but only
 **Prevention**: Always read the response body before concluding rate limiting; the status code alone is misleading. A 429 that took 30 seconds is a timeout, not a throttle — a real throttle returns immediately. Retry on an idle endpoint before investigating a query, and be aware a green run proves less than a red one here.
 
 Trimming unused bindings measurably helps. The downstream `FIND_TARGET_IRIS` query selects only `?spC` but also binds `?matTypeLabelC` and computes `?result_valueC`, neither projected nor filtered on. Removing just those two took the query from a hard timeout to 24.7s before it hit the memory ceiling. Same pattern as the Indiana card in changelog week 37 entry 5.
+## 2026-09-13 — The 429s, and what shipped to stop them
+
+Builds on the 2026-09-11 entry above, which established that a 429 from these
+endpoints is a query timeout. This one records the scale of the problem and the
+fix.
+
+**How widespread**: a sweep of every question the editor can build (95 shapes,
+156 queries) found **37 failing outright and 32 more running over 15s** against
+a 30s limit. River-trace questions were half broken — 23 of 50 worked. Maine was
+the only healthy state: the same plain question failed in 5 of 6 others,
+including Indiana, which is one of our own dashboard cards. Full results and the
+catalogue of all nine failure responses are in `docs/QUERY-MATRIX.md`.
+
+**Root cause beyond the unused bindings** already noted above: `bindEntityInCell`
+(`templates/fusedQueries.ts`) served both the ID-finding queries and the hydrate
+queries. The hydrate side projects `?substance`, `?matTypeLabel`,
+`?result_value`; the ID side projects one column and needs none of it. Both got
+the measurement joins, so the ID queries built every measurement in the state
+and discarded it.
+
+**Fix**: ID-finding queries drop those joins unless a filter needs them, and any
+query the engine refuses is split into slices and merged
+(`src/engine/scope.ts`). 34 of the 37 failures now work, none regressed.
+
+**Three traps worth knowing**
+
+- **An unfiltered second block means every entity in the graph** — 1,506,326
+  facilities, 532,771 wells. That, not the size of the answer, is what blows the
+  limit. Narrowing the *first* block does not help: measured, still OOM at
+  2.6 GB. The three questions that remain unanswerable all have this shape.
+- **413/502 arrives in the browser as a CORS error**, because the gateway's
+  error response omits `Access-Control-Allow-Origin`. It means our *request* was
+  too big — an inlined `VALUES` list — not that anything is wrong with CORS.
+- **`?timeout=120s` returns 403.** Raising the engine's limit needs an access
+  token we do not have, so the 30s ceiling is not negotiable from our side.
+
+**Prevention**: benchmark against more than Maine, and re-run
+`npm run query-matrix` after any engine change, diffing against
+`docs/query-matrix.csv`.

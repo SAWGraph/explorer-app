@@ -42,7 +42,31 @@ function buildAquiferTypeFilterSuffixed(filters: AquiferFilters | undefined, suf
 // is supplied so the same helper can fill either ?s2anchor or ?s2target).
 // `suffix` disambiguates internal variables so same-type anchor+target queries
 // don't collide.
-export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: string): string {
+// True when the sample block actually constrains observations. When it does not,
+// the IRI-finding queries can skip the observation join entirely.
+export function hasSampleFilters(block: EntityBlock): boolean {
+  const f = block.type === 'samples' ? block.sampleFilters : undefined;
+  if (!f) return false;
+  return Boolean(
+    f.substances?.length ||
+      f.materialTypes?.length ||
+      f.minConcentration != null ||
+      f.maxConcentration != null ||
+      f.includeNondetects === false,
+  );
+}
+
+// `sampleObservations: false` drops the observation/material/result joins from a
+// samples block. Only the IRI-finding queries may pass it: they project just the
+// sample-point IRI, and re-deriving every observation there is what pushes the
+// hydrology queries past QLever's 30s limit / memory ceiling (429/500). The
+// hydrate queries still project those vars and must keep the full block.
+export function bindEntityInCell(
+  block: EntityBlock,
+  s2Var: string,
+  suffix: string,
+  sampleObservations = true,
+): string {
   switch (block.type) {
     case 'facilities': {
       const industry = buildIndustryValues(
@@ -55,6 +79,10 @@ export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: stri
       ${industry}`;
     }
     case 'samples': {
+      if (!sampleObservations) {
+        return `?sp${suffix} rdf:type coso:SamplePoint ;
+                spatial:connectedTo ${s2Var} .`;
+      }
       const filters = buildSampleFilterClauses(block.sampleFilters, suffix);
       // ponytail: coso:measurementUnit exists only on detects, so the join below
       // also excludes non-detects. Dropping it is correct but triples the matched
@@ -97,6 +125,33 @@ export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: stri
   }
 }
 
+function pinValues(entityVar: string, iris: string[] | undefined): string {
+  if (!iris?.length) return '';
+  return `VALUES ${entityVar} { ${iris.map(wrapUri).join(' ')} }\n      `;
+}
+
+// Lists a block's entities inside its region, capped at `limit`. Used to decide
+// whether a side is small enough to chunk over — a bounded LIMIT probe rather
+// than COUNT, because counting Maine's unfiltered facilities took 11.0s while
+// the same listing with a filter took 0.8s (docs/QUERY-MATRIX.md).
+export function buildEntityProbeQuery(
+  block: EntityBlock,
+  regionCodes: string[] | undefined,
+  limit: number,
+): string {
+  const entityVar = entityIriVar(block, 'P');
+  const bind = bindEntityInCell(block, '?s2probe', 'P', hasSampleFilters(block));
+  const region = regionClause(regionCodes, '?s2probe', '?_regionP');
+  return `
+    ${PREFIXES}
+    SELECT DISTINCT (${entityVar} AS ?iri) WHERE {
+      ?s2probe rdf:type kwg-ont:S2Cell_Level13 .
+      ${region}
+      ${bind}
+    } LIMIT ${limit}
+  `;
+}
+
 function regionClause(regionCodes: string[] | undefined, s2Var: string, internalVar: string): string {
   if (!regionCodes?.length) return '';
   if (regionCodes.length === 1) {
@@ -130,20 +185,33 @@ function neighborPath(hops: number, fromVar: string, toVar: string): string {
 interface FusedBodyOpts extends FusedBaseOpts {
   mode: 'near' | 'downstream' | 'upstream';
   hops?: number;
+  // Chunk pins (src/engine/scope.ts). Restricting one side to a known slice of
+  // IRIs is what makes a too-large query fit inside the engine's 30s budget.
+  anchorIris?: string[];
+  targetIris?: string[];
+  // Set by the IRI-finding queries only — see bindEntityInCell.
+  anchorSampleObservations?: boolean;
+  targetSampleObservations?: boolean;
 }
 
 // Returns just the inner WHERE-body patterns shared across all fused queries:
 // anchor binding + spatial path (neighbor expansion for "near", hydrology trace
 // for downstream/upstream) + target binding + region clauses on each side.
 function buildFusedWhereBody(opts: FusedBodyOpts): string {
-  const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A');
-  const targetBind = bindEntityInCell(opts.target, '?s2target', 'C');
+  // A sample block keeps its observation joins unless the caller drops them AND
+  // no sample filter depends on them.
+  const anchorObs = (opts.anchorSampleObservations ?? true) || hasSampleFilters(opts.anchor);
+  const targetObs = (opts.targetSampleObservations ?? true) || hasSampleFilters(opts.target);
+  const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A', anchorObs);
+  const targetBind = bindEntityInCell(opts.target, '?s2target', 'C', targetObs);
+  const anchorPin = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
+  const targetPin = pinValues(entityIriVar(opts.target, 'C'), opts.targetIris);
   const aRegion = regionClause(opts.anchorRegion, '?s2anchor', '?_regionA');
   const tRegion = regionClause(opts.targetRegion, '?s2target', '?_regionC');
 
   if (opts.mode === 'near') {
     const hopPath = neighborPath(opts.hops ?? 1, '?s2anchor', '?s2target');
-    return `?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
+    return `${anchorPin}${targetPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
       ${aRegion}
       ${anchorBind}
       ${hopPath}
@@ -157,7 +225,7 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       ? `?upstream_flowline hyf:downstreamFlowPathTC ?ds_flowline .`
       : `?ds_flowline hyf:downstreamFlowPathTC ?upstream_flowline .`;
 
-  return `?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
+  return `${anchorPin}${targetPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
       ${aRegion}
       ${anchorBind}
       ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .
@@ -188,6 +256,8 @@ export interface FusedBaseOpts {
 export interface FusedNearOpts extends FusedBaseOpts {
   hops: number;
   project: 'anchor' | 'target';
+  anchorIris?: string[];
+  targetIris?: string[];
 }
 
 // Server-side "near" query. Projects either anchor or target entity IRIs as
@@ -200,6 +270,10 @@ export function buildFusedNearQuery(opts: FusedNearOpts): string {
     targetRegion: opts.targetRegion,
     mode: 'near',
     hops: opts.hops,
+    anchorIris: opts.anchorIris,
+    targetIris: opts.targetIris,
+    anchorSampleObservations: opts.project !== 'anchor',
+    targetSampleObservations: opts.project !== 'target',
   });
   const projectVar =
     opts.project === 'anchor'
@@ -217,6 +291,8 @@ export function buildFusedNearQuery(opts: FusedNearOpts): string {
 export interface FusedHydrologyOpts extends FusedBaseOpts {
   direction: 'downstream' | 'upstream';
   project: 'anchor' | 'target';
+  anchorIris?: string[];
+  targetIris?: string[];
 }
 
 // Server-side downstream/upstream query.
@@ -227,6 +303,15 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
     anchorRegion: opts.anchorRegion,
     targetRegion: opts.targetRegion,
     mode: opts.direction,
+    anchorIris: opts.anchorIris,
+    targetIris: opts.targetIris,
+    // Verified on the live endpoint: keeping the observation joins on either
+    // side of a downstream/upstream trace always fails (429 timeout / 500 OOM).
+    // Sample points with no observations are dropped again at hydration, so the
+    // sample layer is unchanged; the facility layer can include facilities whose
+    // only downstream sample points carry no observations.
+    anchorSampleObservations: false,
+    targetSampleObservations: false,
   });
   const projectVar =
     opts.project === 'anchor'
@@ -241,50 +326,17 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
   `;
 }
 
-export interface FusedSampleSideOpts extends FusedBaseOpts {
-  relationship: SpatialRelationship;
-  sampleSide: 'anchor' | 'target';
-}
-
-// Sample hydration without IRI inlining. The anchor/target derivation runs
-// in the same query body, then per-sample aggregates project from the
-// sample-side observation variables already bound by bindEntityInCell.
-// Replaces buildSamplesByIri (templates/hydrate.ts) when the side is samples;
-// statewide queries can have 1000+ sample IRIs and the gateway 502s on the
-// inlined VALUES body — re-deriving server-side keeps the request small.
-export function buildFusedSampleAggregateQuery(opts: FusedSampleSideOpts): string {
-  const body = buildFusedWhereBody({
-    anchor: opts.anchor,
-    target: opts.target,
-    anchorRegion: opts.anchorRegion,
-    targetRegion: opts.targetRegion,
-    mode: relationshipMode(opts.relationship),
-    hops: opts.relationship.hops,
-  });
-  const suffix = opts.sampleSide === 'anchor' ? 'A' : 'C';
-  const s2Var = opts.sampleSide === 'anchor' ? '?s2anchor' : '?s2target';
-  const spVar = `?sp${suffix}`;
-  const numericVar = `?numericResult${suffix}`;
-  const substanceVar = `?substance${suffix}`;
-  const matLabelVar = `?matTypeLabel${suffix}`;
-  const observationVar = `?observation${suffix}`;
-  const sampleVar = `?sample${suffix}`;
-
-  return `
-    ${PREFIXES}
-    SELECT
-      (COUNT(DISTINCT ${observationVar}) as ?resultCount)
-      (COUNT(DISTINCT ${sampleVar}) as ?sampleCount)
-      (MAX(${numericVar}) as ?max)
-      (GROUP_CONCAT(DISTINCT ${substanceVar}; separator="; ") as ?substances)
-      (GROUP_CONCAT(DISTINCT ${matLabelVar}; separator="; ") as ?materials)
-      (${spVar} AS ?sp) ?spWKT (${s2Var} AS ?s2cell)
-    WHERE {
-      ${body}
-      ${spVar} geo:hasGeometry/geo:asWKT ?spWKT .
-    } GROUP BY ${spVar} ?spWKT ${s2Var}
-  `;
-}
+// buildFusedSampleAggregateQuery / buildFusedSampleDetailsQuery lived here. They
+// re-derived the whole spatial trace inside the hydrate query to avoid inlining
+// long IRI lists, and that re-derivation is what timed out (429) on every
+// downstream question. Sample hydration now runs by IRI in chunks
+// (planner.ts iriScopes), so neither is needed.
+//
+// Merge note (2026-09-14): development fixed the non-detect handling in both of
+// these at the same time this branch deleted them. Nothing was lost — the same
+// resultValueClauses() fix already applies on the path that replaced them,
+// buildSampleRetrievalByIriQuery / buildSampleDetailByIriQuery in
+// templates/downstreamSamples.ts, and in bindEntityInCell above.
 
 export interface FusedWellSideOpts extends FusedBaseOpts {
   relationship: SpatialRelationship;
@@ -331,77 +383,6 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
       OPTIONAL { ${wellVar} il_isgs:wellPurpose ?ilPurpose . }
       OPTIONAL { ${wellVar} il_isgs:wellYield/qudt:numericValue ?ilYield . }
     }
-  `;
-}
-
-// Per-observation sample-detail query, server-derived. Inner subquery picks
-// out sample IRIs via the same fused anchor→target logic; outer joins to
-// observation/sample/result tuples and projects detail fields. Replaces
-// buildSampleDetailsByIri for the same wire-size reason as the aggregate
-// query above.
-export function buildFusedSampleDetailsQuery(opts: FusedSampleSideOpts): string {
-  const body = buildFusedWhereBody({
-    anchor: opts.anchor,
-    target: opts.target,
-    anchorRegion: opts.anchorRegion,
-    targetRegion: opts.targetRegion,
-    mode: relationshipMode(opts.relationship),
-    hops: opts.relationship.hops,
-  });
-  const suffix = opts.sampleSide === 'anchor' ? 'A' : 'C';
-  const spVar = `?sp${suffix}`;
-  const sampleBlock = opts.sampleSide === 'anchor' ? opts.anchor : opts.target;
-  const { substances, ...nonSubstanceFilters } = sampleBlock.sampleFilters ?? {};
-  const substanceFilter = substances?.length
-    ? `VALUES ?substanceUri { ${substances.map(wrapUri).join(' ')} }`
-    : '';
-  const outerFilter = buildSampleFilterClauses(
-    Object.keys(nonSubstanceFilters).length ? nonSubstanceFilters : undefined,
-  );
-
-  return `
-    ${PREFIXES}
-    SELECT DISTINCT
-      ?sp ?spWKT
-      (SAMPLE(?spName) as ?samplePointName)
-      ?sample
-      (GROUP_CONCAT(DISTINCT ?sampleId; separator="; ") as ?sampleIdentifier)
-      ?observation
-      ?date
-      ?substance
-      ?result_value
-      ?unit_sym
-      (GROUP_CONCAT(DISTINCT ?matTypeLabel; separator=", ") as ?sampleType)
-    WHERE {
-      {
-        SELECT DISTINCT (${spVar} AS ?sp) WHERE {
-          ${body}
-        }
-      }
-      ?sp geo:hasGeometry/geo:asWKT ?spWKT .
-      OPTIONAL { ?sp rdfs:label ?spName }
-      ?sample coso:fromSamplePoint ?sp ;
-              coso:sampleOfMaterialType ?matType .
-      ?matType rdfs:label ?matTypeLabel .
-      ?observation rdf:type coso:ContaminantObservation ;
-                   coso:analyzedSample ?sample ;
-                   coso:observedAtSamplePoint ?sp ;
-                   coso:ofDSSToxSubstance ?substanceUri ;
-                   coso:hasResult ?result .
-      ${substanceFilter}
-      OPTIONAL { ?substanceUri skos:altLabel ?altLabel }
-      OPTIONAL { ?substanceUri rdfs:label ?rdfLabel }
-      BIND(COALESCE(?altLabel, ?rdfLabel, REPLACE(STR(?substanceUri), "^.*[#/]", "")) AS ?substance)
-      ?result coso:measurementUnit ?unit .
-      ${resultValueClauses()}
-      OPTIONAL { ?unit qudt:symbol ?unit_sym0 }
-      BIND(COALESCE(?unit_sym0, REPLACE(STR(?unit), "^.*[#/]", "")) AS ?unit_sym)
-      ${outerFilter}
-      OPTIONAL { ?observation sosa:resultTime ?date }
-      OPTIONAL { ?sample dcterms:identifier ?sampleId }
-    }
-    GROUP BY ?sp ?spWKT ?sample ?observation ?date ?substance ?result_value ?unit_sym
-    ORDER BY ?sp ?sample ?substance DESC(?date)
   `;
 }
 
