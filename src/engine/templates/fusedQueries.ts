@@ -5,7 +5,7 @@ import type {
   AquiferFilters,
   SpatialRelationship,
 } from '../../types/query';
-import { wrapUri, buildSampleFilterClauses } from './samples';
+import { wrapUri, buildSampleFilterClauses, resultValueClauses } from './samples';
 import { buildIndustryValues } from './facilities';
 import { AQUIFER_TYPE_VALUES } from './aquifers';
 import { buildWellCategoryFilter } from './wells';
@@ -84,6 +84,9 @@ export function bindEntityInCell(
                 spatial:connectedTo ${s2Var} .`;
       }
       const filters = buildSampleFilterClauses(block.sampleFilters, suffix);
+      // ponytail: coso:measurementUnit exists only on detects, so the join below
+      // also excludes non-detects. Dropping it is correct but triples the matched
+      // rows and the endpoint OOMs on statewide pipelines. Revisit if capacity grows.
       return `?sp${suffix} rdf:type coso:SamplePoint ;
                 spatial:connectedTo ${s2Var} .
       ?observation${suffix} rdf:type coso:ContaminantObservation ;
@@ -93,8 +96,8 @@ export function bindEntityInCell(
           coso:hasResult ?result${suffix} .
       ?sample${suffix} coso:sampleOfMaterialType ?matType${suffix} .
       ?matType${suffix} rdfs:label ?matTypeLabel${suffix} .
-      ?result${suffix} coso:measurementValue ?result_value${suffix} ;
-                       coso:measurementUnit ?unit${suffix} .
+      ?result${suffix} coso:measurementUnit ?unit${suffix} .
+      ${resultValueClauses(suffix)}
       ${filters}`;
     }
     case 'waterBodies': {
@@ -328,6 +331,12 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
 // long IRI lists, and that re-derivation is what timed out (429) on every
 // downstream question. Sample hydration now runs by IRI in chunks
 // (planner.ts iriScopes), so neither is needed.
+//
+// Merge note (2026-09-14): development fixed the non-detect handling in both of
+// these at the same time this branch deleted them. Nothing was lost — the same
+// resultValueClauses() fix already applies on the path that replaced them,
+// buildSampleRetrievalByIriQuery / buildSampleDetailByIriQuery in
+// templates/downstreamSamples.ts, and in bindEntityInCell above.
 
 export interface FusedWellSideOpts extends FusedBaseOpts {
   relationship: SpatialRelationship;

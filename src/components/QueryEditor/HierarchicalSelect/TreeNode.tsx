@@ -11,6 +11,7 @@ interface TreeNodeProps {
   onToggleExpand: (code: string) => void;
   onToggleSelect: (code: string) => void;
   counts?: Map<string, number>;
+  labelOnly?: boolean;
 }
 
 export function TreeNode({
@@ -22,6 +23,7 @@ export function TreeNode({
   onToggleExpand,
   onToggleSelect,
   counts,
+  labelOnly,
 }: TreeNodeProps) {
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedNodes.has(node.code);
@@ -74,8 +76,8 @@ export function TreeNode({
             onChange={() => onToggleSelect(node.code)}
           />
           <span>
-            {node.code} - {node.label}
-            {count !== undefined && count > 0 ? ` (${count})` : ''}
+            {labelOnly ? node.label : `${node.code} - ${node.label}`}
+            {count !== undefined && count > 0 ? ` (${count.toLocaleString()})` : ''}
           </span>
         </label>
       </div>
@@ -92,6 +94,7 @@ export function TreeNode({
             onToggleExpand={onToggleExpand}
             onToggleSelect={onToggleSelect}
             counts={counts}
+            labelOnly={labelOnly}
           />
         ))
       }

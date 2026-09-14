@@ -195,64 +195,100 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 
 ---
 
-## 2026-09-13 — HTTP 429 from apps.okn.us is a query timeout, not rate limiting
+## 2026-09-08 — Substance dropdown empty: required label predicate with zero triples
 
-**Component**: `engine/sparqlClient.ts`, `engine/executor.ts`, `engine/templates/fusedQueries.ts`
+**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`, and `useSubstances()` in `src/hooks/useDiscoveryQueries.ts`
+**Symptom**: The Substance dropdown rendered "No options available" with a state selected, and silently showed the seven-entry `FALLBACK_SUBSTANCES` list with no state selected.
+**Root cause**: The query required `?substance dcterms:alternative ?_label`. That predicate has **zero** triples on substances, on `sawgraph` and `federation` alike. Because it was a required pattern rather than `OPTIONAL`, the whole query returned 0 rows instead of returning substances without labels. Substance names live on `rdfs:label` (896,899 triples). The likely origin of the mistake is `docs/SCHEMA.md`'s facility table, where `dcterms:alternative` is a legitimate *facility* predicate: 3,824,195 triples in fiokg, 3,742,487 of them on `fio:Facility`, 0 on `comptox:ChemicalEntity`.
+**Fix**: Switched to `rdfs:label`, then made both label patterns `OPTIONAL` and added a DTXSID fallback in the hook. Fixing only the predicate still hid 32 of 101 substances (47,642 observations, 5.0% of everything with a substance link) because the label was still required. Live counts: 0 rows → 69 → 101 unfiltered, and 0 → 69 → 79 for Maine.
+**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
+**Prevention**: A label pattern in a discovery query must be `OPTIONAL` with a URI-tail fallback. A required label does not degrade, it deletes: the row disappears along with its data, and the dropdown looks merely short rather than broken. This one mistake caused both the total outage and the 32 hidden substances. Cross-repo confirmation: `SAWGraph/streamlit-app/filters/substance.py:67` carries the identical bug and returns 0 rows live today, while `core/sparql.py:586` and `analyses/pfas_upstream/queries.py:147` in the same repo use `rdfs:label`; `analyses/aquifer_wells/queries.py:96-97` asks for both predicates but marks each `OPTIONAL`, and therefore survives.
 
-**Symptom**: Pipeline runs fail with the red card *"Something went wrong. You can
-edit the question and try again."* DevTools shows `429 Too Many Requests` from
-`https://apps.okn.us/federation/sparql`, with a surprisingly large response body
-(323 KB–996 KB). Downstream and upstream questions failed most often; the same
-question could work one hour and fail the next.
+---
 
-**Root cause**: **QLever stops any query at 30 seconds and reports that stop with
-the 429 status code.** It is not throttling — 8 simultaneous requests all return
-200. The real cause is only in the response body:
+## 2026-09-09 — QLever aggregate quirks while building the substance label fallback
+
+**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
+**Symptom**: Three separate failures while adding a fallback that borrows a substance name from the source parameter it was matched to.
+**Root cause**: All three are QLever aggregate behaviours, not SPARQL semantics.
+
+1. `COALESCE(SAMPLE(?a), SAMPLE(?b))` returns HTTP 500 on `federation` with `Assertion 'singleResult.size() == 1' failed. An expression returned a vector expression result that contained an unexpected amount of entries ... GroupByImpl.cpp:436`. The same query succeeds on `sawgraph`, so it passes a casual test. `SAMPLE(COALESCE(?a, ?b))` runs on both.
+2. `SAMPLE(?x)` where `?x` is bound inside a nested `OPTIONAL` can return **unbound even when some rows in the group bind it**. This is the dangerous one: it fails silently, costing 8 of 69 acronyms with no error. Requiring the value in the OPTIONAL's own pattern (`OPTIONAL { ?p pred ?s ; rdfs:label ?_x . }`) rather than nesting a second OPTIONAL inside fixes it.
+3. `SAMPLE()` picks arbitrarily across the 41 substances matched by more than one parameter, so labels changed between runs. `MIN()` is deterministic and, because `X` sorts before `X_A`, happens to prefer the unsuffixed base form.
+
+**Fix**: Project the borrowed name as its own column with `MIN(?_viaParam)`, require `rdfs:label` inside the OPTIONAL, and coalesce in the hook rather than in SPARQL.
+**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`
+**Prevention**: Test aggregate expressions against **both** `sawgraph` and `federation`; they do not behave identically. And when an aggregate feeds a fallback chain, assert the expected coverage count rather than eyeballing the first few rows, since a silently unbound `SAMPLE` looks exactly like missing data.
+
+---
+
+## 2026-09-11 — A dead IRI returns 200 with no rows, it does not error
+
+**Component**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Symptom**: The "PFHpA Groundwater Samples Downstream from Facilities in Cumberland County" card ran every pipeline step, reported success, and drew an empty map. No error anywhere.
+**Root cause**: The card's material filter pinned `http://w3id.org/sawgraph/v1/me-egad-data#sampleMaterialType.GW`, which matches zero triples. The August 2026 reload moved the two halves of the graph in opposite directions: instance data to `v2/me-egad-data#` and `v2/us-wqp-data#`, controlled vocabulary out of `-data` and into the roots `v1/me-egad#` and `v1/us-wqp#`. Material types are vocabulary, so the root form is the live one. All six `FALLBACK_MATERIAL_TYPES` entries carried the same dead namespace, and one also used `sampleMaterialType.SO` for sludge, a code that appears nowhere in the vocabulary — the real one is `.SU`.
+
+The failure mode is the point. The filter it builds is `VALUES ?matType { <dead-iri> }`, which is valid SPARQL. The endpoint answers 200 with zero rows, and nothing downstream can distinguish that from an honest "no data matches". Verified live: with the dead IRI, 0 sample points; with the root form, 65 sample points and 171 observations.
+
+**Fix**: `ef0c40b` — both files moved to `v1/me-egad#`, sludge corrected to `.SU`.
+**Files touched**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Prevention**: Same family as the `dcterms:alternative` bug above — *a required pattern that cannot match does not degrade, it deletes*. Extend that to IRIs: a hardcoded IRI is a silent single point of failure the moment a namespace moves. When a query returns nothing, count the triples on the IRIs it names (`SELECT (COUNT(*) AS ?n) WHERE { { <iri> ?p ?o } UNION { ?s ?p2 <iri> } }`) before investigating anything else. Source of truth for the source-specific vocabularies is `SAWGraph/pfas-kg` under `datasets/*/controlledVocab/`, not `contaminoso`, which defines only the shapes.
+
+---
+
+## 2026-09-11 — QLever reports a query timeout as HTTP 429
+
+**Component**: any pipeline step against `apps.okn.us`
+**Symptom**: `429 Too Many Requests` in the network tab after ~30s, which reads as rate limiting and sends you looking for a request budget that does not exist.
+**Root cause**: QLever uses 429 for query timeouts. The response body carries the real reason:
 
 ```json
-{ "exception": "Operation timed out. Last operation: Join on ?s2neighbor" }
+{ "exception": "Operation timed out. Last operation: Join on ?s2anchor" }
+{ "exception": "Operation timed out. Last operation: Sort (internal order) on ?resultC" }
 ```
 
-The large body is the error echoing the whole query back, which is what makes it
-look like a successful response that went wrong.
+A related failure appears as HTTP 500 with `Tried to allocate 409.6 MB, but only 351 MB were available`. Both are resource exhaustion; only the reporting differs. Available memory is not stable — observed at 370 MB, 351 MB and 88 MB within one afternoon on the same endpoint, so the same query can pass and fail minutes apart. This matches the endpoint flakiness recorded in changelog week 37 entry 5.
 
-Two things put our queries over that limit:
+**Fix**: None needed in the app. Diagnostic note only.
+**Prevention**: Always read the response body before concluding rate limiting; the status code alone is misleading. A 429 that took 30 seconds is a timeout, not a throttle — a real throttle returns immediately. Retry on an idle endpoint before investigating a query, and be aware a green run proves less than a red one here.
 
-1. **`bindEntityInCell` served two callers with opposite needs** (since `d9ba5a6`).
-   The hydrate queries project `?substance`, `?matTypeLabel`, `?result_value`, so
-   they need the observation joins. The ID-finding queries project one column and
-   do not — but got them anyway, so they built every chemical measurement in the
-   state and discarded it. Removing them: 7/7 failures → 4.3s.
-2. **Work was unbounded per request.** A single query carried the whole
-   `hyf:downstreamFlowPathTC` closure, so cost scaled with the state's data rather
-   than with what the user asked for. A query returning 0 rows could still try to
-   allocate 3.3 GB.
+Trimming unused bindings measurably helps. The downstream `FIND_TARGET_IRIS` query selects only `?spC` but also binds `?matTypeLabelC` and computes `?result_valueC`, neither projected nor filtered on. Removing just those two took the query from a hard timeout to 24.7s before it hit the memory ceiling. Same pattern as the Indiana card in changelog week 37 entry 5.
+## 2026-09-13 — The 429s, and what shipped to stop them
 
-**Fix**: ID-finding queries no longer join observations unless a filter needs
-them; queries that the engine refuses are split into slices and merged
-(`engine/scope.ts`); popup detail is fetched per sample instead of 18–37 MB up
-front. See `docs/plans/active/2026-09-13-query-execution-architecture.md`.
+Builds on the 2026-09-11 entry above, which established that a 429 from these
+endpoints is a query timeout. This one records the scale of the problem and the
+fix.
 
-**Related failures from the same cause** — all nine are catalogued with examples
-in `docs/QUERY-MATRIX.md` Part 4:
+**How widespread**: a sweep of every question the editor can build (95 shapes,
+156 queries) found **37 failing outright and 32 more running over 15s** against
+a 30s limit. River-trace questions were half broken — 23 of 50 worked. Maine was
+the only healthy state: the same plain question failed in 5 of 6 others,
+including Indiana, which is one of our own dashboard cards. Full results and the
+catalogue of all nine failure responses are in `docs/QUERY-MATRIX.md`.
 
-| Response | What it actually means |
-| --- | --- |
-| `429` + `Operation timed out` | the 30s query limit |
-| `429` + `Sort operation was canceled` | same limit, caught earlier by the planner |
-| `500` + `Tried to allocate X` | engine out of memory on an intermediate join |
-| `500` + `Waited for a result from another thread` | a shared sub-result failed; retry to see the real error |
-| `413` / `502` | **our request** was too big — an inlined `VALUES` list. Appears in the browser as a **CORS error**, because the error response omits `Access-Control-Allow-Origin` |
-| `403` on `?timeout=120s` | raising the limit needs an access token we do not have |
-| client `Bad control character in JSON` | a large response truncated mid-body |
+**Root cause beyond the unused bindings** already noted above: `bindEntityInCell`
+(`templates/fusedQueries.ts`) served both the ID-finding queries and the hydrate
+queries. The hydrate side projects `?substance`, `?matTypeLabel`,
+`?result_value`; the ID side projects one column and needs none of it. Both got
+the measurement joins, so the ID queries built every measurement in the state
+and discarded it.
 
-**Prevention**:
-- Never read a 429 from these endpoints as rate limiting — **read the exception in
-  the body first**.
-- A question whose second block has no filter and no region means "every entity
-  in the graph" (1,506,326 facilities; 532,771 wells). That, not the size of the
-  answer, is what blows the limit — narrowing the *first* block does not help.
-- Benchmark against more than Maine. The same question fails in 5 of 6 other
-  states; Indiana is in our own dashboard.
-- Results are cache-sensitive: identical query, 26.5s cold vs 1.5s warm. Measure
-  twice before trusting a timing.
+**Fix**: ID-finding queries drop those joins unless a filter needs them, and any
+query the engine refuses is split into slices and merged
+(`src/engine/scope.ts`). 34 of the 37 failures now work, none regressed.
+
+**Three traps worth knowing**
+
+- **An unfiltered second block means every entity in the graph** — 1,506,326
+  facilities, 532,771 wells. That, not the size of the answer, is what blows the
+  limit. Narrowing the *first* block does not help: measured, still OOM at
+  2.6 GB. The three questions that remain unanswerable all have this shape.
+- **413/502 arrives in the browser as a CORS error**, because the gateway's
+  error response omits `Access-Control-Allow-Origin`. It means our *request* was
+  too big — an inlined `VALUES` list — not that anything is wrong with CORS.
+- **`?timeout=120s` returns 403.** Raising the engine's limit needs an access
+  token we do not have, so the 30s ceiling is not negotiable from our side.
+
+**Prevention**: benchmark against more than Maine, and re-run
+`npm run query-matrix` after any engine change, diffing against
+`docs/query-matrix.csv`.

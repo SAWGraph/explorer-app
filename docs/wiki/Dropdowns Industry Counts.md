@@ -84,7 +84,7 @@ stop appearing.
   `counts` prop at
   [`FacilityFilters.tsx:24`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/FacilityFilters.tsx#L24).
 * The data comes from
-  [`useIndustryCounts(region)`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L65),
+  [`useIndustryCounts(region)`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L76),
   called at
   [`FacilityFilters.tsx:13`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/FacilityFilters.tsx#L13).
 * The query text is built by
@@ -94,7 +94,11 @@ stop appearing.
   against the `federation` URL in
   [`endpoints.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/endpoints.ts).
 * The rollup is
-  [`rollupCounts()`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts#L138).
+  [`rollupCounts()`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts#L148),
+  now shared with the [Material](Dropdowns%20Material) dropdown. Summing children into a
+  parent is only sound when the children partition the parent. That holds for NAICS by
+  construction, and for material types because `MIN(?bucketPrio)` forces each one into
+  exactly one group. It would not hold for a set of overlapping categories.
 
 Cached under `['industryCounts', <region key>]` with `staleTime: Infinity` and gated by
 `enabled: !!region?.stateCode`. The region key sorts the county codes before joining them, so
