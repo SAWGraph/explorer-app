@@ -1,6 +1,7 @@
 import { PREFIXES } from '../../constants/prefixes';
 import type {
   FacilityFilters,
+  StreamFilters,
   WaterBodyFilters,
 } from '../../types/query';
 import { wrapUri } from './samples';
@@ -64,3 +65,25 @@ export function buildWaterBodiesByIri(
   `;
 }
 
+// Column names match buildFusedFlowlineQuery so transformFlowlinesToFeatures
+// consumes either one unchanged.
+export function buildStreamsByIri(streamIris: string[], filters?: StreamFilters): string {
+  let filterClauses = '';
+  if (filters?.ftypes?.length) {
+    const ftypeValues = filters.ftypes.map((f) => `"${f}"`).join(' ');
+    filterClauses = `VALUES ?fl_type { ${ftypeValues} }`;
+  }
+  const vals = streamIris.map(wrapUri).join(' ');
+
+  return `
+    ${PREFIXES}
+    SELECT DISTINCT ?flowline ?flowlineWKT ?fl_type ?streamName WHERE {
+      VALUES ?flowline { ${vals} }
+      ?flowline rdf:type hyf:HY_FlowPath ;
+                geo:hasGeometry/geo:asWKT ?flowlineWKT ;
+                nhdplusv2:hasFTYPE ?fl_type .
+      OPTIONAL { ?flowline rdfs:label ?streamName }
+      ${filterClauses}
+    }
+  `;
+}

@@ -150,6 +150,11 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
     }
     case 'waterBodies':
       return 'surface water bodies';
+    case 'streams': {
+      const ftypes = block.streamFilters?.ftypes ?? [];
+      if (!ftypes.length) return 'streams';
+      return `${summarize(ftypes, undefined, 'stream types', 'stream type', '/', 'any')} streams`;
+    }
     case 'wells':
       return 'wells';
     case 'aquifers': {
@@ -175,9 +180,13 @@ function describeRelationship(rel: SpatialRelationship): string {
       return `near (~${miles} mile${miles > 1 ? 's' : ''})`;
     }
     case 'downstream':
-      return 'downstream of';
+      return rel.maxDistanceKm
+        ? `within ${rel.maxDistanceKm} km downstream of`
+        : 'downstream of';
     case 'upstream':
-      return 'upstream from';
+      return rel.maxDistanceKm
+        ? `within ${rel.maxDistanceKm} km upstream from`
+        : 'upstream from';
     case 'within':
       return 'within';
   }

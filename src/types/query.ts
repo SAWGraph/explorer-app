@@ -5,7 +5,13 @@ export interface AnalysisQuestion {
   blockC: EntityBlock;
 }
 
-export type EntityType = 'samples' | 'facilities' | 'waterBodies' | 'wells' | 'aquifers';
+export type EntityType =
+  | 'samples'
+  | 'facilities'
+  | 'waterBodies'
+  | 'wells'
+  | 'aquifers'
+  | 'streams';
 
 export interface EntityBlock {
   type: EntityType;
@@ -15,6 +21,7 @@ export interface EntityBlock {
   waterBodyFilters?: WaterBodyFilters;
   wellFilters?: WellFilters;
   aquiferFilters?: AquiferFilters;
+  streamFilters?: StreamFilters;
 }
 
 export interface RegionFilter {
@@ -45,6 +52,10 @@ export interface WaterBodyFilters {
   ftypes?: string[];
 }
 
+export interface StreamFilters {
+  ftypes?: string[];
+}
+
 export interface WellFilters {
   // Encoded category tokens: `${field}||${iri1} ${iri2} ...`
   // where field is 'ilPurpose' | 'meType' | 'meUse'. See wellClassifications.ts.
@@ -60,4 +71,7 @@ export interface AquiferFilters {
 export interface SpatialRelationship {
   type: 'near' | 'downstream' | 'upstream' | 'within';
   hops?: number;
+  // Cumulative flowpath length cutoff (km) for downstream/upstream traces.
+  // Undefined = unbounded transitive closure, the original behavior.
+  maxDistanceKm?: number;
 }

@@ -43,7 +43,8 @@ function hasBlockFilters(block: EntityBlock): boolean {
     block.facilityFilters ??
     block.waterBodyFilters ??
     block.wellFilters ??
-    block.aquiferFilters;
+    block.aquiferFilters ??
+    block.streamFilters;
   return Boolean(f && Object.values(f).some((v) => (Array.isArray(v) ? v.length > 0 : v != null)));
 }
 
