@@ -31,10 +31,12 @@ on:
         type: boolean
         default: false
 
-# One warm run at a time — these queries are heavy on a shared endpoint, and two
-# concurrent runs would compete for the same graph engine.
+# One job at a time across *every* workflow that queries the graph — shared with
+# health-check.yml, so a warm run and the weekly health check queue rather than
+# compete for the same graph engine. Warming both environments now serialises
+# too, which costs a few minutes and buys clean measurements.
 concurrency:
-  group: warm-cache-${{ inputs.environment }}
+  group: sawgraph-endpoint
   cancel-in-progress: false
 
 jobs:

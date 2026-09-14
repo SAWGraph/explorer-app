@@ -19,9 +19,14 @@ on:
     - cron: '0 6 * * 1' # Mondays, 06:00 UTC
   workflow_dispatch:
 
-# These queries are heavy on a shared endpoint. Never two runs at once.
+# One job at a time across *every* workflow that queries the graph — this group
+# name is shared with warm-cache.yml on purpose. Both run the same eight heavy
+# questions, and a warm run started by hand on a Monday morning would otherwise
+# land on top of the health cron. That is not hypothetical: three questions were
+# recorded as broken while this was being built, purely because something else
+# was querying at the same time, and all three passed on retry.
 concurrency:
-  group: health-check
+  group: sawgraph-endpoint
   cancel-in-progress: false
 
 permissions:
