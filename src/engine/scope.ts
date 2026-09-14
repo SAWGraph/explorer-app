@@ -6,7 +6,7 @@ import { buildDiscoverCountiesQuery } from './templates/regions';
 
 // A Scope is a slice of one pipeline step's work. `undefined` scope means "the
 // whole thing" — the executor always tries that first and only slices when the
-// engine refuses (docs/plans/active/2026-09-13-query-execution-architecture.md).
+// engine refuses (docs/plans/done/2026-09-13-query-execution-architecture.md).
 //
 // Exactly one of the three slicing fields is set on any given scope; which one
 // is decided per question by `chooseAxis`, because the right axis flips between

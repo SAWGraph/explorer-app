@@ -1,11 +1,11 @@
 # Phase 3 — Cache what's already computed
 
-**Status**: active
+**Status**: done
 **Created**: 2026-09-14
-**Completed**:
+**Completed**: 2026-09-14 (PRs #40, #42)
 
 Phase 3 of [the query execution
-plan](../active/2026-09-13-query-execution-architecture.md). Phases 1 and 2
+plan](./2026-09-13-query-execution-architecture.md). Phases 1 and 2
 (PR #38) bounded how much work one query does; this one stops us doing the same
 work twice.
 

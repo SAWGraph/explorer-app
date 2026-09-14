@@ -376,7 +376,7 @@ cache of our own.
 ## Part 6 — After Phases 1 and 2 (measured 2026-09-14)
 
 Phases 1 and 2 of
-[the execution plan](./plans/active/2026-09-13-query-execution-architecture.md)
+[the execution plan](./plans/done/2026-09-13-query-execution-architecture.md)
 are implemented: the pipeline no longer fetches popup detail up front, and any
 query the engine refuses is split into slices that fit and merged back together.
 
