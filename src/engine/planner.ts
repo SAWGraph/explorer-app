@@ -9,6 +9,7 @@ import {
 } from './templates/fusedQueries';
 import {
   buildFacilitiesByIri,
+  buildStreamsByIri,
   buildWaterBodiesByIri,
   buildSamplesByIri,
 } from './templates/hydrate';
@@ -74,6 +75,7 @@ function entityEndpoint(block: EntityBlock): EndpointKey {
     case 'waterBodies':
     case 'wells':
     case 'aquifers':
+    case 'streams':
       return 'hydrologykg';
   }
 }
@@ -132,6 +134,8 @@ function hydrateStep(
           return buildWaterBodiesByIri(iris, block.waterBodyFilters);
         case 'aquifers':
           return buildAquifersByIri(iris);
+        case 'streams':
+          return buildStreamsByIri(iris, block.streamFilters);
       }
     },
     // Wells re-derive their set server-side (they can run to 80k+ IRIs), so
@@ -228,6 +232,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     return buildFusedHydrologyQuery({
       ...shared,
       direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',
+      maxDistanceKm: relationship.maxDistanceKm,
     });
   };
 
@@ -264,7 +269,11 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     divide: divideDiscovery,
   });
 
-  if (relationship.type !== 'near') {
+  // Supporting stream layer. Skipped when a side is already streams — those
+  // flowlines come back as the answer set and would be drawn twice.
+  const streamsAreAnswer =
+    targetBlock.type === 'streams' || anchorBlock.type === 'streams';
+  if (relationship.type !== 'near' && !streamsAreAnswer) {
     steps.push({
       type: 'GET_FLOWLINE_GEOMETRIES',
       endpoint: 'federation',
@@ -275,6 +284,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
           anchor: anchorBlock,
           direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',
           anchorIris: scope?.anchorIris ?? ctx.anchorIris,
+          maxDistanceKm: relationship.maxDistanceKm,
         }),
       initialScopes: (ctx) => iriScopes(ctx.anchorIris, 'anchor'),
       divide: async (ctx, scope) => divideIriList(scope, ctx.anchorIris, 'anchor'),

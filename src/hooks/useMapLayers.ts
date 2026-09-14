@@ -50,6 +50,9 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
     const facilityRows = allRows.filter((r) => r.facWKT);
     const waterBodyRows = allRows.filter((r) => r.wbWKT);
     const wellRows = allRows.filter((r) => r.wellWKT);
+    // Streams can arrive either as the answer set (hydrated, when a block is
+    // streams) or as the supporting layer traced from the anchors.
+    const streamRows = allRows.filter((r) => r.flowlineWKT);
 
     // Popup detail is fetched per sample on open (useSampleDetails), not here.
     const sampleFeatures = transformSamplesToFeatures(sampleRows);
@@ -67,7 +70,7 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       facilities: transformFacilitiesToFeatures(facilityRows),
       waterBodies: transformWaterBodiesToFeatures(waterBodyRows),
       wells: transformWellsToFeatures(wellRows),
-      streams: transformFlowlinesToFeatures(flowlineRows),
+      streams: transformFlowlinesToFeatures([...streamRows, ...flowlineRows]),
       regionBoundaries: transformRegionBoundaries(boundaryRows),
       matchedAquiferIris,
     };
