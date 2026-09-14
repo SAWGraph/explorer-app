@@ -12,10 +12,21 @@
 //         M3 upstream all pairs | M4 distance sweep | M5 dashboard queries
 //         M6 six states | M7 no region | M8 filters | M9 county scopes
 //
-// A full sweep is ~156 queries and takes roughly 40 minutes; each query is
-// capped at 45s client-side. Run phases one at a time and sequentially — running
-// them in parallel distorts timings and provokes failures that are artefacts of
-// your own load.
+// How long it takes depends entirely on MODE, and the difference is large:
+//
+//   raw    ~156 step-queries, ~37 min   (measured 2026-09-14)
+//   engine  124 full pipelines, ~95 min (measured 2026-09-14 at 144 min, but
+//           48 of those were two requests that hung for 1918s and 959s before
+//           sparqlClient gained its 60s cap — those shapes now fail fast)
+//
+// Nearly all of it is M2 and M3: the downstream and upstream sweeps are 50 of
+// the 124 queries and about two thirds of the wall time. M1, M7 and M9 together
+// finish in under four minutes.
+//
+// Run phases one at a time and sequentially — running them in parallel distorts
+// timings and provokes failures that are artefacts of your own load. If you run
+// this while a GitHub workflow is querying, you will measure the contention.
+// Each query is capped at 45s client-side per request.
 //
 // Results are cache-sensitive: the engine answers the same query 10-20x faster
 // when warm, so run a sweep twice (cold, then warm) before trusting a number.
