@@ -20,6 +20,7 @@ import {
 } from '../../types/savedQuestion';
 import { deepEqual } from '../../utils/clone';
 import { publishEditTokens } from '../../storage/publishEditTokens';
+import { savePublishedResult } from '../../api/resultCacheClient';
 
 const PUBLISHED_ID_PREFIX = 'published:';
 
@@ -365,6 +366,15 @@ export function AnalysisQuestionBar() {
               });
               markBaseline();
               setPublishedUrl(result.url);
+
+              // Hand over the result this browser already computed, so visitors
+              // to the share link get it instantly instead of re-running the
+              // pipeline themselves. Deliberately not awaited and never throws:
+              // the publish has already succeeded.
+              const computed = useQueryStore.getState().pipelineResult;
+              if (computed?.status === 'success') {
+                void savePublishedResult(result.id, result.editToken, computed);
+              }
             } catch (err) {
               setPublishError(
                 err instanceof Error ? err.message : 'Failed to publish.',

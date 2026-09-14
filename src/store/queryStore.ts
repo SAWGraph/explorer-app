@@ -23,6 +23,9 @@ interface QueryStore {
   baselineQuestion: AnalysisQuestion;
   stepProgress: StepProgress[];
   pipelineResult: PipelineResult | null;
+  // Set when the result came from the cache rather than a live run, so the UI
+  // can say so. Null means the displayed result was just computed.
+  resultProvenance: { computedAt: string | null; partial: boolean } | null;
   isRunning: boolean;
   isEditModalOpen: boolean;
   questionSnapshot: AnalysisQuestion | null;
@@ -59,6 +62,9 @@ interface QueryStore {
   addStepProgress: (progress: StepProgress) => void;
   clearProgress: () => void;
   setPipelineResult: (result: PipelineResult | null) => void;
+  setResultProvenance: (
+    provenance: { computedAt: string | null; partial: boolean } | null,
+  ) => void;
 
   openTour: () => void;
   closeTour: () => void;
@@ -72,6 +78,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
   baselineQuestion: defaultQuestion(),
   stepProgress: [],
   pipelineResult: null,
+  resultProvenance: null,
   isRunning: false,
   isEditModalOpen: false,
   questionSnapshot: null,
@@ -91,6 +98,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
       baselineQuestion: deepClone(question),
       stepProgress: [],
       pipelineResult: null,
+      resultProvenance: null,
       pendingAutoRun: options.autoRun ?? true,
       lastApplyError: null,
     });
@@ -136,6 +144,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
     }),
   clearProgress: () => set({ stepProgress: [] }),
   setPipelineResult: (pipelineResult) => set({ pipelineResult }),
+  setResultProvenance: (resultProvenance) => set({ resultProvenance }),
 
   openTour: () => set({ isTourOpen: true }),
   closeTour: () => set({ isTourOpen: false }),

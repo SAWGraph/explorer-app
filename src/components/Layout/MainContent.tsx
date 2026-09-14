@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { ResultsMap } from '../Map/ResultsMap';
 import { PipelineProgressStrip } from '../Pipeline/PipelineProgressStrip';
 import { PartialResultsNotice } from '../Pipeline/PartialResultsNotice';
+import { CachedResultNotice } from '../Pipeline/CachedResultNotice';
 import { useQueryStore } from '../../store/queryStore';
 import { useMapLayers } from '../../hooks/useMapLayers';
 import { useQueryPipeline } from '../../hooks/useQueryPipeline';
@@ -25,6 +26,7 @@ export function MainContent() {
     <main className='app-main'>
       <div className='map-container'>
         <ResultsMap layers={layers} />
+        <CachedResultNotice />
         <PartialResultsNotice />
         <PipelineProgressStrip />
       </div>

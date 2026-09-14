@@ -38,8 +38,19 @@ npm run preview  # Preview production build
 
 ## Deployment
 
-Deployed on **Railway** from the `main` branch. Build config lives in the Railway
-dashboard, not in this repo — there is no `railway.json` or `nixpacks.toml` here.
+Deployed on **Railway**, two environments, each with a frontend and an API
+service. Build config lives in the Railway dashboard, not in this repo — there
+is no `railway.json` or `nixpacks.toml` here.
+
+| Environment | Branch | Frontend | API |
+| --- | --- | --- | --- |
+| Production | `main` | https://sawgraph-explorer.up.railway.app | https://sawgraph-explorer-api.up.railway.app |
+| Development | `development` | https://sawgraph-explorer-development.up.railway.app | https://sawgraph-explorer-api-development.up.railway.app |
+
+The frontend reaches the API through `VITE_API_BASE_URL`, baked in at build
+time, so each environment's frontend points at its own API. The API allows the
+frontend's origin via `FRONTEND_ORIGIN`. Both services share a Postgres
+instance per environment.
 
 ## How queries work
 

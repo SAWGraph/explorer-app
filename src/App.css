@@ -2413,3 +2413,34 @@
   color: var(--color-gray-600);
   font-style: italic;
 }
+
+/* Saved (cached) results — never let a stored answer look like a fresh one. */
+.cached-result-notice {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.875rem;
+  background: white;
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  font-size: var(--text-sm);
+  color: var(--color-gray-700);
+}
+
+.cached-result-notice button {
+  flex-shrink: 0;
+  padding: 0.25rem 0.625rem;
+  background: var(--color-primary-50, #eff6ff);
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--color-primary-700, #1d4ed8);
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  cursor: pointer;
+}
