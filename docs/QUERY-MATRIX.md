@@ -2,7 +2,7 @@
 
 **Baseline measured**: 2026-09-13, against the live `apps.okn.us` endpoints
 **Re-measured after Phases 1 + 2**: 2026-09-14 (Part 6)
-**Raw data**: [`query-matrix.csv`](./query-matrix.csv) — one row per query executed, importable into a spreadsheet
+**Raw data**: [`query-matrix/`](./query-matrix/) — one row per query executed, importable into a spreadsheet
 **Harness**: [`scripts/query-matrix.mts`](../scripts/query-matrix.mts) — re-run it and diff the CSV after any engine change
 
 This is the reference sheet. Every claim here is a measurement, not an estimate.
@@ -484,7 +484,7 @@ reason.
 
 The whole matrix re-run through the real engine (`QUERY_MATRIX_MODE=engine`), so
 splitting, merging, partial results and the step budget were all exercised —
-not just the raw SPARQL. Raw data: `docs/query-matrix-after.csv`.
+not just the raw SPARQL. Raw data: `docs/query-matrix/2026-09-14-engine.csv`.
 
 **124 shapes compared. Of the 37 that failed at baseline, 34 now work. No
 regressions.**
@@ -562,13 +562,32 @@ a slice never attempted were both reported as "too large". They need opposite
 advice — narrow the question vs. just run it again — and are now tracked and
 worded separately.
 
-### 7.5 Caveat on the recorded partial counts
+### 7.5 The recorded CSV is older than the counts above
 
-`query-matrix-after.csv` was captured *before* the budget fix, so its
-`partialSlices` numbers are pessimistic: they count slices skipped by a rule
-that has since been replaced. The one case re-measured afterwards
-(`wells near(4)`) went from 11 missing to **0**. Several other partials in that
-file are likely complete now; they have not been re-run.
+`query-matrix/2026-09-14-engine.csv` was captured *before* the budget fix, and
+the gap is wider than it first looked. **The file has 9 error rows; the table
+above says 3.** Both are honest about the moment they describe — the counts came
+from the code as it stands, the CSV from the code a few commits earlier — but
+only one of them is re-derivable, and it is not the table.
+
+Six of those nine are known to have been fixed by changes made after the
+capture:
+
+| Shape in the CSV | Why it is stale |
+| --- | --- |
+| `samples ↓ facilities [17]` (Illinois) | the budget fix; 7.4 records it completing in 248s |
+| five `upstream` shapes | two of them hung for 1918s and 959s, which the 60s client cap in `sparqlClient.ts` now prevents |
+
+The `partialSlices` numbers are pessimistic for the same reason: they count
+slices skipped by a rule that has since been replaced. `wells near(4)` went from
+11 missing to **0** when re-measured.
+
+**What to do about it:** run a fresh engine sweep (~95 min) and let the new
+dated file supersede this one. Until then, treat the table as current and the
+CSV as an artefact of 2026-09-14. This is precisely the confusion the per-sweep
+file naming and the generated index in `query-matrix/README.md` exist to prevent
+from recurring — a sweep is now stamped with its own commit, and the index shows
+what moved between one sweep and the next.
 
 ---
 

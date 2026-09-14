@@ -291,7 +291,7 @@ query the engine refuses is split into slices and merged
 
 **Prevention**: benchmark against more than Maine, and re-run
 `npm run query-matrix` after any engine change, diffing against
-`docs/query-matrix.csv`.
+`docs/query-matrix/2026-09-14-raw-baseline.csv`.
 
 ---
 

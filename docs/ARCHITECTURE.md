@@ -920,7 +920,7 @@ the correct answer — confirm the data exists before treating it as a bug.
 ### 6. Run the whole matrix
 
 `npm run query-matrix` re-measures every query shape and writes
-`docs/query-matrix.csv`. Slow, but it is how a regression gets proven rather
+`docs/query-matrix/2026-09-14-raw-baseline.csv`. Slow, but it is how a regression gets proven rather
 than suspected.
 
 ---

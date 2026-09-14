@@ -332,7 +332,7 @@ the monolith where a monolith could produce one.**
 ### 8.3 Gate for calling this done
 
 Re-run the matrix harness after each phase and diff against
-`docs/query-matrix.csv`:
+`docs/query-matrix/2026-09-14-raw-baseline.csv`:
 
 - No shape may move from ✅/⚠️ to ❌.
 - All 37 ❌ rows must become ✅ or ⚠️.
@@ -422,4 +422,4 @@ Two mechanisms were added during implementation that the plan did not anticipate
   side would drop out-of-region contributors (`3f50251`).
 
 **Verification gate for each phase:** re-run the matrix harness and compare
-against `docs/query-matrix.csv`. No shape may regress; the ❌ rows must turn ✅.
+against `docs/query-matrix/2026-09-14-raw-baseline.csv`. No shape may regress; the ❌ rows must turn ✅.
