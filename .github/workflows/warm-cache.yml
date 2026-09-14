@@ -1,0 +1,83 @@
+name: Warm result cache
+
+# Runs the dashboard questions and stores their results, so visitors get them
+# instantly instead of waiting 10-70s for a live pipeline run.
+#
+# Manual on purpose: a cached entry only goes stale when the knowledge graph
+# reloads or its 30-day TTL expires, and both are things we control. To make it
+# periodic anyway, add a schedule trigger:
+#
+#   schedule:
+#     - cron: '0 6 * * 1'   # Mondays, 06:00 UTC
+#
+# Setup (once): add the repository secrets CACHE_WRITE_TOKEN_DEV and
+# CACHE_WRITE_TOKEN_PROD, matching CACHE_WRITE_TOKEN on each API service.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which API to warm
+        type: choice
+        required: true
+        default: development
+        options: [development, production]
+      only:
+        description: 'Optional: only questions whose title contains this text'
+        type: string
+        required: false
+      allow_partial:
+        description: Cache results even when some slices failed
+        type: boolean
+        default: false
+
+# One warm run at a time — these queries are heavy on a shared endpoint, and two
+# concurrent runs would compete for the same graph engine.
+concurrency:
+  group: warm-cache-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # react-leaflet's peer range does not include React 19 (see CLAUDE.md)
+      - run: npm ci --legacy-peer-deps
+
+      - name: Warm the cache
+        env:
+          API_BASE: >-
+            ${{ inputs.environment == 'production'
+                && 'https://sawgraph-explorer-api.up.railway.app'
+                || 'https://sawgraph-explorer-api-development.up.railway.app' }}
+          CACHE_WRITE_TOKEN: >-
+            ${{ inputs.environment == 'production'
+                && secrets.CACHE_WRITE_TOKEN_PROD
+                || secrets.CACHE_WRITE_TOKEN_DEV }}
+          ALLOW_PARTIAL: ${{ inputs.allow_partial && '1' || '0' }}
+        run: |
+          if [ -z "$CACHE_WRITE_TOKEN" ]; then
+            echo "::error::No cache write token for '${{ inputs.environment }}'."
+            echo "::error::Add CACHE_WRITE_TOKEN_DEV / CACHE_WRITE_TOKEN_PROD as repository secrets."
+            exit 1
+          fi
+          npm run warm-cache -- "${{ inputs.only }}" | tee warm-cache.log
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Warm result cache — ${{ inputs.environment }}"
+            echo
+            echo '```'
+            tail -20 warm-cache.log 2>/dev/null || echo "no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

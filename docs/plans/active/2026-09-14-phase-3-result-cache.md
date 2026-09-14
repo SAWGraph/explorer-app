@@ -229,6 +229,24 @@ proxy** URL — the `*.railway.internal` host only resolves inside Railway.
   Running `npm run dev` against it would migrate the wrong database. Replace it
   before any local server work.
 
+### Warming the dashboard questions
+
+A GitHub Action does this on a button press: **Actions → Warm result cache → Run
+workflow**, pick `development` or `production`, optionally filter by title, then
+Run. It checks out the repo, runs the eight questions through the real engine on
+the runner, and uploads each result.
+
+One-time setup: add repository secrets `CACHE_WRITE_TOKEN_DEV` and
+`CACHE_WRITE_TOKEN_PROD` matching `CACHE_WRITE_TOKEN` on each API service. The
+workflow fails with an explicit message if the one it needs is missing, rather
+than silently uploading nothing.
+
+Locally the same thing is `npm run warm-cache` with `API_BASE` and
+`CACHE_WRITE_TOKEN` set. Run it after a graph reload (bump `DATA_VERSION`
+first), after editing `prebuiltQueries.ts`, or when the 30-day TTL lapses.
+Deliberately no schedule — the header of the workflow file shows the three lines
+that would add one.
+
 ### Railway dashboard (manual, outside the repo)
 
 Add `CACHE_WRITE_TOKEN` to both API services, and optionally `DATA_VERSION`. No
