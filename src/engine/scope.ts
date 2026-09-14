@@ -116,8 +116,13 @@ export async function chooseAxis(ctx: AxisContext): Promise<Scope[] | null> {
   const counties = await expandToCounties(codes);
   if (counties.length < 2) return null;
 
-  return chunk(counties, REGION_CHUNK).map((group, i) => ({
-    label: `area ${i + 1}`,
+  // Name each slice after its county. When one of these fails the user sees
+  // "York County, Maine could not be answered" rather than "1 too large",
+  // which is the difference between a fact and a puzzle — the county is the
+  // one thing they can act on.
+  const names = countyNames(side === 'target' ? ctx.targetBlock : ctx.anchorBlock);
+  return chunk(counties, REGION_CHUNK).map((group) => ({
+    label: group.map((code) => names.get(code) ?? code).join(', '),
     regionCodes: group,
     regionSide: side,
   }));
@@ -144,6 +149,21 @@ export async function refineRegionScope(
     targetIris: iris,
   }));
 }
+
+// Display names for county codes. The editor populates `countyLabels` when the
+// user picks counties, and cacheKey strips it as display-only, so it is free to
+// use for labelling. Falls back to the names `expandToCounties` collects, then
+// to the code itself — a question built from a URL or the warm-cache script has
+// no labels.
+function countyNames(block: EntityBlock): Map<string, string> {
+  const named = new Map(discoveredCountyNames);
+  const labels = block.region?.countyLabels;
+  if (labels) for (const [code, label] of Object.entries(labels)) named.set(code, label);
+  return named;
+}
+
+// Filled in by expandToCounties, which already fetches the names.
+const discoveredCountyNames = new Map<string, string>();
 
 async function probeSide(
   block: EntityBlock,
@@ -179,7 +199,10 @@ async function expandToCounties(regionCodes: string[]): Promise<string[]> {
     });
     for (const row of rows) {
       const fips = row.county?.match(/administrativeRegion\.USA\.(\d+)$/)?.[1];
-      if (fips && fips.length > 2) out.push(fips);
+      if (fips && fips.length > 2) {
+        out.push(fips);
+        if (row.countyName) discoveredCountyNames.set(fips, row.countyName);
+      }
     }
   }
   return [...new Set(out)];
