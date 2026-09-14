@@ -334,9 +334,13 @@ client bug — but it means a very large response can fail *after* a successful
 "this question is too big" from "the server had a bad moment, press retry".
 
 **Now:** classified in `src/engine/sparqlErrors.ts` and shown per kind. A
-timeout or out-of-memory says the second block is probably unfiltered (which
-measurement showed is the real cause — see Part 6.3); a `sibling-failure` says
-to just run it again; a network error says to check the connection.
+`sibling-failure` says to just run it again; a network error says to check the
+connection; a timeout or out-of-memory offers the lever that applies to the
+question being asked (see Part 8.1) rather than one fixed sentence.
+
+A partial result — some slices answered, some not — names the slices that
+failed, because a count alone leaves the user guessing which part of the map is
+missing.
 
 ---
 
@@ -599,6 +603,47 @@ Only 10 km meaningfully cuts runtime.
 question ran 99s complete in one hour and 361s *partial* (2 slices missing) in
 the next, with no code change between. Distance bounds reduce volume; they do
 not make a heavy trace dependable.
+
+### 8.1 Which slice failed, and what actually rescues it
+
+The 361s partial run above is worth following, because it is the case the
+error copy was getting wrong. Running each county on its own:
+
+| County | Result |
+| --- | --- |
+| York | ❌ 429 timeout at 72s |
+| Washington | ✅ 7s — 16 samples |
+| Waldo | ✅ 23s — 177 samples |
+
+York is the dense corner of the state, so it carries the most facilities and the
+busiest river network. Not missing data: York holds 361 PFOS sample points.
+
+What rescues it, measured on York alone:
+
+| Change | Result |
+| --- | --- |
+| 30 km, no Block A filter | ❌ 429 timeout at 64s |
+| **10 km** | ✅ **145 samples in 25s** |
+| 30 km, Block A = landfills | ⬜ *empty* in 3s |
+
+Two things follow, and both are now encoded in `adviceForOversizedQuestion`
+(`src/engine/sparqlErrors.ts`):
+
+- **A shorter distance is the lever that works here** — and it was the one the
+  old message never mentioned. It said to add a filter or region to the second
+  block, which on this question already had a substance and three counties.
+- **A filter is not automatically good advice.** It makes a query cheap by
+  asking for less, and here it turned a timeout into an empty result: a missing
+  answer traded for no answer.
+
+The slice labels themselves used to read `area 1`, `area 2` — `chooseAxis` held
+the county codes and discarded the identity. They now carry the county name, so
+a partial result says *York County, Maine* rather than *1 too large*.
+
+**A trap to avoid when measuring this.** The landfill run above returns
+`status: 'empty'`, which is a valid answer. The first pass of this test counted
+it as a failure and reported all three variants as broken. Any script that
+treats `status !== 'success'` as an error will draw the same wrong conclusion.
 
 ### What was tried and rejected: trimming by connectivity
 
