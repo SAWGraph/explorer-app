@@ -67,10 +67,22 @@ export function canonicalQuestion(question: AnalysisQuestion): unknown {
   const rel = question.relationship;
   // `hops` is only read on the near path (fusedQueries.ts buildFusedWhereBody),
   // so a leftover hops value from switching the dropdown must not split the key.
+  //
+  // Everything else on the relationship is carried through untouched, and that
+  // is deliberate. An earlier version rebuilt this object as `{ type }` for the
+  // trace relationships, which meant a field it did not know about vanished
+  // from the key: when maxDistanceKm arrived, a 30km question and an unbounded
+  // one hashed identically, and caching one would have served its answer for
+  // the other — 12,000 river reaches and 14 sample points quietly missing.
+  //
+  // Keep the default direction safe. An unrecognised field that should have
+  // been ignored only costs a cache miss; one that should have been included
+  // and was dropped serves the wrong answer.
+  const { hops, ...restOfRelationship } = rel;
   const relationship =
     rel.type === 'near' || rel.type === 'within'
-      ? { type: rel.type, hops: rel.hops ?? 1 }
-      : { type: rel.type };
+      ? { ...restOfRelationship, hops: hops ?? 1 }
+      : restOfRelationship;
   return canonical({ ...question, relationship });
 }
 

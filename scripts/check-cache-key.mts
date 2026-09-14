@@ -67,6 +67,33 @@ await differs(
   q({ a: { region: { stateCode: '23', countyCodes: ['23005', '23019'] } } }),
 );
 
+// A distance bound changes the answer, so it must change the key. This is the
+// case that was wrong once: canonicalQuestion rebuilt the relationship as
+// `{ type }` for traces, silently dropping maxDistanceKm, so a bounded and an
+// unbounded question collided.
+await differs(
+  'maxDistanceKm vs unbounded',
+  q({ rel: { type: 'upstream' } }),
+  q({ rel: { type: 'upstream', maxDistanceKm: 30 } }),
+);
+await differs(
+  'different maxDistanceKm',
+  q({ rel: { type: 'upstream', maxDistanceKm: 30 } }),
+  q({ rel: { type: 'upstream', maxDistanceKm: 10 } }),
+);
+await differs(
+  'maxDistanceKm on downstream',
+  q({ rel: { type: 'downstream' } }),
+  q({ rel: { type: 'downstream', maxDistanceKm: 30 } }),
+);
+// ...while an unbounded trace keeps the key it had before maxDistanceKm existed,
+// so entries cached earlier stay reachable.
+await same(
+  'unbounded trace key is unchanged',
+  q({ rel: { type: 'downstream' } }),
+  q({ rel: { type: 'downstream', hops: 3 } }),
+);
+
 // The dashboard questions are what the warm-cache script writes: they must be
 // distinct from each other and stable between runs.
 const keys = await Promise.all(PREBUILT_QUERIES.map((p) => cacheKey(p.question)));
