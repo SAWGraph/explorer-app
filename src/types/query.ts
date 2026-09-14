@@ -28,6 +28,7 @@ export interface SampleFilters {
   substances?: string[];
   substanceLabels?: Record<string, string>; // uri → display label
   materialTypes?: string[];
+  materialTypeLabels?: Record<string, string>; // uri → display label
   minConcentration?: number;
   maxConcentration?: number;
   unit?: string;
