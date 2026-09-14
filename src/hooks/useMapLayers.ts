@@ -8,7 +8,6 @@ import {
   transformWellsToFeatures,
   transformFlowlinesToFeatures,
   transformRegionBoundaries,
-  enrichSampleFeaturesWithDetails,
 } from '../engine/resultTransformer';
 
 export interface MapLayerData {
@@ -42,7 +41,6 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
     const targetRows = data['FIND_TARGET_ENTITIES'] || [];
     const anchorRows = data['GET_ANCHOR_DETAILS'] || [];
     const boundaryRows = data['GET_REGION_BOUNDARIES'] || [];
-    const sampleDetailRows = data['GET_SAMPLE_DETAILS'] || [];
     const flowlineRows = data['GET_FLOWLINE_GEOMETRIES'] || [];
 
     // Determine what types came back by checking row shapes
@@ -53,10 +51,8 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
     const waterBodyRows = allRows.filter((r) => r.wbWKT);
     const wellRows = allRows.filter((r) => r.wellWKT);
 
+    // Popup detail is fetched per sample on open (useSampleDetails), not here.
     const sampleFeatures = transformSamplesToFeatures(sampleRows);
-    if (sampleDetailRows.length > 0) {
-      enrichSampleFeaturesWithDetails(sampleFeatures, sampleDetailRows);
-    }
 
     const matchedAquiferIris = [
       ...new Set(
