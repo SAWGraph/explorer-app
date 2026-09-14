@@ -20,6 +20,7 @@
 // Results are cache-sensitive: the engine answers the same query 10-20x faster
 // when warm, so run a sweep twice (cold, then warm) before trusting a number.
 
+import { execSync } from 'node:child_process';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { planPipeline } from '../src/engine/planner';
 import { executePipeline } from '../src/engine/executor';
@@ -32,6 +33,15 @@ import type { AnalysisQuestion, EntityType } from '../src/types/query';
 // so splitting, merging, partial results and the step budget are all exercised;
 // that is the mode to use for an after-the-change sweep.
 const MODE = (process.env.QUERY_MATRIX_MODE ?? 'raw') as 'raw' | 'engine';
+
+// Stamp every row with when it ran and which commit it ran against. A snapshot
+// is only useful later if you can tell what code produced it — the 2026-09-14
+// sweep was briefly ambiguous for exactly this reason.
+const RUN_AT = new Date().toISOString().slice(0, 16);
+const COMMIT = (() => {
+  try { return execSync('git rev-parse --short HEAD').toString().trim(); }
+  catch { return 'unknown'; }
+})();
 // Default output is the *baseline* file, which is committed history — an `init`
 // run truncates whatever it points at, so writing there needs to be deliberate.
 const OUT = process.env.QUERY_MATRIX_OUT ?? 'docs/query-matrix.csv';
@@ -47,8 +57,8 @@ if (process.argv[3] === 'init') {
   writeFileSync(
     OUT,
     MODE === 'engine'
-      ? 'matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg,chunksMax,partialSlices\n'
-      : 'matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg\n',
+      ? 'runAt,commit,matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg,chunksFailed,chunksSkipped,chunksMax\n'
+      : 'runAt,commit,matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg\n',
   );
 }
 
@@ -88,13 +98,13 @@ async function runViaEngine(
     result.status === 'success'
       ? Object.values(result.data).reduce((n, r) => Math.max(n, r.length), 0)
       : 0;
-  const partialSlices =
-    result.status === 'success'
-      ? (result.partial ?? []).reduce((n, p) => n + p.failed.length + p.skipped.length, 0)
-      : 0;
+  const chunksFailed =
+    result.status === 'success' ? (result.partial ?? []).reduce((n, p) => n + p.failed.length, 0) : 0;
+  const chunksSkipped =
+    result.status === 'success' ? (result.partial ?? []).reduce((n, p) => n + p.skipped.length, 0) : 0;
   const errorClass =
     result.status === 'success'
-      ? partialSlices > 0
+      ? chunksFailed + chunksSkipped > 0
         ? 'ok-partial'
         : 'ok'
       : result.status === 'empty'
@@ -105,9 +115,9 @@ async function runViaEngine(
 
   appendFileSync(
     OUT,
-    [matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters),
+    [RUN_AT, COMMIT, matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters),
      stepIdx === 'all' ? 'PIPELINE' : steps[steps.length - 1].type, 'engine',
-     result.status, ms, rows, 0, errorClass, csv(detail), chunksMax, partialSlices].join(',') + '\n',
+     result.status, ms, rows, 0, errorClass, csv(detail), chunksFailed, chunksSkipped, chunksMax].join(',') + '\n',
   );
   console.log(
     `${matrix} ${label.padEnd(44).slice(0, 44)} ${result.status.padEnd(8)} ${String(ms).padStart(7)}ms rows=${String(rows).padStart(5)} chunks=${chunksMax} partial=${partialSlices}`,
@@ -124,7 +134,7 @@ async function run(matrix: string, label: string, q: AnalysisQuestion, meta: Rec
     const step = steps[i];
     let body: string;
     try { body = step.buildQuery(ctx); } catch (e: any) { 
-      appendFileSync(OUT, [matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters), step.type, step.endpoint, 'BUILD_FAIL', 0, 0, 0, 'build-error', csv(e.message)].join(',') + '\n');
+      appendFileSync(OUT, [RUN_AT, COMMIT, matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters), step.type, step.endpoint, 'BUILD_FAIL', 0, 0, 0, 'build-error', csv(e.message)].join(',') + '\n');
       return;
     }
     const ac = new AbortController();
@@ -145,7 +155,7 @@ async function run(matrix: string, label: string, q: AnalysisQuestion, meta: Rec
     clearTimeout(timer);
     const ms = Date.now() - t0;
     const cls = classify(status, ex);
-    appendFileSync(OUT, [matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters), step.type, step.endpoint, status, ms, rows.length, bytes, cls, csv(ex)].join(',') + '\n');
+    appendFileSync(OUT, [RUN_AT, COMMIT, matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters), step.type, step.endpoint, status, ms, rows.length, bytes, cls, csv(ex)].join(',') + '\n');
     console.log(`${matrix} ${label.padEnd(44).slice(0,44)} ${step.type.padEnd(24)} ${String(status).padStart(3)} ${String(ms).padStart(6)}ms rows=${String(rows.length).padStart(5)} ${cls}`);
     // thread context for full-pipeline runs
     if (status === 200) {

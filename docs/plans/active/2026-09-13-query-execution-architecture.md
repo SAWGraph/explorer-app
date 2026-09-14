@@ -1,6 +1,6 @@
 # Query Execution Architecture
 
-**Status**: active — Phases 1 and 2 implemented 2026-09-13; Phase 3 outstanding
+**Status**: active — Phases 1 and 2 implemented and verified (2026-09-14); Phase 3 outstanding
 **Created**: 2026-09-13
 **Reference sheet**: [`docs/QUERY-MATRIX.md`](../../QUERY-MATRIX.md) — every question the
 UI can build, measured against the live endpoints. This plan is verified against

@@ -192,3 +192,67 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 **Fix**: Simplified the logic — when a node's code is in `allCodes`, always add it to `userSelections` regardless of whether all descendants are also selected.
 **Files touched**: `src/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts`
 **Prevention**: When writing selection collapse/expand logic, handle the case where stored data may not match the fully expanded representation.
+
+---
+
+## 2026-09-13 — HTTP 429 from apps.okn.us is a query timeout, not rate limiting
+
+**Component**: `engine/sparqlClient.ts`, `engine/executor.ts`, `engine/templates/fusedQueries.ts`
+
+**Symptom**: Pipeline runs fail with the red card *"Something went wrong. You can
+edit the question and try again."* DevTools shows `429 Too Many Requests` from
+`https://apps.okn.us/federation/sparql`, with a surprisingly large response body
+(323 KB–996 KB). Downstream and upstream questions failed most often; the same
+question could work one hour and fail the next.
+
+**Root cause**: **QLever stops any query at 30 seconds and reports that stop with
+the 429 status code.** It is not throttling — 8 simultaneous requests all return
+200. The real cause is only in the response body:
+
+```json
+{ "exception": "Operation timed out. Last operation: Join on ?s2neighbor" }
+```
+
+The large body is the error echoing the whole query back, which is what makes it
+look like a successful response that went wrong.
+
+Two things put our queries over that limit:
+
+1. **`bindEntityInCell` served two callers with opposite needs** (since `d9ba5a6`).
+   The hydrate queries project `?substance`, `?matTypeLabel`, `?result_value`, so
+   they need the observation joins. The ID-finding queries project one column and
+   do not — but got them anyway, so they built every chemical measurement in the
+   state and discarded it. Removing them: 7/7 failures → 4.3s.
+2. **Work was unbounded per request.** A single query carried the whole
+   `hyf:downstreamFlowPathTC` closure, so cost scaled with the state's data rather
+   than with what the user asked for. A query returning 0 rows could still try to
+   allocate 3.3 GB.
+
+**Fix**: ID-finding queries no longer join observations unless a filter needs
+them; queries that the engine refuses are split into slices and merged
+(`engine/scope.ts`); popup detail is fetched per sample instead of 18–37 MB up
+front. See `docs/plans/active/2026-09-13-query-execution-architecture.md`.
+
+**Related failures from the same cause** — all nine are catalogued with examples
+in `docs/QUERY-MATRIX.md` Part 4:
+
+| Response | What it actually means |
+| --- | --- |
+| `429` + `Operation timed out` | the 30s query limit |
+| `429` + `Sort operation was canceled` | same limit, caught earlier by the planner |
+| `500` + `Tried to allocate X` | engine out of memory on an intermediate join |
+| `500` + `Waited for a result from another thread` | a shared sub-result failed; retry to see the real error |
+| `413` / `502` | **our request** was too big — an inlined `VALUES` list. Appears in the browser as a **CORS error**, because the error response omits `Access-Control-Allow-Origin` |
+| `403` on `?timeout=120s` | raising the limit needs an access token we do not have |
+| client `Bad control character in JSON` | a large response truncated mid-body |
+
+**Prevention**:
+- Never read a 429 from these endpoints as rate limiting — **read the exception in
+  the body first**.
+- A question whose second block has no filter and no region means "every entity
+  in the graph" (1,506,326 facilities; 532,771 wells). That, not the size of the
+  answer, is what blows the limit — narrowing the *first* block does not help.
+- Benchmark against more than Maine. The same question fails in 5 of 6 other
+  states; Indiana is in our own dashboard.
+- Results are cache-sensitive: identical query, 26.5s cold vs 1.5s warm. Measure
+  twice before trusting a timing.
