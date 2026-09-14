@@ -59,7 +59,13 @@ const COMMIT = (() => {
 // `query-matrix/2026-09-14-engine.csv`, which named a moment rather than a date and went
 // stale the week after it was written.
 const DIR = 'docs/query-matrix';
-const OUT = process.env.QUERY_MATRIX_OUT ?? `${DIR}/${RUN_AT.slice(0, 10)}-${MODE}.csv`;
+// Date, mode and commit. The commit is in the name for two reasons: two sweeps
+// on the same day would otherwise collide (which happened the first time this
+// layout was used), and every phase of one sweep derives the same path without
+// needing a state file to remember which sweep is in progress. Commit mid-sweep
+// and the remaining phases land in a new file — which is the honest outcome,
+// since the code changed underneath them.
+const OUT = process.env.QUERY_MATRIX_OUT ?? `${DIR}/${RUN_AT.slice(0, 10)}-${MODE}-${COMMIT}.csv`;
 
 // Regenerate the index and stop. Cheap, runs no queries.
 if (process.argv[2] === '--index') {
@@ -271,7 +277,7 @@ function readSweeps(): Sweep[] {
   if (!existsSync(DIR)) return [];
   return readdirSync(DIR)
     .filter((f) => f.endsWith('.csv') && statSync(`${DIR}/${f}`).size > 0)
-    .sort()
+    .sort((a, b) => a.localeCompare(b) || statSync(`${DIR}/${a}`).mtimeMs - statSync(`${DIR}/${b}`).mtimeMs)
     .map((file) => {
       const lines = readFileSync(`${DIR}/${file}`, 'utf8').split('\n').filter(Boolean);
       const header = lines[0].split(',');
@@ -296,8 +302,16 @@ function readSweeps(): Sweep[] {
         const worse = (a: string, b: string) => (a === 'error' || b === 'error' ? 'error' : a === 'empty' || b === 'empty' ? 'empty' : 'success');
         byLabel.set(label, byLabel.has(label) ? worse(byLabel.get(label)!, status) : status);
       }
-      const [, date, mode] = file.match(/^(\d{4}-\d{2}-\d{2})-(.+)\.csv$/) ?? [, file, '?'];
-      return { file, date: date!, mode: mode!, commit: commit || 'unrecorded', byLabel };
+      // `2026-09-14-engine-a119e16.csv` -> date, mode, commit. Older files have
+      // no commit in the name; fall back to the column, then to admitting it.
+      const m = file.match(/^(\d{4}-\d{2}-\d{2})-(.+?)(?:-([0-9a-f]{7,40}))?\.csv$/);
+      return {
+        file,
+        date: m?.[1] ?? file,
+        mode: m?.[2] ?? '?',
+        commit: m?.[3] || commit || 'unrecorded',
+        byLabel,
+      };
     });
 }
 
