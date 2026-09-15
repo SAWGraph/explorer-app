@@ -591,6 +591,51 @@ what moved between one sweep and the next.
 
 ---
 
+## Part 7.6 — The 2026-09-14 re-sweep, and why it is unusable
+
+A full engine sweep was run overnight to supersede 7.5's stale CSV. It is kept
+as `query-matrix/2026-09-14-engine-contaminated-9128aa9.csv` — named for what it
+is, so nobody reads its 29 failures as measurements. What went wrong is worth
+recording, because it is a trap anyone re-running this will hit.
+
+**The step ceiling did not hold, and one phase ate eight hours.** M4 (the
+multi-hop distance sweep) spent 484 minutes on 20 queries, 16 of which failed:
+
+| Shape | Recorded |
+| --- | --- |
+| `waterBodies near(2) facilities [ME]` | 2095s |
+| `samples near(3) waterBodies [ME]` | 2074s |
+| `wells near(3) facilities [ME]` | 2048s |
+
+`STEP_CEILING_MS` is 300s and these are single-step runs, so the expected bound
+is ~300s plus one in-flight slice. Recorded time equals wall-clock time for
+every phase, so these are genuine elapsed seconds, not a suspended process.
+**Cause not yet established.** `divide()` issuing its own probe queries after the
+ceiling check accounts for roughly 11 minutes per iteration, not 35.
+
+**Everything after M4 inherited a degraded endpoint.** M5 failed two *dashboard*
+questions at 1101s and 490s which `health/history.jsonl` records succeeding at
+14s and 19s the evening before. Once a phase runs away, every later phase is
+measuring our own load — exactly what the harness header warns about.
+
+**Two mechanical faults, both fixed:**
+
+- Engine mode crashed on its first query: the progress line still referenced
+  `partialSlices`, removed when the count was split into failed/skipped. Engine
+  mode had been unusable since that commit, which is why 7.5's CSV could never
+  have been refreshed.
+- The sweep split across two files. `runAt` is UTC and the runner logs local
+  time, so a sweep starting at 19:21 local crossed UTC midnight at phase M3 and
+  began writing to the next day's filename. Fix: the runner computes
+  `QUERY_MATRIX_OUT` once and exports it, so every phase shares one path.
+
+**Before re-running:** find out why the ceiling misses, run under
+`caffeinate -i` or in Actions rather than on a laptop, and treat any phase that
+exceeds its expected bound as a reason to stop the sweep rather than push on —
+a runaway phase invalidates everything after it.
+
+---
+
 ## Part 8 — Distance-bounded traces (2026-09-14)
 
 PR #41 added an optional `maxDistanceKm` to downstream and upstream questions:
