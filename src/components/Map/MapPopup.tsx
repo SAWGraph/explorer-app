@@ -188,6 +188,13 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
   }
 
   if (props.type === 'facility') {
+    // The facility name links to its EPA FRS record, and nothing else links out.
+    //
+    // It used to link to the w3id.org/fio IRI with EPA FRS as a second link
+    // beside it. Both fio links here, the facility and the NAICS code, redirect
+    // to the same raw ontology file (SAWGraph/fio ontology/fio.ttl) rather than
+    // to anything about that facility or that code, so they told a reader
+    // nothing. Verified against the live URLs, 2026-09-15.
     const registryId = feature.id.split('.').pop() || '';
     const epaUrl = `https://frs-public.epa.gov/ords/frs_public2/fii_query_detail.disp_program_facility?p_registry_id=${registryId}`;
     return (
@@ -197,11 +204,12 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
             <tr>
               <td className="popup-label">Facility</td>
               <td>
-                <a href={feature.id} target="_blank" rel="noopener noreferrer">
-                  {props.name || 'Facility'}{registryId ? ` (${registryId})` : ''}
-                </a>
-                {registryId && (
-                  <> · <a href={epaUrl} target="_blank" rel="noopener noreferrer">EPA FRS</a></>
+                {registryId ? (
+                  <a href={epaUrl} target="_blank" rel="noopener noreferrer">
+                    {props.name || 'Facility'} ({registryId})
+                  </a>
+                ) : (
+                  props.name || 'Facility'
                 )}
               </td>
             </tr>
@@ -209,9 +217,8 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
               <tr>
                 <td className="popup-label">Industry</td>
                 <td>
-                  <a href={String(props.industryCode)} target="_blank" rel="noopener noreferrer">
-                    {props.industryName || 'Industry'} (NAICS {String(props.industryCode).split('-').pop()})
-                  </a>
+                  {props.industryName || 'Industry'} (NAICS{' '}
+                  {String(props.industryCode).split('-').pop()})
                 </td>
               </tr>
             )}
