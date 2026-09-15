@@ -44,8 +44,10 @@ export function buildSampleRetrievalByIriQuery(
   `;
 }
 
-// ?substance is the displayed label (URI projection conflicts with the label
-// path on observations). Substance URI filter is applied via ?substanceUri.
+// Projects the substance's label parts rather than one display label: the
+// naming rule lives in substanceLabel() so the popup and the filter dropdown
+// cannot drift apart again. Aggregating them (SAMPLE/MIN) also keeps a
+// substance with two labels from duplicating its observation's row.
 export function buildSampleDetailByIriQuery(
   spIris: string[],
   filters?: SampleFilters,
@@ -68,7 +70,10 @@ export function buildSampleDetailByIriQuery(
       (GROUP_CONCAT(DISTINCT ?sampleId; separator="; ") as ?sampleIdentifier)
       ?observation
       ?date
-      ?substance
+      ?substanceUri
+      (SAMPLE(?shortLabel) as ?substanceShortLabel)
+      (SAMPLE(?fullLabel) as ?substanceLabel)
+      (MIN(?paramLabel) as ?substanceParamLabel)
       ?result_value
       ?unit_sym
       (GROUP_CONCAT(DISTINCT ?matTypeLabel; separator=", ") as ?sampleType)
@@ -85,9 +90,10 @@ export function buildSampleDetailByIriQuery(
           coso:ofDSSToxSubstance ?substanceUri ;
           coso:hasResult ?result .
       ${substanceClause}
-      OPTIONAL { ?substanceUri skos:altLabel ?altLabel }
-      OPTIONAL { ?substanceUri rdfs:label ?rdfLabel }
-      BIND(COALESCE(?altLabel, ?rdfLabel, REPLACE(STR(?substanceUri), "^.*[#/]", "")) AS ?substance)
+      OPTIONAL { ?substanceUri skos:altLabel ?shortLabel }
+      OPTIONAL { ?substanceUri rdfs:label ?fullLabel }
+      OPTIONAL { ?sourceParam comptox:sameAsDSSToxSubstance ?substanceUri ;
+                              rdfs:label ?paramLabel }
       ?result coso:measurementUnit ?unit .
       ${resultValueClauses()}
       OPTIONAL { ?unit qudt:symbol ?unit_sym0 }
@@ -96,7 +102,7 @@ export function buildSampleDetailByIriQuery(
       OPTIONAL { ?sample dcterms:identifier ?sampleId }
       ${filterClauses}
     }
-    GROUP BY ?sp ?spWKT ?sample ?observation ?date ?substance ?result_value ?unit_sym
-    ORDER BY ?sp ?sample ?substance DESC(?date)
+    GROUP BY ?sp ?spWKT ?sample ?observation ?date ?substanceUri ?result_value ?unit_sym
+    ORDER BY ?sp ?sample ?substanceUri DESC(?date)
   `;
 }

@@ -17,7 +17,14 @@ export interface MapFeature {
 
 export interface SampleObservation {
   substance: string;
-  result: number;
+  substanceUri: string;
+  // One entry per coso:ContaminantObservation. A substance can legitimately
+  // have more than one result within a single sample: WQP records repeat
+  // measurements (a fish tissue composite of two taxa, for instance) as
+  // separate observations that differ only in value, with no property that
+  // tells them apart. Listing them on one row keeps them from reading as
+  // duplicated rows.
+  results: number[];
   unit: string;
 }
 

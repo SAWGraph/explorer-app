@@ -12,7 +12,7 @@ import {
   buildDiscoverMaineUsesQuery,
 } from '../engine/templates/regions';
 import { FALLBACK_NAICS, type NaicsIndustry } from '../constants/naics';
-import { FALLBACK_SUBSTANCES, type Substance } from '../constants/substances';
+import { FALLBACK_SUBSTANCES, substanceLabel, type Substance } from '../constants/substances';
 import { FALLBACK_MATERIAL_TYPES, MATERIAL_GROUP_BY_PRIO, type MaterialType } from '../constants/materialTypes';
 import {
   FALLBACK_WELL_CLASSIFICATIONS,
@@ -105,14 +105,6 @@ function regionKey(region?: RegionParam): string {
   return codes.join(',');
 }
 
-// Some source parameters carry a superseded name of the form
-// "<old name>***retired***use <current name>", which names its own replacement.
-function resolveRetired(label?: string): string | undefined {
-  if (!label) return undefined;
-  if (label.includes('***retired***use ')) return label.split('***retired***use ')[1].trim();
-  return label.split('***retired***')[0].replace(/[\s\-,]+$/, '');
-}
-
 export function useSubstances(region?: RegionParam) {
   const key = regionKey(region);
   return useQuery<Substance[]>({
@@ -125,11 +117,9 @@ export function useSubstances(region?: RegionParam) {
       if (rows.length === 0) return key ? [] : FALLBACK_SUBSTANCES;
       return rows.map((r) => ({
         uri: r.substance,
-        label:
-          r.label ||
-          resolveRetired(r.param_label) ||
-          r.substance.split('/').pop() ||
-          r.substance,
+        // The shared rule, minus the short form: SampleFilters prefers
+        // shortLabel itself when rendering an option.
+        label: substanceLabel({ uri: r.substance, label: r.label, paramLabel: r.param_label }),
         shortLabel: r.short_label,
         count: r.num ? Number(r.num) : undefined,
       }));
