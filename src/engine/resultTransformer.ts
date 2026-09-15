@@ -239,15 +239,20 @@ export function buildSamplePointDetail(rows: SparqlRow[]): SamplePointDetail | n
 
     for (const r of sampleRows) {
       const val = parseFloat(r.result_value);
-      if (isNaN(val)) continue;
+      const isNumeric = !isNaN(val);
 
+      // A row with no number is still a result. Skipping them here used to
+      // discard every non-detect even when the query returned them.
       observations.push({
         substance: r.substance || '',
-        result: val,
-        unit: r.unit_sym || '',
+        result: isNumeric ? val : null,
+        unit: isNumeric ? r.unit_sym || '' : '',
+        ...(isNumeric ? {} : { status: r.result_value || 'no value reported' }),
       });
 
-      // Track overall max
+      if (!isNumeric) continue;
+
+      // Track overall max over reported numbers only
       if (!maxResult || val > maxResult.value) {
         maxResult = {
           substance: r.substance || '',
@@ -263,7 +268,14 @@ export function buildSamplePointDetail(rows: SparqlRow[]): SamplePointDetail | n
       sampleUri,
       sampleId: first.sampleIdentifier || '',
       date: (first.date || '').slice(0, 10),
-      sampleType: first.sampleType || '',
+      // GROUP_CONCAT has no defined order, so the species list arrived in a
+      // different order on every run and made identical rows look different.
+      sampleType: (first.sampleType || '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .sort()
+        .join(', '),
       observations,
     });
   }

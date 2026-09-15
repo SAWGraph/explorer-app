@@ -83,6 +83,11 @@ function SampleDetailPopup({
   resultCount?: string | number;
   sampleCount?: string | number;
 }) {
+  const reportedCount = detail.samples.reduce(
+    (n, s) => n + s.observations.filter((o) => o.result !== null).length,
+    0,
+  );
+
   return (
     <div className="map-popup sample-detail-popup">
       <strong className="sample-popup-title">{detail.samplePointName || 'Sample Point'}</strong>
@@ -104,7 +109,11 @@ function SampleDetailPopup({
           {resultCount && sampleCount && ' · '}
           {resultCount && (
             <>
+              {/* The count and the table used to disagree: 271 here above 44
+                  rows, because the table dropped everything without a unit.
+                  Both numbers are shown now so neither looks wrong. */}
               <span className="sample-field-label">Results</span>: {resultCount}
+              {reportedCount > 0 && ` (${reportedCount} with a value)`}
             </>
           )}
         </div>
@@ -131,6 +140,19 @@ function SampleDetailPopup({
 }
 
 function SampleSection({ sample }: { sample: SampleRecord }) {
+  const reported = sample.observations.filter((o) => o.result !== null);
+
+  // status -> the substances carrying it, deduped and sorted
+  const withoutValue = new Map<string, string[]>();
+  for (const o of sample.observations) {
+    if (o.result !== null) continue;
+    const key = o.status ?? 'no value reported';
+    const list = withoutValue.get(key) ?? [];
+    if (!list.includes(o.substance)) list.push(o.substance);
+    withoutValue.set(key, list);
+  }
+  for (const list of withoutValue.values()) list.sort();
+
   return (
     <div className="sample-section">
       {sample.sampleUri && (
@@ -153,7 +175,7 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
           <span className="sample-field-label">Sample Type</span>: {sample.sampleType}
         </div>
       )}
-      {sample.observations.length > 0 && (
+      {reported.length > 0 && (
         <table className="sample-obs-table">
           <thead>
             <tr>
@@ -162,7 +184,7 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
             </tr>
           </thead>
           <tbody>
-            {sample.observations.map((obs, j) => (
+            {reported.map((obs, j) => (
               <tr key={j}>
                 <td>{obs.substance}</td>
                 <td>{obs.result} {obs.unit}</td>
@@ -171,9 +193,27 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
           </tbody>
         </table>
       )}
+
+      {/* Results with no number, listed by substance rather than one row each.
+          A Maine point has 1,171 of them against 479 with values, which as
+          individual rows would bury the measurements. They are identical to one
+          another, so grouping hides nothing: only the reported values raise the
+          question of which fish they came from, and those stay one per row. */}
+      {[...withoutValue.entries()].map(([status, substances]) => (
+        <div className="sample-section-field" key={status}>
+          <span className="sample-field-label">{STATUS_LABELS[status] ?? status}</span>{' '}
+          ({substances.length}): {substances.join(', ')}
+        </div>
+      ))}
     </div>
   );
 }
+
+// The graph's two ways of saying "no number", which do not mean the same thing.
+const STATUS_LABELS: Record<string, string> = {
+  'non-detect': 'Not detected',
+  'non-quantified': 'Not quantified',
+};
 
 function extractIlWellId(uri: string): string | null {
   const match = uri.match(/ISGS-Well\.(\d{12})/);
