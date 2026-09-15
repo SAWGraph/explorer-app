@@ -157,6 +157,19 @@ at [`SampleFilters.tsx:22`](https://github.com/SAWGraph/explorer-app/blob/main/s
 Selecting an option stores both the substance URI and its display label on the question, so
 the Analysis Question sentence can say "PFOA" instead of a DSSTox URI.
 
+### One rule, two places
+
+The whole priority order, `skos:altLabel`, then `rdfs:label`, then the source parameter's
+name with `***retired***` resolved, then the DTXSID, lives in `substanceLabel()` in
+`src/constants/substances.ts`. The map popup's sample table uses the same function.
+
+It did not always. The dropdown had the source parameter step and the popup did not, so the
+same substance read as "10-H-Perfluorodecanoic acid" in the dropdown and as a bare
+`DTXSID10630918` in the popup, which looked like a broken query rather than a missing label.
+The popup's query now projects the label parts instead of picking a winner in SPARQL, and
+aggregates each one, which also stops a substance with two labels from duplicating its
+observation's row. `npm run check-substance-labels` asserts the order.
+
 ## If it looks wrong
 
 **Exactly seven PFAS substances and no counts.** You are looking at `FALLBACK_SUBSTANCES`.
