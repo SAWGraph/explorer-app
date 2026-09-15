@@ -2,7 +2,7 @@
 // the live endpoints and writes one CSV row per query.
 //
 // This is the tool behind docs/QUERY-MATRIX.md. Re-run it after any change to
-// the query engine and diff the output against docs/query-matrix.csv — no shape
+// the query engine and diff the output against docs/query-matrix/2026-09-14-raw-baseline.csv — no shape
 // may regress from working to failing.
 //
 //   npx tsx scripts/query-matrix.mts M1 init   # first phase truncates the CSV
@@ -12,16 +12,27 @@
 //         M3 upstream all pairs | M4 distance sweep | M5 dashboard queries
 //         M6 six states | M7 no region | M8 filters | M9 county scopes
 //
-// A full sweep is ~156 queries and takes roughly 40 minutes; each query is
-// capped at 45s client-side. Run phases one at a time and sequentially — running
-// them in parallel distorts timings and provokes failures that are artefacts of
-// your own load.
+// How long it takes depends entirely on MODE, and the difference is large:
+//
+//   raw    ~156 step-queries, ~37 min   (measured 2026-09-14)
+//   engine  124 full pipelines, ~95 min (measured 2026-09-14 at 144 min, but
+//           48 of those were two requests that hung for 1918s and 959s before
+//           sparqlClient gained its 60s cap — those shapes now fail fast)
+//
+// Nearly all of it is M2 and M3: the downstream and upstream sweeps are 50 of
+// the 124 queries and about two thirds of the wall time. M1, M7 and M9 together
+// finish in under four minutes.
+//
+// Run phases one at a time and sequentially — running them in parallel distorts
+// timings and provokes failures that are artefacts of your own load. If you run
+// this while a GitHub workflow is querying, you will measure the contention.
+// Each query is capped at 45s client-side per request.
 //
 // Results are cache-sensitive: the engine answers the same query 10-20x faster
 // when warm, so run a sweep twice (cold, then warm) before trusting a number.
 
 import { execSync } from 'node:child_process';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { planPipeline } from '../src/engine/planner';
 import { executePipeline } from '../src/engine/executor';
 import { ENDPOINTS } from '../src/constants/endpoints';
@@ -42,14 +53,36 @@ const COMMIT = (() => {
   try { return execSync('git rev-parse --short HEAD').toString().trim(); }
   catch { return 'unknown'; }
 })();
-// Default output is the *baseline* file, which is committed history — an `init`
-// run truncates whatever it points at, so writing there needs to be deliberate.
-const OUT = process.env.QUERY_MATRIX_OUT ?? 'docs/query-matrix.csv';
-if (process.argv[3] === 'init' && OUT === 'docs/query-matrix.csv' && !process.env.QUERY_MATRIX_OVERWRITE_BASELINE) {
+// One file per sweep, named for the day it ran and the mode it ran in. The name
+// is the metadata: `ls docs/query-matrix/` answers "when was this last run", and
+// comparing two sweeps is `diff` of two paths. An earlier layout used
+// `query-matrix/2026-09-14-engine.csv`, which named a moment rather than a date and went
+// stale the week after it was written.
+const DIR = 'docs/query-matrix';
+// Date, mode and commit. The commit is in the name for two reasons: two sweeps
+// on the same day would otherwise collide (which happened the first time this
+// layout was used), and every phase of one sweep derives the same path without
+// needing a state file to remember which sweep is in progress. Commit mid-sweep
+// and the remaining phases land in a new file — which is the honest outcome,
+// since the code changed underneath them.
+const OUT = process.env.QUERY_MATRIX_OUT ?? `${DIR}/${RUN_AT.slice(0, 10)}-${MODE}-${COMMIT}.csv`;
+
+// Regenerate the index and stop. Cheap, runs no queries.
+if (process.argv[2] === '--index') {
+  writeIndex();
+  process.exit(0);
+}
+
+mkdirSync(DIR, { recursive: true });
+
+// `init` truncates. Every sweep file is committed history the moment it lands,
+// so refuse to overwrite one that already has rows — including today's, if a
+// sweep is already in progress and you meant to append the next phase.
+if (process.argv[3] === 'init' && existsSync(OUT) && readFileSync(OUT, 'utf8').split('\n').length > 2 && !process.env.QUERY_MATRIX_OVERWRITE) {
   console.error(
-    'Refusing to truncate the committed baseline docs/query-matrix.csv.\n' +
-      'Set QUERY_MATRIX_OUT=docs/query-matrix-after.csv (or another path) for a new sweep,\n' +
-      'or QUERY_MATRIX_OVERWRITE_BASELINE=1 if you really mean to replace the baseline.',
+    `Refusing to truncate ${OUT}, which already has rows.\n` +
+      'Drop `init` to append the next phase of the same sweep,\n' +
+      'or set QUERY_MATRIX_OVERWRITE=1 to start it over.',
   );
   process.exit(1);
 }
@@ -120,7 +153,7 @@ async function runViaEngine(
      result.status, ms, rows, 0, errorClass, csv(detail), chunksFailed, chunksSkipped, chunksMax].join(',') + '\n',
   );
   console.log(
-    `${matrix} ${label.padEnd(44).slice(0, 44)} ${result.status.padEnd(8)} ${String(ms).padStart(7)}ms rows=${String(rows).padStart(5)} chunks=${chunksMax} partial=${partialSlices}`,
+    `${matrix} ${label.padEnd(44).slice(0, 44)} ${result.status.padEnd(8)} ${String(ms).padStart(7)}ms rows=${String(rows).padStart(5)} chunks=${chunksMax} failed=${chunksFailed} skipped=${chunksSkipped}`,
   );
 }
 
@@ -222,4 +255,144 @@ if (phase === 'M9') { // county-scoped (smallest realistic) + multi-county
     await run('M9', `samples near(1) facilities [${label}]`, mk('samples', 'near', 'facilities', 1, '23', counties), { blockA: 'samples', rel: 'near', hops: 1, blockC: 'facilities', region: label, filters: 'none' }, 0);
   for (const [label, counties] of [['1 county (Cumberland)', ['23005']], ['3 counties', ['23005','23019','23003']]] as [string, string[]][])
     await run('M9', `samples downstream facilities [${label}]`, mk('samples', 'downstream', 'facilities', undefined, '23', counties), { blockA: 'samples', rel: 'downstream', hops: '', blockC: 'facilities', region: label, filters: 'none' }, 0);
+}
+
+// --- the index -------------------------------------------------------------
+//
+// One row per sweep: when, which commit, how many query shapes passed, and what
+// moved since the previous sweep in the same mode. Regenerate with
+// `npx tsx scripts/query-matrix.mts --index` — it reads the CSVs, runs nothing.
+
+interface Sweep {
+  file: string;
+  date: string;
+  mode: string;
+  commit: string;
+  // label -> worst status seen for that query. Raw mode writes one row per
+  // step, so a query is only a pass if every one of its steps passed.
+  byLabel: Map<string, string>;
+}
+
+function readSweeps(): Sweep[] {
+  if (!existsSync(DIR)) return [];
+  return readdirSync(DIR)
+    .filter((f) => f.endsWith('.csv') && statSync(`${DIR}/${f}`).size > 0)
+    // Order by when the sweep actually ran, not by filename. Two sweeps on the
+    // same day sort wrongly by name — `-9128aa9.csv` precedes `.csv` — which
+    // silently inverted the delta column: shapes the newer sweep had fixed were
+    // reported as newly broken.
+    .map((file) => ({ file, at: sweepStartedAt(file) }))
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map(({ file }) => {
+      const lines = readFileSync(`${DIR}/${file}`, 'utf8').split('\n').filter(Boolean);
+      const header = lines[0].split(',');
+      const iCommit = header.indexOf('commit');
+      const iLabel = header.indexOf('label');
+      const iStatus = header.indexOf('status');
+      const iClass = header.indexOf('errorClass');
+      const byLabel = new Map<string, string>();
+      let commit = '';
+      for (const line of lines.slice(1)) {
+        const cols = line.split(',');
+        // Labels are quoted and contain no commas (csv() strips whitespace runs
+        // and quotes), so a plain split is safe here.
+        const label = (cols[iLabel] ?? '').replace(/"/g, '');
+        // The two modes report outcome differently: `engine` writes the
+        // pipeline status, `raw` writes the HTTP code and puts the verdict in
+        // errorClass. Reading the wrong one scores a clean raw sweep as 7 of
+        // 124 passing, which is how this was caught.
+        const raw = cols[iStatus] ?? '';
+        const status = /^\d+$/.test(raw) ? (cols[iClass] === 'ok' ? 'success' : 'error') : raw;
+        if (iCommit > -1 && cols[iCommit]) commit = cols[iCommit];
+        const worse = (a: string, b: string) => (a === 'error' || b === 'error' ? 'error' : a === 'empty' || b === 'empty' ? 'empty' : 'success');
+        byLabel.set(label, byLabel.has(label) ? worse(byLabel.get(label)!, status) : status);
+      }
+      // `2026-09-14-engine-a119e16.csv` -> date, mode, commit. Older files have
+      // no commit in the name; fall back to the column, then to admitting it.
+      const m = file.match(/^(\d{4}-\d{2}-\d{2})-(.+?)(?:-([0-9a-f]{7,40}))?\.csv$/);
+      return {
+        file,
+        date: m?.[1] ?? file,
+        mode: m?.[2] ?? '?',
+        commit: m?.[3] || commit || 'unrecorded',
+        byLabel,
+      };
+    });
+}
+
+// When a sweep ran. The first row's runAt is authoritative; files written
+// before that column existed fall back to their mtime.
+function sweepStartedAt(file: string): string {
+  const first = readFileSync(`${DIR}/${file}`, 'utf8').split('\n')[1] ?? '';
+  const stamp = first.split(',')[0];
+  return /^\d{4}-\d{2}-\d{2}T/.test(stamp) ? stamp : new Date(statSync(`${DIR}/${file}`).mtimeMs).toISOString();
+}
+
+function writeIndex(): void {
+  const sweeps = readSweeps();
+  const out = [
+    '# Query matrix sweeps',
+    '',
+    'Every run of `npm run query-matrix`, newest first. One CSV per sweep, named',
+    'for the day it ran — so `ls` answers "when was this last run", and comparing',
+    'two sweeps is a `diff` of two paths.',
+    '',
+    '```',
+    'QUERY_MATRIX_MODE=engine npx tsx scripts/query-matrix.mts M1 init   # start a sweep',
+    'QUERY_MATRIX_MODE=engine npx tsx scripts/query-matrix.mts M2        # each later phase',
+    'npx tsx scripts/query-matrix.mts --index                            # rebuild this file',
+    '```',
+    '',
+    '`raw` posts each step\'s SPARQL directly and writes one row per step; `engine`',
+    'runs the real pipeline, one row per query, and is the mode to use after an',
+    'engine change. The two are not comparable row for row.',
+    '',
+    '| Sweep | Mode | Commit | Shapes | Pass | Fail | Since the previous sweep |',
+    '| --- | --- | --- | ---: | ---: | ---: | --- |',
+  ];
+
+  for (let i = sweeps.length - 1; i >= 0; i--) {
+    const s = sweeps[i];
+    const pass = [...s.byLabel.values()].filter((v) => v === 'success').length;
+    const fail = [...s.byLabel.values()].filter((v) => v === 'error').length;
+    const prev = sweeps.slice(0, i).reverse().find((p) => p.mode === s.mode);
+    out.push(
+      `| [\`${s.date}\`](./${s.file}) | ${s.mode} | \`${s.commit}\` | ${s.byLabel.size} | ${pass} | ${fail} | ${delta(s, prev)} |`,
+    );
+  }
+
+  // A sweep can be invalid for reasons no column can express — the endpoint was
+  // under load, a phase ran away, the run spanned an outage. Drop a `<name>.note`
+  // file beside the CSV and it shows up here, next to the numbers it qualifies,
+  // rather than in a document nobody opens before trusting a figure.
+  const noted = sweeps.filter((x) => existsSync(`${DIR}/${x.file}.note`)).reverse();
+  if (noted.length) {
+    out.push('', '## Notes', '');
+    for (const x of noted) {
+      out.push(`**[\`${x.file}\`](./${x.file})** — ${readFileSync(`${DIR}/${x.file}.note`, 'utf8').trim()}`, '');
+    }
+  }
+
+  out.push('', `Generated ${new Date().toISOString().slice(0, 10)}.`, '');
+  writeFileSync(`${DIR}/README.md`, out.join('\n'));
+  console.log(`Wrote ${DIR}/README.md — ${sweeps.length} sweep(s).`);
+}
+
+function delta(now: Sweep, prev?: Sweep): string {
+  if (!prev) return '_first sweep in this mode_';
+  const fixed: string[] = [];
+  const broke: string[] = [];
+  for (const [label, status] of now.byLabel) {
+    const was = prev.byLabel.get(label);
+    if (was === undefined) continue;
+    if (was === 'error' && status !== 'error') fixed.push(label);
+    if (was !== 'error' && status === 'error') broke.push(label);
+  }
+  const added = [...now.byLabel.keys()].filter((l) => !prev.byLabel.has(l)).length;
+  const bits = [
+    broke.length ? `**${broke.length} broke** (${broke.slice(0, 2).join(', ')}${broke.length > 2 ? ', …' : ''})` : '',
+    fixed.length ? `${fixed.length} fixed` : '',
+    added ? `${added} new shape${added > 1 ? 's' : ''}` : '',
+  ].filter(Boolean);
+  return bits.length ? bits.join(' · ') : 'no change';
 }

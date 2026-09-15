@@ -1,6 +1,9 @@
 # Query Execution Architecture
 
-**Status**: active — Phases 1 and 2 implemented and verified (2026-09-14); Phase 3 shipped as a result cache, see 2026-09-14-phase-3-result-cache.md
+**Status**: done
+**Completed**: 2026-09-14 — Phases 1 and 2 implemented and verified; Phase 3
+shipped as a result cache instead of server-side execution, see
+[`2026-09-14-phase-3-result-cache.md`](./2026-09-14-phase-3-result-cache.md)
 **Created**: 2026-09-13
 **Reference sheet**: [`docs/QUERY-MATRIX.md`](../../QUERY-MATRIX.md) — every question the
 UI can build, measured against the live endpoints. This plan is verified against
@@ -329,7 +332,7 @@ the monolith where a monolith could produce one.**
 ### 8.3 Gate for calling this done
 
 Re-run the matrix harness after each phase and diff against
-`docs/query-matrix.csv`:
+`docs/query-matrix/2026-09-14-raw-baseline.csv`:
 
 - No shape may move from ✅/⚠️ to ❌.
 - All 37 ❌ rows must become ✅ or ⚠️.
@@ -363,7 +366,8 @@ Re-run the matrix harness after each phase and diff against
 - [x] Per-sample popup fetch (`hooks/useSampleDetails.ts`); `GET_SAMPLE_DETAILS` deleted from the pipeline
 - [x] Error cases distinguished (`engine/sparqlErrors.ts` → `PipelineProgressStrip`)
 - [ ] Email okn.us: access token to raise the 30s limit; materialized downstream relation
-      (draft ready at `docs/plans/drafts/2026-09-13-team-email-429.md`, not sent)
+      (draft ready at `docs/plans/drafts/2026-09-13-team-email-429.md`, not sent —
+      see "Carried forward" below)
 
 **Phase 2 — done 2026-09-13**
 - [x] `LIMIT 201` side-probe + axis selection (`engine/scope.ts`)
@@ -373,10 +377,22 @@ Re-run the matrix harness after each phase and diff against
 - [x] `MAX_INLINE_SAMPLE_IRIS` and the inline-vs-re-derive fork deleted, along with
       `buildFusedSampleAggregateQuery` / `buildFusedSampleDetailsQuery`
 
-**Phase 3 — server execution and cache**
-- [ ] `POST /api/query` + `query_cache` table (question hash + data version)
-- [ ] Single-flight; client switches to the API with a debug flag for direct SPARQL
-- [ ] Precompute on publish; nightly prewarm of the 8 dashboard questions
+**Phase 3 — shipped as a result cache, not server-side execution**
+
+Moving execution to the server was dropped deliberately. The publisher's browser
+has *already computed* the result, so handing that over is far cheaper than
+re-running the pipeline server-side, and it removes the single-flight and
+queueing problems entirely. Measured 37ms cached vs 6,604ms live.
+
+- [x] Publish-time result caching + maintainer prewarm — see the Phase 3 plan
+- [x] Precompute on publish; prewarm of the 8 dashboard questions
+      (`scripts/warm-cache.mts`, run from the Actions tab)
+- [ ] ~~`POST /api/query` + single-flight~~ — not needed; revisit only if a
+      question appears that no browser can finish
+
+**Carried forward, not done**
+- [ ] Email okn.us: access token to raise the 30s limit; materialized downstream
+      relation (draft at `docs/plans/drafts/2026-09-13-team-email-429.md`)
 
 ### Results after implementing Phases 1 and 2 (measured 2026-09-14)
 
@@ -406,4 +422,4 @@ Two mechanisms were added during implementation that the plan did not anticipate
   side would drop out-of-region contributors (`3f50251`).
 
 **Verification gate for each phase:** re-run the matrix harness and compare
-against `docs/query-matrix.csv`. No shape may regress; the ❌ rows must turn ✅.
+against `docs/query-matrix/2026-09-14-raw-baseline.csv`. No shape may regress; the ❌ rows must turn ✅.

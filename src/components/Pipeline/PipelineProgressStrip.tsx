@@ -14,6 +14,7 @@ export function PipelineProgressStrip() {
   const isEditModalOpen = useQueryStore((s) => s.isEditModalOpen);
   const pipelineResult = useQueryStore((s) => s.pipelineResult);
   const stepProgress = useQueryStore((s) => s.stepProgress);
+  const question = useQueryStore((s) => s.question);
   const [msgIndex, setMsgIndex] = useState(0);
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export function PipelineProgressStrip() {
     // Nine distinct failures used to share one message; tell the user which.
     message = userMessageFor(
       pipelineResult?.status === 'error' ? pipelineResult.error : undefined,
+      question,
     );
   }
 

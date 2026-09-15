@@ -1,7 +1,7 @@
 # Draft email to the team — the Explorer is working again
 
 *Draft for review, not sent. Plain-language version; the detailed write-up is in
-`docs/QUERY-MATRIX.md` and the plans under `docs/plans/active/`.*
+`docs/QUERY-MATRIX.md` and the plans under `docs/plans/`.*
 
 ---
 

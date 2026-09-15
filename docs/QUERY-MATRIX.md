@@ -2,7 +2,7 @@
 
 **Baseline measured**: 2026-09-13, against the live `apps.okn.us` endpoints
 **Re-measured after Phases 1 + 2**: 2026-09-14 (Part 6)
-**Raw data**: [`query-matrix.csv`](./query-matrix.csv) — one row per query executed, importable into a spreadsheet
+**Raw data**: [`query-matrix/`](./query-matrix/) — one row per query executed, importable into a spreadsheet
 **Harness**: [`scripts/query-matrix.mts`](../scripts/query-matrix.mts) — re-run it and diff the CSV after any engine change
 
 This is the reference sheet. Every claim here is a measurement, not an estimate.
@@ -334,9 +334,13 @@ client bug — but it means a very large response can fail *after* a successful
 "this question is too big" from "the server had a bad moment, press retry".
 
 **Now:** classified in `src/engine/sparqlErrors.ts` and shown per kind. A
-timeout or out-of-memory says the second block is probably unfiltered (which
-measurement showed is the real cause — see Part 6.3); a `sibling-failure` says
-to just run it again; a network error says to check the connection.
+`sibling-failure` says to just run it again; a network error says to check the
+connection; a timeout or out-of-memory offers the lever that applies to the
+question being asked (see Part 8.1) rather than one fixed sentence.
+
+A partial result — some slices answered, some not — names the slices that
+failed, because a count alone leaves the user guessing which part of the map is
+missing.
 
 ---
 
@@ -372,7 +376,7 @@ cache of our own.
 ## Part 6 — After Phases 1 and 2 (measured 2026-09-14)
 
 Phases 1 and 2 of
-[the execution plan](./plans/active/2026-09-13-query-execution-architecture.md)
+[the execution plan](./plans/done/2026-09-13-query-execution-architecture.md)
 are implemented: the pipeline no longer fetches popup detail up front, and any
 query the engine refuses is split into slices that fit and merged back together.
 
@@ -480,7 +484,7 @@ reason.
 
 The whole matrix re-run through the real engine (`QUERY_MATRIX_MODE=engine`), so
 splitting, merging, partial results and the step budget were all exercised —
-not just the raw SPARQL. Raw data: `docs/query-matrix-after.csv`.
+not just the raw SPARQL. Raw data: `docs/query-matrix/2026-09-14-engine.csv`.
 
 **124 shapes compared. Of the 37 that failed at baseline, 34 now work. No
 regressions.**
@@ -558,13 +562,77 @@ a slice never attempted were both reported as "too large". They need opposite
 advice — narrow the question vs. just run it again — and are now tracked and
 worded separately.
 
-### 7.5 Caveat on the recorded partial counts
+### 7.5 The recorded CSV is older than the counts above
 
-`query-matrix-after.csv` was captured *before* the budget fix, so its
-`partialSlices` numbers are pessimistic: they count slices skipped by a rule
-that has since been replaced. The one case re-measured afterwards
-(`wells near(4)`) went from 11 missing to **0**. Several other partials in that
-file are likely complete now; they have not been re-run.
+`query-matrix/2026-09-14-engine.csv` was captured *before* the budget fix, and
+the gap is wider than it first looked. **The file has 9 error rows; the table
+above says 3.** Both are honest about the moment they describe — the counts came
+from the code as it stands, the CSV from the code a few commits earlier — but
+only one of them is re-derivable, and it is not the table.
+
+Six of those nine are known to have been fixed by changes made after the
+capture:
+
+| Shape in the CSV | Why it is stale |
+| --- | --- |
+| `samples ↓ facilities [17]` (Illinois) | the budget fix; 7.4 records it completing in 248s |
+| five `upstream` shapes | two of them hung for 1918s and 959s, which the 60s client cap in `sparqlClient.ts` now prevents |
+
+The `partialSlices` numbers are pessimistic for the same reason: they count
+slices skipped by a rule that has since been replaced. `wells near(4)` went from
+11 missing to **0** when re-measured.
+
+**What to do about it:** run a fresh engine sweep (~95 min) and let the new
+dated file supersede this one. Until then, treat the table as current and the
+CSV as an artefact of 2026-09-14. This is precisely the confusion the per-sweep
+file naming and the generated index in `query-matrix/README.md` exist to prevent
+from recurring — a sweep is now stamped with its own commit, and the index shows
+what moved between one sweep and the next.
+
+---
+
+## Part 7.6 — The 2026-09-14 re-sweep, and why it is unusable
+
+A full engine sweep was run overnight to supersede 7.5's stale CSV. It is kept
+as `query-matrix/2026-09-14-engine-contaminated-9128aa9.csv` — named for what it
+is, so nobody reads its 29 failures as measurements. What went wrong is worth
+recording, because it is a trap anyone re-running this will hit.
+
+**The step ceiling did not hold, and one phase ate eight hours.** M4 (the
+multi-hop distance sweep) spent 484 minutes on 20 queries, 16 of which failed:
+
+| Shape | Recorded |
+| --- | --- |
+| `waterBodies near(2) facilities [ME]` | 2095s |
+| `samples near(3) waterBodies [ME]` | 2074s |
+| `wells near(3) facilities [ME]` | 2048s |
+
+`STEP_CEILING_MS` is 300s and these are single-step runs, so the expected bound
+is ~300s plus one in-flight slice. Recorded time equals wall-clock time for
+every phase, so these are genuine elapsed seconds, not a suspended process.
+**Cause not yet established.** `divide()` issuing its own probe queries after the
+ceiling check accounts for roughly 11 minutes per iteration, not 35.
+
+**Everything after M4 inherited a degraded endpoint.** M5 failed two *dashboard*
+questions at 1101s and 490s which `health/history.jsonl` records succeeding at
+14s and 19s the evening before. Once a phase runs away, every later phase is
+measuring our own load — exactly what the harness header warns about.
+
+**Two mechanical faults, both fixed:**
+
+- Engine mode crashed on its first query: the progress line still referenced
+  `partialSlices`, removed when the count was split into failed/skipped. Engine
+  mode had been unusable since that commit, which is why 7.5's CSV could never
+  have been refreshed.
+- The sweep split across two files. `runAt` is UTC and the runner logs local
+  time, so a sweep starting at 19:21 local crossed UTC midnight at phase M3 and
+  began writing to the next day's filename. Fix: the runner computes
+  `QUERY_MATRIX_OUT` once and exports it, so every phase shares one path.
+
+**Before re-running:** find out why the ceiling misses, run under
+`caffeinate -i` or in Actions rather than on a laptop, and treat any phase that
+exceeds its expected bound as a reason to stop the sweep rather than push on —
+a runaway phase invalidates everything after it.
 
 ---
 
@@ -599,6 +667,47 @@ Only 10 km meaningfully cuts runtime.
 question ran 99s complete in one hour and 361s *partial* (2 slices missing) in
 the next, with no code change between. Distance bounds reduce volume; they do
 not make a heavy trace dependable.
+
+### 8.1 Which slice failed, and what actually rescues it
+
+The 361s partial run above is worth following, because it is the case the
+error copy was getting wrong. Running each county on its own:
+
+| County | Result |
+| --- | --- |
+| York | ❌ 429 timeout at 72s |
+| Washington | ✅ 7s — 16 samples |
+| Waldo | ✅ 23s — 177 samples |
+
+York is the dense corner of the state, so it carries the most facilities and the
+busiest river network. Not missing data: York holds 361 PFOS sample points.
+
+What rescues it, measured on York alone:
+
+| Change | Result |
+| --- | --- |
+| 30 km, no Block A filter | ❌ 429 timeout at 64s |
+| **10 km** | ✅ **145 samples in 25s** |
+| 30 km, Block A = landfills | ⬜ *empty* in 3s |
+
+Two things follow, and both are now encoded in `adviceForOversizedQuestion`
+(`src/engine/sparqlErrors.ts`):
+
+- **A shorter distance is the lever that works here** — and it was the one the
+  old message never mentioned. It said to add a filter or region to the second
+  block, which on this question already had a substance and three counties.
+- **A filter is not automatically good advice.** It makes a query cheap by
+  asking for less, and here it turned a timeout into an empty result: a missing
+  answer traded for no answer.
+
+The slice labels themselves used to read `area 1`, `area 2` — `chooseAxis` held
+the county codes and discarded the identity. They now carry the county name, so
+a partial result says *York County, Maine* rather than *1 too large*.
+
+**A trap to avoid when measuring this.** The landfill run above returns
+`status: 'empty'`, which is a valid answer. The first pass of this test counted
+it as a failure and reported all three variants as broken. Any script that
+treats `status !== 'success'` as an error will draw the same wrong conclusion.
 
 ### What was tried and rejected: trimming by connectivity
 

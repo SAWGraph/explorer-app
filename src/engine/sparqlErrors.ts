@@ -1,3 +1,5 @@
+import type { AnalysisQuestion, EntityBlock } from '../types/query';
+
 // QLever reports several very different problems through a small set of HTTP
 // statuses, and the most important one is actively misleading: a query that
 // exceeds the engine's 30s limit comes back as 429 "Too Many Requests" with the
@@ -62,16 +64,55 @@ export function isRetryable(kind: SparqlErrorKind): boolean {
   return kind === 'timeout' || kind === 'sibling-failure';
 }
 
-export function userMessageFor(error: unknown): string {
+// What to actually change when a question is too big. The levers are ordered by
+// measured effect, and only ones that apply to *this* question are offered —
+// telling someone to filter a block that already has three counties and a
+// substance on it is worse than saying nothing.
+//
+// Measured on "facilities within 30 km upstream of PFOS samples in York,
+// Washington and Waldo counties": York alone timed out at 30 km (429 after 64s)
+// and returned 145 samples in 25s at 10 km. Note that adding a filter can turn a
+// timeout into an *empty* result rather than a smaller one — it makes the query
+// cheaper by asking for less — so distance comes first when there is one.
+export function adviceForOversizedQuestion(question?: AnalysisQuestion): string {
+  if (!question) return 'Try a shorter distance, a smaller region, or one county at a time.';
+
+  const { blockA, blockC, relationship } = question;
+  const isTrace = relationship.type === 'downstream' || relationship.type === 'upstream';
+
+  if (isTrace && relationship.maxDistanceKm) {
+    return `Try a shorter distance than ${relationship.maxDistanceKm} km, or run those areas one at a time.`;
+  }
+  if (isTrace) {
+    return 'Setting a maximum distance on the relationship is the most effective change — an unbounded trace follows the river network to the sea.';
+  }
+
+  const wide = !isNarrowed(blockC) ? 'second' : !isNarrowed(blockA) ? 'first' : null;
+  if (wide) {
+    return `The ${wide} block has no filter or region set, which means "every one in the country". Adding a type, filter, or region there is the most effective change.`;
+  }
+  return 'Try a smaller region, or run one county at a time.';
+}
+
+function isNarrowed(block: EntityBlock): boolean {
+  if (block.region?.stateCode || block.region?.countyCodes?.length) return true;
+  const filters = [
+    block.sampleFilters,
+    block.facilityFilters,
+    block.waterBodyFilters,
+    block.wellFilters,
+    block.aquiferFilters,
+    block.streamFilters,
+  ];
+  return filters.some((f) => f && Object.values(f).some((v) => (Array.isArray(v) ? v.length > 0 : v != null)));
+}
+
+export function userMessageFor(error: unknown, question?: AnalysisQuestion): string {
   const kind = error instanceof SparqlError ? error.kind : 'unknown';
   switch (kind) {
     case 'timeout':
     case 'out-of-memory':
-      // Point at the second block specifically. Measured: narrowing the first
-      // block to a single county does not help at all (still 500 OOM at 2.6GB)
-      // because the work is driven by the unconstrained second block — with no
-      // filter it means every facility in the graph, 1.5 million of them.
-      return 'This question covers too much data for the knowledge graph to answer at once. The usual cause is that the second block has no filter or region set, which means "every one in the country". Adding an industry, type, or region there is the most effective change; a shorter distance also helps.';
+      return `This question covers too much data for the knowledge graph to answer at once. ${adviceForOversizedQuestion(question)}`;
     case 'payload-too-large':
       return 'This question produced too much data to send in one request. Try narrowing the area or adding a filter.';
     case 'sibling-failure':
