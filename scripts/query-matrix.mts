@@ -277,8 +277,13 @@ function readSweeps(): Sweep[] {
   if (!existsSync(DIR)) return [];
   return readdirSync(DIR)
     .filter((f) => f.endsWith('.csv') && statSync(`${DIR}/${f}`).size > 0)
-    .sort((a, b) => a.localeCompare(b) || statSync(`${DIR}/${a}`).mtimeMs - statSync(`${DIR}/${b}`).mtimeMs)
-    .map((file) => {
+    // Order by when the sweep actually ran, not by filename. Two sweeps on the
+    // same day sort wrongly by name — `-9128aa9.csv` precedes `.csv` — which
+    // silently inverted the delta column: shapes the newer sweep had fixed were
+    // reported as newly broken.
+    .map((file) => ({ file, at: sweepStartedAt(file) }))
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map(({ file }) => {
       const lines = readFileSync(`${DIR}/${file}`, 'utf8').split('\n').filter(Boolean);
       const header = lines[0].split(',');
       const iCommit = header.indexOf('commit');
@@ -315,6 +320,14 @@ function readSweeps(): Sweep[] {
     });
 }
 
+// When a sweep ran. The first row's runAt is authoritative; files written
+// before that column existed fall back to their mtime.
+function sweepStartedAt(file: string): string {
+  const first = readFileSync(`${DIR}/${file}`, 'utf8').split('\n')[1] ?? '';
+  const stamp = first.split(',')[0];
+  return /^\d{4}-\d{2}-\d{2}T/.test(stamp) ? stamp : new Date(statSync(`${DIR}/${file}`).mtimeMs).toISOString();
+}
+
 function writeIndex(): void {
   const sweeps = readSweeps();
   const out = [
@@ -346,6 +359,18 @@ function writeIndex(): void {
     out.push(
       `| [\`${s.date}\`](./${s.file}) | ${s.mode} | \`${s.commit}\` | ${s.byLabel.size} | ${pass} | ${fail} | ${delta(s, prev)} |`,
     );
+  }
+
+  // A sweep can be invalid for reasons no column can express — the endpoint was
+  // under load, a phase ran away, the run spanned an outage. Drop a `<name>.note`
+  // file beside the CSV and it shows up here, next to the numbers it qualifies,
+  // rather than in a document nobody opens before trusting a figure.
+  const noted = sweeps.filter((x) => existsSync(`${DIR}/${x.file}.note`)).reverse();
+  if (noted.length) {
+    out.push('', '## Notes', '');
+    for (const x of noted) {
+      out.push(`**[\`${x.file}\`](./${x.file})** — ${readFileSync(`${DIR}/${x.file}.note`, 'utf8').trim()}`, '');
+    }
   }
 
   out.push('', `Generated ${new Date().toISOString().slice(0, 10)}.`, '');
