@@ -292,3 +292,70 @@ query the engine refuses is split into slices and merged
 **Prevention**: benchmark against more than Maine, and re-run
 `npm run query-matrix` after any engine change, diffing against
 `docs/query-matrix.csv`.
+
+---
+
+## 2026-09-14 — Cached results served for the wrong question (FIXED)
+
+**Component**: `src/engine/cacheKey.ts` — `canonicalQuestion`
+
+**Symptom**: none visible. That is the point of this entry. A map would render a
+complete, plausible answer that belonged to a *different* question, with no
+error, no warning, and the usual "showing saved results" banner.
+
+**Root cause**: `canonicalQuestion` normalised the relationship by rebuilding it
+from a whitelist:
+
+```ts
+const relationship =
+  rel.type === 'near' || rel.type === 'within'
+    ? { type: rel.type, hops: rel.hops ?? 1 }
+    : { type: rel.type };          // ← everything else on the relationship is gone
+```
+
+Correct when written — `hops` is genuinely only read on the near path, so a
+leftover value must not split the key. But the `else` branch discards *any* other
+field. When PR #41 added `maxDistanceKm`, a 30 km-bounded question and an
+unbounded one immediately hashed to the same key:
+
+```
+unbounded : q:6b1d1ee8b88e820f5b44f6833c15730d3a9c574894339c8dba671e8c7b04e615
+30 km     : q:6b1d1ee8b88e820f5b44f6833c15730d3a9c574894339c8dba671e8c7b04e615
+```
+
+Caching either would have served its answer for the other. For "facilities
+upstream from PFOS samples in York/Washington/Waldo" that is **12,077 river
+reaches and 14 sample points missing**, presented as the complete answer.
+
+**Caught**: while warming that question for a demo — the key was printed as part
+of checking the upload, and the two matched. The upload was killed before it
+wrote and the cache verified clean (404 on the colliding key), so nothing needed
+purging. It would not have been caught by looking at a map.
+
+**Fix**: strip only the field known to be irrelevant, and carry the rest
+through:
+
+```ts
+const { hops, ...restOfRelationship } = rel;
+const relationship =
+  rel.type === 'near' || rel.type === 'within'
+    ? { ...restOfRelationship, hops: hops ?? 1 }
+    : restOfRelationship;
+```
+
+Unbounded traces keep the key they had before `maxDistanceKm` existed, so
+entries cached earlier stay reachable.
+
+**Prevention** — the general lesson, which matters more than this instance:
+
+- **A cache key must fail safe, and "safe" is asymmetric.** A field wrongly
+  *included* costs a cache miss. A field wrongly *dropped* serves the wrong
+  answer. So build the key by removing known-irrelevant fields, never by
+  listing known-relevant ones — a whitelist silently drops whatever is added
+  next, and adding a field to `AnalysisQuestion` is a normal thing to do.
+- Any new field on `AnalysisQuestion` that changes results must be reflected in
+  `scripts/check-cache-key.mts`. It now covers bounded vs unbounded, two
+  different bounds, and that the unbounded key is unchanged — 19 checks.
+- The same reasoning applies to `WIRE_VERSION` in that file: bump it when the
+  set of stored result keys changes, or cached entries will be missing data the
+  map expects.

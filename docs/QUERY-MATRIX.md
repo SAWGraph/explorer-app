@@ -43,19 +43,25 @@ A question is three choices (`src/types/query.ts`):
 [ Block A: what you want to see ]  →  [ relationship ]  →  [ Block C: what it relates to ]
 ```
 
-**Block A and Block C** — 5 entity types each
-(`src/components/QueryEditor/EntityTypeSelector.tsx:10-14`):
-samples, facilities, surface water bodies, wells, aquifers.
+**Block A and Block C** — 6 entity types each
+(`src/components/QueryEditor/EntityTypeSelector.tsx`):
+samples, facilities, surface water bodies, wells, aquifers, **streams**.
 
 **Relationship** — 3 kinds
-(`src/components/QueryEditor/RelationshipSelector.tsx:10-21`):
+(`src/components/QueryEditor/RelationshipSelector.tsx`):
 
 - **Near**, with 5 distances: 0, ~1, ~2, ~3, ~4 miles (S2-cell hops)
-- **Downstream of** (follows rivers)
-- **Upstream from** (follows rivers)
+- **Downstream of** (follows rivers), optionally bounded by **distance in km**
+- **Upstream from** (follows rivers), same optional bound
 
-That's **5 × 5 × 7 = 175 distinct shapes** before any filter or region is
-applied. On top of that:
+> **The measured baseline in Part 3 predates two of these.** `streams` as an
+> entity type and the `maxDistanceKm` bound on traces both arrived with PR #41
+> on 2026-09-14. No row below exercises either, so the sheet covers 95 of the
+> shapes the editor offered *then*, not the larger space it offers now. The
+> distance bound is characterised separately in Part 8.
+
+That's **6 × 6 × 7 = 252 shapes** before distance bounds, filters or regions.
+On top of that:
 
 - **Region**: none, one of 13 states (`src/constants/regions.ts:8-22`), or any
   set of counties within a state
@@ -559,3 +565,70 @@ worded separately.
 that has since been replaced. The one case re-measured afterwards
 (`wells near(4)`) went from 11 missing to **0**. Several other partials in that
 file are likely complete now; they have not been re-run.
+
+---
+
+## Part 8 — Distance-bounded traces (2026-09-14)
+
+PR #41 added an optional `maxDistanceKm` to downstream and upstream questions:
+the trace sums `nhdplusv2:hasFlowPathLength` over the segments between seed and
+candidate and drops anything past the budget, then extends one segment further
+so the drawn path does not stop mid-channel.
+
+Measured on "facilities upstream from PFOS samples in York, Washington and Waldo
+counties" — the question that prompted this, because its map covered most of
+southern Maine in river lines:
+
+| Bound | Time | Reaches | Facilities | Samples | Payload |
+| --- | --- | --- | --- | --- | --- |
+| none | 109s | 15,782 | 616 | 372 | 22.3 MB |
+| **30 km** | 99s | **3,705** | **616** | 358 | **7.1 MB** |
+| 10 km | 52s | 1,684 | 554 | 287 | 4.6 MB |
+
+**30 km removes 77% of the river reaches while keeping every facility**, and
+brings the payload under the 25 MB cache limit. It is not free: 14 sample points
+disappear, and at 10 km, 62 facilities and 85 samples do. A bound answers a
+different question — "within this distance" — rather than rendering the same
+answer more legibly.
+
+Note the time barely moves at 30 km. The engine still computes the closure and
+then filters on summed length; the saving is in what is transferred and drawn.
+Only 10 km meaningfully cuts runtime.
+
+**Reliability caveat, worth knowing before relying on it.** The same 30 km
+question ran 99s complete in one hour and 361s *partial* (2 slices missing) in
+the next, with no code change between. Distance bounds reduce volume; they do
+not make a heavy trace dependable.
+
+### What was tried and rejected: trimming by connectivity
+
+The original goal was to keep only the reaches that actually connect a matched
+facility to a matched sample — bounding by *terminus* rather than by distance.
+That was measured and **does not work**:
+
+| Query | Result |
+| --- | --- |
+| current (no terminus) | 16s, 4,661 reaches |
+| terminus-bounded | **429 timeout at 70s** |
+
+Adding a second `hyf:downstreamFlowPathTC` join — a 408M-triple relation —
+exceeds what the endpoint will do, even with all 1,172 target IRIs pinned in a
+`VALUES` block. `maxDistanceKm` is the trimming mechanism that exists.
+
+If anyone revisits this: the remaining untested idea is applying the terminus
+constraint only on the *distance-bounded* path, where `boundedTrace` has already
+cut the candidate set before the second join runs. That would only help
+questions that set a distance.
+
+### Useful facts established while measuring
+
+- **`hyf:downstreamFlowPathTC` is reflexive** — `<X> hyf:downstreamFlowPathTC <X>`
+  returns a row. A zero-or-one path (`?`) after it is redundant.
+- **`A TC B` means B is downstream of A.** Three Penobscot headwater reaches at
+  ~46.1°N had successors averaging 0.73–0.79° south (seaward) and predecessors
+  immediately upslope.
+- **The network contains genuine two-way connectivity.** Testing linked pairs
+  returned *both* directions true for every pair sampled, and not because the
+  reaches coincided (0 of 50 shared one). Braided channels mean "is A upstream
+  of B" has no clean yes/no answer — so do not use a single pair to reason about
+  trace direction.
