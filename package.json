@@ -11,6 +11,7 @@
     "warm-cache": "tsx scripts/warm-cache.mts",
     "check-cache-key": "tsx scripts/check-cache-key.mts",
     "check-step-labels": "tsx scripts/check-step-labels.mts",
+    "check-trace-direction": "tsx scripts/check-trace-direction.mts",
     "check-substance-labels": "tsx scripts/check-substance-labels.mts",
     "query-matrix": "tsx scripts/query-matrix.mts",
     "health-check": "tsx scripts/health-check.mts"

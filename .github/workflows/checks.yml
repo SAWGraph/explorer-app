@@ -1,0 +1,60 @@
+name: Checks
+
+# The repo's self-checks, on every pull request. They were all runnable before
+# this file existed and none of them ran unless someone remembered to, which is
+# how an engine bug that every one of these styles of check would have caught
+# (upstream tracing the relation backwards, see docs/DEBUGGING.md 2026-09-16)
+# survived from the first commit to 2026-09-16.
+#
+# Everything here is offline and takes seconds. No secrets, no SPARQL, no
+# endpoint concurrency group: the live-endpoint workflows (health-check.yml,
+# warm-cache.yml) are the ones that have to queue.
+
+on:
+  pull_request:
+  push:
+    branches: [main, development]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # react-leaflet's peer range does not include React 19 (see CLAUDE.md)
+      - run: npm ci --legacy-peer-deps
+
+      - name: Build (tsc -b && vite build)
+        run: npm run build
+
+      # Each of these asserts something that is silent when wrong: a wrong
+      # answer, a mislabelled step, a cache key that collides. They fail the
+      # build rather than reporting, because a self-check nobody is obliged to
+      # read is a self-check that does not exist.
+      - name: Trace direction
+        run: npm run check-trace-direction
+
+      - name: Cache key
+        run: npm run check-cache-key
+
+      - name: Step labels
+        run: npm run check-step-labels
+
+      - name: Substance labels
+        run: npm run check-substance-labels
+
+      # Not blocking yet: `npm run lint` reports 15 pre-existing errors, all in
+      # components and none related to the engine. Make this a required step in
+      # the same change that clears them, not before, or the signal is noise
+      # from day one.
+      - name: Lint (advisory)
+        run: npm run lint
+        continue-on-error: true

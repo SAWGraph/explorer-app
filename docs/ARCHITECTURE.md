@@ -247,6 +247,28 @@ measurements for exactly those entities. Keeping them apart is what stopped an
 ID-finding query from building every measurement in the state and throwing it
 away — see `docs/QUERY-MATRIX.md` Part 5.
 
+**Which block seeds the trace, and which way it runs.** The templates know
+nothing about block A and block C. They take an *anchor* (the side the query
+seeds from, bound into `?s2anchor`) and a *target*, and they trace in one
+direction only: the target comes out `direction` of the anchor. So the planner
+has to decide two separate things, and they are not independent.
+
+| Relationship | Anchor is | Target is | Trace runs | Why the anchor is forced |
+| --- | --- | --- | --- | --- |
+| `A near C` | block C | block A | n/a | symmetric, either side works |
+| `A downstream from C` | block C | block A | downstream | C is the upstream side |
+| `A upstream from C` | **block A** | block C | **downstream** | A is the upstream side, and seeding from an unfiltered C ("every stream in the country") times out |
+
+Read the table by its last column and the rule is one line: **the anchor is
+always the upstream side of the question, so the trace always runs downstream
+from the seed.** Which block that is flips for `upstream`, which is the reason
+the two decisions have to be made separately rather than passing
+`relationship.type` through as the direction. Doing exactly that answered the
+mirror question for every upstream shape until 2026-09-16
+(`docs/DEBUGGING.md`, 2026-09-16), and it is guarded now by
+`scripts/check-trace-direction.mts`, which reads the emitted SPARQL rather than
+the flag, because three separate builders trace and they all have to agree.
+
 ### 3. Executor Runs the Steps
 
 `executor.ts` runs steps in order, but each step is more than one request.
@@ -281,9 +303,15 @@ for the machinery.
 **The slice is chosen per question** (`scope.ts` `chooseAxis`). Which axis is
 right flips between states: Maine has 4,528 samples and 2,976 facilities,
 Illinois has 78 and 22,574 — so there is no fixed answer to "which side should
-we chunk". `chooseAxis` probes both sides in parallel, uses whichever it can
-enumerate, and falls back to splitting by county. A slice that still fails is
-`halve`d until it cannot be divided further.
+we chunk". `chooseAxis` probes both sides in parallel (`LIMIT 201`, cheap), uses
+whichever it can enumerate, and falls back to splitting by county. When even
+that runs out — a question already scoped to a *single* county, with both sides
+past the cheap probe limit — it probes the filtered side once more with a much
+higher limit and chunks that. That last resort exists because a single county
+is not divisible and the run would otherwise fail outright: 411 Cook County
+facilities enumerate fine and chunk into slices of 25 that each answer in
+seconds. A slice that still fails is `halve`d until it cannot be divided
+further.
 
 **A run can succeed with pieces missing.** `PartialFailure` distinguishes
 *failed* slices (refused even at minimum size — the question needs changing)
@@ -521,6 +549,19 @@ canonicalisation does matters more than the hash:
 
 `WIRE_VERSION` and `DATA_VERSION` prefix the key so a change to the stored shape,
 or a knowledge-graph reload, makes every existing entry unreachable at once.
+
+**Nothing in the key describes the engine**, which matters when a fix changes
+what a question *means* rather than what it stores. Cached answers to the old
+meaning stay reachable for their full 30 days and will be served in preference
+to running the corrected query. After a semantics fix, purge the affected
+entries by question shape rather than bumping `WIRE_VERSION`, which would throw
+away every unaffected entry too:
+
+```sql
+DELETE FROM query_results WHERE question->'relationship'->>'type' = 'upstream';
+SELECT id, title, author FROM published_workflows
+  WHERE question->'relationship'->>'type' = 'upstream';   -- frozen under publish:<id>
+```
 
 **What is stored** (`wire.ts`): successes only. An error is nearly always
 transient endpoint load, and freezing one would turn a bad minute into a bad
@@ -867,6 +908,15 @@ subquery that sums `nhdplusv2:hasFlowPathLength` along the path and drops
 anything past the budget, then extends one segment further so the drawn line
 does not stop mid-channel. On one Maine question, a 30 km bound cut 15,782
 reaches to 3,705 while keeping all 616 facilities.
+
+**Upstream questions use this same pattern, unchanged.** There is no upstream
+query. "A upstream from C" seeds from block A and traces downstream to block C,
+which is the same relation read from the other end. The templates can build a
+reversed trace (`?ds_flowline hyf:downstreamFlowPathTC ?upstream_flowline`) and
+the planner never asks for one: a reversed trace is only correct if the seed is
+the *downstream* side, and the seed is never that side, because the side that
+seeds is the side the question filtered. See the anchor/target table under
+[Planner Creates Pipeline Steps](#2-planner-creates-pipeline-steps).
 
 ---
 
