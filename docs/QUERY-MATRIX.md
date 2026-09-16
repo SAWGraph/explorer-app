@@ -395,12 +395,12 @@ query the engine refuses is split into slices that fit and merged back together.
 Per-step, "ME samples downstream of airports", two sequential warm passes:
 
 ```
-Finding downstream samples                 4,391ms   1,172 rows
-Finding facilities with downstream samples 4,283ms     190 rows
-Loading downstream stream geometries       1,070ms   4,661 rows
-Loading target samples details             6,257ms     999 rows
-Loading anchor facilities details            579ms     190 rows
-Loading region boundaries                    135ms      16 rows
+Finding samples downstream of facilities             4,391ms   1,172 rows
+Finding facilities with samples downstream of them  4,283ms     190 rows
+Loading downstream stream geometries                1,070ms   4,661 rows
+Loading details for samples                         6,257ms     999 rows
+Loading details for facilities                        579ms     190 rows
+Loading region boundaries                             135ms      16 rows
 TOTAL 16.7s   (second pass 16.1s)
 ```
 
