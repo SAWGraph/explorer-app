@@ -208,6 +208,10 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   //   - near:       anchor=blockC, target=blockA
   //   - downstream: anchor=blockC, target=blockA (samples downstream of facilities)
   //   - upstream:   anchor=blockA, target=blockC
+  //
+  // The anchor is the side the fused templates seed from, and seeding an
+  // unfiltered side (every stream in the country) times out — so the anchor is
+  // the side the question filtered, which for an upstream question is block A.
   let anchorBlock: EntityBlock;
   let targetBlock: EntityBlock;
   if (relationship.type === 'upstream') {
@@ -217,6 +221,14 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     anchorBlock = blockC;
     targetBlock = blockA;
   }
+
+  // The templates only trace one way: the target comes out `direction` of the
+  // anchor. With the anchor always on the upstream side of the question — C for
+  // "A downstream from C", A for "A upstream from C" — the trace is always
+  // downstream from it. Passing 'upstream' here alongside anchor=blockA, as
+  // this did, answered the mirror question: streams upstream of the facilities
+  // instead of the facilities upstream of the streams.
+  const traceDirection = 'downstream' as const;
 
   const anchorRegion = getRegionCodes(anchorBlock);
   const targetRegion = getRegionCodes(targetBlock);
@@ -248,7 +260,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     }
     return buildFusedHydrologyQuery({
       ...shared,
-      direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',
+      direction: traceDirection,
       maxDistanceKm: relationship.maxDistanceKm,
     });
   };
@@ -309,12 +321,15 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     steps.push({
       type: 'GET_FLOWLINE_GEOMETRIES',
       endpoint: 'federation',
-      description: `Loading ${relationship.type} stream geometries`,
+      // No direction in the name: these are the flowlines between the two
+      // sides, traced downstream from the anchor whichever way the question
+      // was phrased.
+      description: 'Loading stream geometries',
       // Runs after FIND_ANCHOR_IRIS so it can trace from the resolved anchors.
       buildQuery: (ctx, scope) =>
         buildFusedFlowlineQuery({
           anchor: anchorBlock,
-          direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',
+          direction: traceDirection,
           anchorIris: scope?.anchorIris ?? ctx.anchorIris,
           maxDistanceKm: relationship.maxDistanceKm,
         }),
