@@ -1,6 +1,7 @@
 import type { AnalysisQuestion, EntityBlock } from '../types/query';
 import type { EndpointKey } from '../constants/endpoints';
 import type { SparqlRow } from '../types/sparql';
+import { entityTypeLabel } from '../utils/questionGenerator';
 import {
   buildFusedNearQuery,
   buildFusedHydrologyQuery,
@@ -23,6 +24,16 @@ import {
   IRI_CHUNK,
   type Scope,
 } from './scope';
+
+// Reads the way the user chose it: these are the three labels in
+// RELATIONSHIP_TYPES (src/components/QueryEditor/RelationshipSelector.tsx).
+// 'within' is in the type union but is never offered and never planned for.
+const RELATIONSHIP_PREPOSITION: Record<AnalysisQuestion['relationship']['type'], string> = {
+  near: 'near',
+  downstream: 'downstream of',
+  upstream: 'upstream from',
+  within: 'within',
+};
 
 export type PipelineStepType =
   | 'FIND_TARGET_IRIS'
@@ -102,7 +113,13 @@ function hydrateStep(
     block.type === 'samples' || block.type === 'wells'
       ? 'federation'
       : entityEndpoint(block);
-  const description = `Loading ${side === 'target' ? 'target' : 'anchor'} ${block.type} details`;
+  // "target"/"anchor" are planner concepts, and which block they name flips
+  // between relationship types, so they have no business in a user-facing
+  // label. Wells are the one case where this understates the work: their step
+  // re-derives the whole set server-side (see above) rather than loading
+  // details of what discovery found. The label describes what the step
+  // delivers, which is what the progress strip is for.
+  const description = `Loading details for ${entityTypeLabel(block.type)}`;
 
   return {
     type,
@@ -253,18 +270,33 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     return halve(scope) ?? refineRegionScope(axisContext, scope);
   };
 
-  const verb = relationship.type === 'near' ? 'nearby' : relationship.type;
+  // Both discovery steps are one fused query that resolves block A and block C
+  // together, so a label naming only one side reads as though the other had not
+  // been queried yet — which is exactly how it was reported. Name both, in the
+  // words of the question the user asked ("What <A> are <rel> <C>?").
+  //
+  // Which step returns which block is not fixed: the anchor/target mapping
+  // above puts block A on the target side for near and downstream, and on the
+  // anchor side for upstream. Key the label off the block the step returns, not
+  // off its target/anchor role, or the upstream labels come out swapped.
+  const prep = RELATIONSHIP_PREPOSITION[relationship.type];
+  const aLabel = entityTypeLabel(blockA.type);
+  const cLabel = entityTypeLabel(blockC.type);
+  const findingA = `Finding ${aLabel} ${prep} ${cLabel}`;
+  const findingC = `Finding ${cLabel} with ${aLabel} ${prep} them`;
+  const targetIsBlockA = relationship.type !== 'upstream';
+
   steps.push({
     type: 'FIND_TARGET_IRIS',
     endpoint: 'federation',
-    description: `Finding ${verb} ${targetBlock.type}`,
+    description: targetIsBlockA ? findingA : findingC,
     buildQuery: (_ctx, scope) => buildIriQuery('target', scope),
     divide: divideDiscovery,
   });
   steps.push({
     type: 'FIND_ANCHOR_IRIS',
     endpoint: 'federation',
-    description: `Finding ${anchorBlock.type} with ${verb} ${targetBlock.type}`,
+    description: targetIsBlockA ? findingC : findingA,
     buildQuery: (_ctx, scope) => buildIriQuery('anchor', scope),
     divide: divideDiscovery,
   });
