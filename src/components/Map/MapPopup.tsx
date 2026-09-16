@@ -175,6 +175,24 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
   );
 }
 
+// The FRS registry id out of a facility IRI, e.g.
+// http://w3id.org/fio/v1/epa-frs-data#d.FRS-Facility.110000344681 -> 110000344681.
+//
+// Matched strictly rather than by taking the last dot-separated segment. The
+// graph also holds d.Record.<PROGRAM>.<id> entities under fio:ofIndustry whose
+// trailing segment is a program id, not a registry id, and a loose split would
+// build a confident link to the wrong FRS page. Those records carry no geometry
+// so they never reach a popup today, but this is now the only link here and
+// there is no second link to fall back to.
+function frsRegistryId(uri: string): string | null {
+  const match = uri.match(/#d\.FRS-Facility\.(\d+)$/);
+  return match ? match[1] : null;
+}
+
+function frsUrl(registryId: string): string {
+  return `https://frs-public.epa.gov/ords/frs_public2/fii_query_detail.disp_program_facility?p_registry_id=${registryId}`;
+}
+
 function extractIlWellId(uri: string): string | null {
   const match = uri.match(/ISGS-Well\.(\d{12})/);
   return match ? match[1] : null;
@@ -188,8 +206,12 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
   }
 
   if (props.type === 'facility') {
-    const registryId = feature.id.split('.').pop() || '';
-    const epaUrl = `https://frs-public.epa.gov/ords/frs_public2/fii_query_detail.disp_program_facility?p_registry_id=${registryId}`;
+    // EPA FRS is the only link in this popup, by request: the w3id.org/fio IRIs
+    // resolve to raw ontology terms, which is not what someone clicking a
+    // facility in a map popup is after. The facility name carries the link and
+    // the NAICS code is plain text.
+    const registryId = frsRegistryId(feature.id);
+    const label = `${props.name || 'Facility'}${registryId ? ` (${registryId})` : ''}`;
     return (
       <div className="map-popup">
         <table className="popup-table">
@@ -197,11 +219,12 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
             <tr>
               <td className="popup-label">Facility</td>
               <td>
-                <a href={feature.id} target="_blank" rel="noopener noreferrer">
-                  {props.name || 'Facility'}{registryId ? ` (${registryId})` : ''}
-                </a>
-                {registryId && (
-                  <> · <a href={epaUrl} target="_blank" rel="noopener noreferrer">EPA FRS</a></>
+                {registryId ? (
+                  <a href={frsUrl(registryId)} target="_blank" rel="noopener noreferrer">
+                    {label}
+                  </a>
+                ) : (
+                  label
                 )}
               </td>
             </tr>
@@ -209,9 +232,8 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
               <tr>
                 <td className="popup-label">Industry</td>
                 <td>
-                  <a href={String(props.industryCode)} target="_blank" rel="noopener noreferrer">
-                    {props.industryName || 'Industry'} (NAICS {String(props.industryCode).split('-').pop()})
-                  </a>
+                  {props.industryName || 'Industry'} (NAICS{' '}
+                  {String(props.industryCode).split('-').pop()})
                 </td>
               </tr>
             )}
