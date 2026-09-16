@@ -162,10 +162,10 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
             </tr>
           </thead>
           <tbody>
-            {sample.observations.map((obs, j) => (
-              <tr key={j}>
+            {sample.observations.map((obs) => (
+              <tr key={obs.substanceUri}>
                 <td>{obs.substance}</td>
-                <td>{obs.result} {obs.unit}</td>
+                <td>{obs.results.join(', ')} {obs.unit}</td>
               </tr>
             ))}
           </tbody>

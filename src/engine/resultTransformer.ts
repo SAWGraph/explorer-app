@@ -1,6 +1,7 @@
 import type { SparqlRow } from '../types/sparql';
 import type { MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from '../types/map';
 import type { LatLngExpression } from 'leaflet';
+import { substanceLabel } from '../constants/substances';
 
 function parseWKTPoint(wkt: string): LatLngExpression | null {
   const match = wkt.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
@@ -235,22 +236,37 @@ export function buildSamplePointDetail(rows: SparqlRow[]): SamplePointDetail | n
 
   for (const [sampleUri, sampleRows] of bySample) {
     const first = sampleRows[0];
-    const observations: SampleObservation[] = [];
+    // One row per substance, not per observation: see SampleObservation.
+    const bySubstance = new Map<string, SampleObservation>();
 
     for (const r of sampleRows) {
       const val = parseFloat(r.result_value);
       if (isNaN(val)) continue;
 
-      observations.push({
-        substance: r.substance || '',
-        result: val,
-        unit: r.unit_sym || '',
+      const uri = r.substanceUri || '';
+      const substance = substanceLabel({
+        uri,
+        shortLabel: r.substanceShortLabel,
+        label: r.substanceLabel,
+        paramLabel: r.substanceParamLabel,
       });
+
+      const existing = bySubstance.get(uri);
+      if (existing) {
+        existing.results.push(val);
+      } else {
+        bySubstance.set(uri, {
+          substance,
+          substanceUri: uri,
+          results: [val],
+          unit: r.unit_sym || '',
+        });
+      }
 
       // Track overall max
       if (!maxResult || val > maxResult.value) {
         maxResult = {
-          substance: r.substance || '',
+          substance,
           value: val,
           unit: r.unit_sym || '',
           sampleId: first.sampleIdentifier || '',
@@ -258,6 +274,8 @@ export function buildSamplePointDetail(rows: SparqlRow[]): SamplePointDetail | n
         };
       }
     }
+
+    const observations = [...bySubstance.values()];
 
     samples.push({
       sampleUri,
