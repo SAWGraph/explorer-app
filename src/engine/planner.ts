@@ -95,6 +95,7 @@ interface FusedContext {
   anchorBlock: EntityBlock;
   targetBlock: EntityBlock;
   relationship: AnalysisQuestion['relationship'];
+  direction: 'downstream' | 'upstream';
   anchorRegion?: string[];
   targetRegion?: string[];
 }
@@ -138,6 +139,7 @@ function hydrateStep(
           anchor: fused.anchorBlock,
           target: fused.targetBlock,
           relationship: fused.relationship,
+          direction: fused.direction,
           anchorRegion: fused.anchorRegion,
           targetRegion: fused.targetRegion,
           wellSide: side === 'target' ? 'target' : 'anchor',
@@ -321,10 +323,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     steps.push({
       type: 'GET_FLOWLINE_GEOMETRIES',
       endpoint: 'federation',
-      // No direction in the name: these are the flowlines between the two
-      // sides, traced downstream from the anchor whichever way the question
-      // was phrased.
-      description: 'Loading stream geometries',
+      description: `Loading ${relationship.type} stream geometries`,
       // Runs after FIND_ANCHOR_IRIS so it can trace from the resolved anchors.
       buildQuery: (ctx, scope) =>
         buildFusedFlowlineQuery({
@@ -345,6 +344,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     anchorBlock,
     targetBlock,
     relationship,
+    direction: traceDirection,
     anchorRegion: anchorRegionOpt,
     targetRegion: targetRegionOpt,
   };
