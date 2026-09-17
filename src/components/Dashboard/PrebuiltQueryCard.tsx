@@ -17,7 +17,7 @@ export function PrebuiltQueryCard({ query, onClick }: PrebuiltQueryCardProps) {
   const hiddenCount = query.tags.length - MAX_VISIBLE_TAGS;
 
   return (
-    <div className='query-card' onClick={onClick}>
+    <div className='query-card query-card-with-thumb' onClick={onClick}>
       <div className='query-card-body'>
         <h3 className='query-card-title'>{query.title}</h3>
 
