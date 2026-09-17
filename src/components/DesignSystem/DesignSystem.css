@@ -406,7 +406,7 @@
 }
 
 .ds-contrast-row--fail {
-  background: #fff5f5;
+  background: var(--color-red-100);
 }
 
 .ds-contrast-row--fail td:last-child {
