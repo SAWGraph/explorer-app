@@ -1384,9 +1384,6 @@
 }
 
 .query-card {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-lg);
   background: white;
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-lg);
@@ -1401,6 +1398,14 @@
 .query-card:hover {
   border-color: var(--color-indigo-300);
   box-shadow: var(--shadow-card-hover);
+}
+
+/* Only the prebuilt cards carry a thumbnail. The community cards share
+   .query-card and stack their children, so the row layout lives here. */
+.query-card-with-thumb {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-lg);
 }
 
 .query-card-body {
