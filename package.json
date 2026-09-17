@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "build-thumbnails": "tsx scripts/build-thumbnails.mts",
     "warm-cache": "tsx scripts/warm-cache.mts",
     "check-cache-key": "tsx scripts/check-cache-key.mts",
     "check-step-labels": "tsx scripts/check-step-labels.mts",
