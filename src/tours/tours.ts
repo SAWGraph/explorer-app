@@ -87,7 +87,7 @@ function mapSteps(): DriveStep[] {
       popover: {
         title: 'Explore the Map Controls',
         description:
-          'Use the Map Controls panel to show or hide different layers on the map — facilities, reaches, downstream reaches and water samples. Toggle these to focus on the data that matters most to your analysis.',
+          'Use the Map Controls panel to show or hide different layers on the map: facilities, reaches, downstream reaches and water samples. Toggle these to focus on the data that matters most to your analysis.',
       },
     },
     {
@@ -119,7 +119,7 @@ function editSteps(): DriveStep[] {
       popover: {
         title: 'Add or Edit a Feature or Observation',
         description:
-          'What you’re analyzing — industrial facilities, landfills, water supply wells, or similar features, or the locations of observation where PFAS samples have been taken or PFAS release has been reported.',
+          'What you’re analyzing: industrial facilities, landfills, water supply wells, or similar features, or the locations of observation where PFAS samples have been taken or PFAS release has been reported.',
       },
     },
     {
@@ -127,7 +127,7 @@ function editSteps(): DriveStep[] {
       popover: {
         title: 'Define the Relationship',
         description:
-          'This defines the spatial relationship between two features — in this case, water bodies and sources of pollution. It’s a powerful way to analyze cause-effect by location (e.g., upstream/downstream, nearby, within radius, etc.).',
+          'This defines the spatial relationship between two features, in this case water bodies and sources of pollution. It’s a powerful way to analyze cause-effect by location (e.g., upstream/downstream, nearby, within radius, etc.).',
       },
     },
     {
@@ -135,7 +135,7 @@ function editSteps(): DriveStep[] {
       popover: {
         title: 'Add a Source Feature',
         description:
-          'This is your source or influencing feature — the facilities or sites potentially impacting the target feature. Essential for risk analysis or tracing pollution sources. Add sectors by NAICS code or category.',
+          'This is your source or influencing feature, the facilities or sites potentially impacting the target feature. Essential for risk analysis or tracing pollution sources. Add sectors by NAICS code or category.',
       },
     },
     {
@@ -143,7 +143,7 @@ function editSteps(): DriveStep[] {
       popover: {
         title: 'Apply or Discard Changes',
         description:
-          'These are final actions. Changes won’t apply until you click Apply — giving you confidence to experiment with your query before committing.',
+          'These are final actions. Changes won’t apply until you click Apply, so you can experiment with your query before committing.',
       },
     },
   ];

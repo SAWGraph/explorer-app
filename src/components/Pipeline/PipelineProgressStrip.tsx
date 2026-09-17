@@ -42,7 +42,7 @@ export function PipelineProgressStrip() {
 
   let message: string;
   if (isRunning && chunked) {
-    message = `${chunked.description} — ${chunked.chunksDone ?? 0} of ${chunked.chunksTotal} areas done…`;
+    message = `${chunked.description}: ${chunked.chunksDone ?? 0} of ${chunked.chunksTotal} areas done…`;
   } else if (isRunning) {
     message = MESSAGES[msgIndex];
   } else if (pipelineResult?.status === 'empty') {

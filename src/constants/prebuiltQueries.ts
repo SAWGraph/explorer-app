@@ -161,7 +161,7 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
     id: 'wells-near-landfill-dod-maine',
     title: 'Maine Private Wells Near Landfills & DoD Sites',
     description:
-      'Locate Maine private wells (MGS) within proximity of Solid Waste Landfills (NAICS 562212) and National Security / DoD facilities (NAICS 928110) statewide — the two facility classes most often implicated in Maine PFAS investigations.',
+      'Locate Maine private wells (MGS) within proximity of Solid Waste Landfills (NAICS 562212) and National Security / DoD facilities (NAICS 928110) statewide. These are the two facility classes most often implicated in Maine PFAS investigations.',
     tags: ['Wells', 'Facilities', 'Near', 'Maine', 'Landfill', 'DoD'],
     question: {
       blockA: {
