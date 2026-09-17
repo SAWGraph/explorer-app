@@ -332,14 +332,6 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       ${targetPin}${targetPart}`;
 }
 
-function relationshipMode(
-  rel: SpatialRelationship,
-): 'near' | 'downstream' | 'upstream' {
-  if (rel.type === 'downstream') return 'downstream';
-  if (rel.type === 'upstream') return 'upstream';
-  return 'near';
-}
-
 export interface FusedBaseOpts {
   anchor: EntityBlock;
   target: EntityBlock;
@@ -436,6 +428,10 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
 
 export interface FusedWellSideOpts extends FusedBaseOpts {
   relationship: SpatialRelationship;
+  // Which way the discovery steps traced. This step re-derives the same trace,
+  // so it has to be told, not re-derive it from relationship.type — that is
+  // what made the well layer disagree with the IRIs discovery had found.
+  direction: 'downstream' | 'upstream';
   wellSide: 'anchor' | 'target';
 }
 
@@ -451,7 +447,7 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
     target: opts.target,
     anchorRegion: opts.anchorRegion,
     targetRegion: opts.targetRegion,
-    mode: relationshipMode(opts.relationship),
+    mode: opts.relationship.type === 'near' ? 'near' : opts.direction,
     hops: opts.relationship.hops,
     maxDistanceKm: opts.relationship.maxDistanceKm,
   });

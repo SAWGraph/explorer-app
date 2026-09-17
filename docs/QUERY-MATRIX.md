@@ -154,6 +154,14 @@ Failure breakdown: 20 × timeout at 30s, 15 × engine out-of-memory,
 
 ### 3.3 Upstream from — every entity pair
 
+> **These 25 numbers measured the wrong question, and are kept only as a
+> record.** Until 2026-09-16 every `upstream` shape traced the relation
+> backwards (`docs/DEBUGGING.md`, 2026-09-16), so each cell below is the time
+> and row count for the *mirror* question. Status and timing do not carry over:
+> the corrected direction is materially more expensive when block C is
+> unfiltered. See Part 9. Every `near` and `downstream` number in this document
+> is unaffected.
+
 | Block A ↓ / Block C → | Samples | Facilities | Water bodies | Wells | Aquifers |
 | --- | --- | --- | --- | --- | --- |
 | **Samples** | ✅ 13.1s (3221) | ✅ 13.7s (2739) | ✅ 13.5s (6072) | ⚠️ 24.3s (47730) | ✅ 12.6s (4650) |
@@ -741,3 +749,75 @@ questions that set a distance.
   reaches coincided (0 of 50 shared one). Braided channels mean "is A upstream
   of B" has no clean yes/no answer — so do not use a single pair to reason about
   trace direction.
+
+---
+
+## Part 9 — The corrected upstream direction (2026-09-16)
+
+Upstream questions traced the relation backwards from the first commit until
+2026-09-16. The root cause, the size of the error and the guard that now
+prevents it are in `docs/DEBUGGING.md` (2026-09-16); this part is what the fix
+costs to run, since that is what this document is for.
+
+### 9.1 What it costs
+
+Measured end to end through the real pipeline, Cook County, IL, NAICS 325 + 326:
+
+| Question | Before (wrong direction) | After |
+| --- | --- | --- |
+| facilities upstream from streams, any distance | 1.3s | **214s**, 411 facilities + 1,290 flowlines |
+| facilities upstream from streams, 50 km | n/a | 12s, 411 facilities |
+| facilities upstream from streams, 10 km | n/a | 25s, 393 facilities |
+| facilities near streams (control) | 11s | 11s |
+| ME samples downstream from landfills (control) | 38s | 38s |
+
+The asymmetry is real and worth understanding before reading Part 3.3 as a
+baseline. The old direction, from Cook County, asked "what drains *into* these
+facilities", which in a headwater county is a small set. The corrected direction
+asks "what do they drain into", and from Chicago that is the Illinois River, the
+Mississippi and everything to the Gulf: 1,290 reaches. Same engine, same
+question shape, 150x the work.
+
+**A distance bound is the practical answer**, not a tidier rendering of the same
+thing. At 50 km the answer is the same 411 facilities in an eighth of the time,
+because the facility set is almost insensitive to the bound: nearly every
+facility near a stream is upstream of *something*. Unbounded upstream against an
+unfiltered block C is close to a vacuous question with a very expensive answer.
+
+### 9.2 It first failed rather than ran slowly
+
+The corrected query timed out at 64s and the run errored, because
+`chooseAxis` had nothing left to slice: both probes were past `PROBE_LIMIT`
+(411 facilities, and streams are unbounded), and the question was already scoped
+to a single county, which cannot be split. `scope.ts` now probes the filtered
+side once more at a much higher limit and chunks it (25 per slice, 17 slices).
+That is what turns the 64s failure into the 214s answer above.
+
+This is the fourth axis, and it only engages when the other three have declined,
+so no shape that already worked can slow down.
+
+### 9.3 Part 3.3 needs re-measuring
+
+All 25 upstream rows in the last sweep (`docs/query-matrix/2026-09-14-engine.csv`)
+measured the mirror question, as does every upstream shape the editor can build
+(36 of them, including streams as a block type, which the sweep does not cover). Expect the re-sweep to move them: shapes with an
+unfiltered block C get more expensive, and some that passed will not. The 72
+`near` and `downstream` shapes should be unchanged, which is the useful control
+when reading the diff.
+
+### 9.4 How the trace direction was verified
+
+Not by reasoning about a pair of linked reaches. The note at the end of Part 8
+is right that braided channels make a single pair useless for that.
+
+NHD flowline geometries are digitised from upstream to downstream, so the
+orientation can be read off the coordinates directly: for `?a hyf:downstreamFlowPath ?b`
+on `hydrologykg`, a's last coordinate is exactly b's first coordinate.
+
+```
+comid/1001 -> comid/1005    a_end == b_start: true    a_start == b_end: false
+```
+
+So `A TC B` means B is downstream of A, as the predicate name says, and as Part
+8 already concluded by a different route. This is the cheaper check to repeat if
+it is ever in doubt again.

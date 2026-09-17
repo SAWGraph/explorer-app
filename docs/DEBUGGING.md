@@ -359,3 +359,143 @@ entries cached earlier stay reachable.
 - The same reasoning applies to `WIRE_VERSION` in that file: bump it when the
   set of stored result keys changes, or cached entries will be missing data the
   map expects.
+
+---
+
+## 2026-09-16 — "Upstream from" answered the mirror question (FIXED)
+
+**Component**: `src/engine/planner.ts` — `buildFusedSteps`, and
+`src/engine/templates/fusedQueries.ts` — `buildFusedWellQuery`
+
+**Symptom**: reported by Torsten: "the upstream query seems to be switched: I
+asked for facilities upstream of stream but seem to get stream upstream of
+facilities." Every `upstream` question returned the relation read backwards.
+Nothing errored, both layers drew, and the streams were real rivers beside real
+facilities.
+
+**Root cause**: the templates trace one way only. The anchor is bound into
+`?s2anchor`, the seed flowline hangs off it, and the target comes out
+`direction` of the anchor:
+
+```sparql
+downstream mode:  ?upstream_flowline hyf:downstreamFlowPathTC ?ds_flowline   # target below anchor
+upstream mode:    ?ds_flowline hyf:downstreamFlowPathTC ?upstream_flowline   # target above anchor
+```
+
+So the planner decides two things: which block is the anchor (which side seeds)
+and which way to trace from it. For `upstream` the anchor has to be block A,
+because seeding from an unfiltered block C means every stream in the country and
+times out. The anchor was right; the direction was not:
+
+```ts
+if (relationship.type === 'upstream') { anchorBlock = blockA; targetBlock = blockC; }   // correct
+...
+direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',              // wrong
+```
+
+Two flips were required and one was applied. In one line: the code treated *the
+name of the relationship the user picked* and *the direction to trace from the
+seed* as the same value, and they are the same only when the seed is block C.
+
+Not a regression from the fused refactor. `d9ba5a6` carried the bug across
+faithfully, comment and all; the S2-cell pipeline it replaced did the same thing
+(`getS2Step(blockA)` then `traceUpstreamStep()` then `findEntitiesStep(blockC)`),
+and `git log -S buildUpstreamTraceQuery --reverse` puts that in the initial
+commit. Upstream had never worked.
+
+**How wrong**: "samples in Maine upstream from landfills", measured live.
+
+| | Distinct samples |
+| --- | --- |
+| Before | 840 |
+| After | 2,797 |
+| In both | 777 |
+
+72% of the correct answer was missing and 63 rows were false positives. The old
+answer was, in effect, the *downstream* relation, so "samples upstream from
+landfills" and "samples downstream from landfills" were two names for one
+question (404 of 474 rows shared, the rest explained by the seed-side tolerance
+below).
+
+For facility-shaped answers the answer layer barely moves — Cook County returns
+411 facilities either way, because "upstream of some stream" and "downstream of
+some stream" are both nearly vacuous — so the stream layer was the only visible
+tell. That is what was noticed, and it is why no screenshot review ever caught
+it.
+
+**Caught**: by a user, on a shape nothing automated runs. The 9 prebuilt
+dashboard questions are 7 `near` and 2 `downstream`, zero `upstream`, so the
+weekly health check and the warm cache never touched it. `docs/QUERY-MATRIX.md`
+3.3 *did* measure all 36 upstream shapes and passed them: a mirror answer
+returns a plausible row count in a plausible time, and the sweep records status,
+duration and rows, never semantics.
+
+**Fix**: name the decision and make it once.
+
+```ts
+const isUpstream = relationship.type === 'upstream';
+const anchorBlock: EntityBlock = isUpstream ? blockA : blockC;
+const targetBlock: EntityBlock = isUpstream ? blockC : blockA;
+// The anchor is always the upstream side of the question, so the trace always
+// runs downstream from it.
+const traceDirection = 'downstream' as const;
+```
+
+Two further things came out of the fix:
+
+- **A second copy of the rule.** `buildFusedWellQuery` re-derives the whole
+  trace server-side (a statewide well set is 20k+ IRIs, too many to inline) and
+  decided its own direction from `relationship.type` via `relationshipMode()`.
+  Before the fix it agreed with discovery, both wrong. After it, the well layer
+  would have been a different set from the wells discovery found. The planner
+  now passes the direction it used and `relationshipMode` is deleted with its
+  only caller.
+- **The corrected question is much heavier**, and it first failed outright:
+  `chooseAxis` had no axis left for a single-county question (both probes past
+  `PROBE_LIMIT`, one county not splittable), so the step errored after 64s
+  instead of slicing. `scope.ts` gained a last-resort bulk probe.
+
+**Verified** end to end through the real pipeline, and in the app on the PR
+preview: Cook County facilities upstream from streams draws 402 facilities and
+1,290 flowlines running down the Des Plaines, the Illinois and the Mississippi
+past St. Louis. Before the fix the same question drew the headwater tributaries
+north of Chicago and nothing downstream of it.
+
+| Question | Before | After |
+| --- | --- | --- |
+| Cook facilities upstream from streams, any distance | 1.3s, wrong direction | 214s |
+| same, bounded 10 km / 50 km | n/a | 25s / 12s |
+| Cook facilities near streams | 11s | 11s |
+| ME samples downstream from landfills | 38s | 38s |
+
+**Prevention** — the general lessons:
+
+- **A flag that reads like a pass-through is not one.**
+  `rel.type === 'downstream' ? 'downstream' : 'upstream'` looks like it forwards
+  the user's choice. It was duplicated at two call sites, so the decision had no
+  name and no home. Anything with two independent flips has to name both.
+- **Do not overload one variable with a semantic role and an execution
+  property.** `anchor` means both "which side of the question" and "which side
+  seeds, and therefore which side is cheap". One meaning was updated without
+  the other, which is what overloaded variables do.
+- **Plausible output is not verification.** The only assertion that would have
+  caught this is one about the *query*, not the result. That is
+  `scripts/check-trace-direction.mts`: across all 180 planner shapes, every
+  query carrying `hyf:downstreamFlowPathTC` must trace downstream from the seed,
+  and a `near` question must not trace at all. It reads the emitted SPARQL, so
+  it covers all three builders that trace (discovery, the flowline layer, well
+  hydration) rather than trusting the flag each was handed. Confirmed to fail on
+  the code before each of the two fixes.
+- **The dashboard is not coverage.** A third of the question space had no
+  automated exercise of any kind. Where a shape cannot be afforded in CI, an
+  offline assertion about the generated query is the cheap substitute.
+- **A semantics fix does not invalidate the cache.** `cacheKey` hashes the
+  question, not the engine, and complete results live 30 days, so wrong answers
+  keep being served after the fix deploys. Purge by question shape (see
+  `docs/ARCHITECTURE.md`, The Result Cache).
+
+**Known, and not a bug**: the seed side gets a one-cell tolerance the target
+side does not (`?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor` before
+attaching to a flowline). So "A upstream from C" and "C downstream from A" are
+not exactly reciprocal even now, which is part of the 840 vs 474 gap above.
+Making them reciprocal means applying that tolerance to both sides or neither.

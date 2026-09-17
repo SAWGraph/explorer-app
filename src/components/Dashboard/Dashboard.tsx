@@ -24,6 +24,7 @@ import { toSavedQueryParam } from '../../types/savedQuestion';
 export function Dashboard() {
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [heroDismissed, setHeroDismissed] = useState(false);
   const [searchFilter, setSearchFilter] = useState<SearchFilter>('all');
   const isTourOpen = useQueryStore((s) => s.isTourOpen);
   const openTour = useQueryStore((s) => s.openTour);
@@ -62,7 +63,52 @@ export function Dashboard() {
   return (
     <div className='dashboard'>
       <div className='dashboard-content'>
-        <h2 className='dashboard-welcome'>Welcome to Sawgraph!</h2>
+        {!heroDismissed && (
+          <section className='dashboard-hero'>
+            <button
+              type='button'
+              className='dashboard-hero-close'
+              aria-label='Dismiss the introduction'
+              onClick={() => setHeroDismissed(true)}
+            >
+              <svg
+                viewBox='0 0 20 20'
+                width='16'
+                height='16'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+                strokeLinecap='round'
+                aria-hidden='true'
+              >
+                <path d='M5 5l10 10M15 5L5 15' />
+              </svg>
+            </button>
+            <p className='dashboard-hero-eyebrow'>SAWGraph Explorer</p>
+            <h2>Explore PFAS contamination without writing a line of SPARQL</h2>
+            <p className='dashboard-hero-body'>
+              Explorer is an easy to use interface for researchers to explore
+              the SAWGraph knowledge graph without writing SPARQL. Pick an
+              entity, a relationship, and an anchor, say samples downstream of a
+              paper mill, and Explorer runs the queries and maps the answer.
+            </p>
+            <div className='dashboard-hero-actions'>
+              <button className='dashboard-hero-cta' onClick={openTour}>
+                How it works
+              </button>
+              <a
+                href='/q/new'
+                className='dashboard-hero-link'
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/q/new');
+                }}
+              >
+                Start a new analysis
+              </a>
+            </div>
+          </section>
+        )}
 
         <section className='dashboard-section' data-tour='recent'>
           <div className='dashboard-section-header'>
@@ -145,7 +191,7 @@ export function Dashboard() {
             <div className='dashboard-empty'>Loading…</div>
           ) : communityTop.length === 0 ? (
             <div className='dashboard-empty'>
-              No community analyses yet — publish one to see it here.
+              No community analyses yet. Publish one to see it here.
             </div>
           ) : (
             <div className='query-cards-list'>
@@ -193,7 +239,9 @@ export function Dashboard() {
             } else {
               // Map/edit tours live on the editor route; hand off via the store.
               setPendingTour(id);
-              navigate(id === 'edit' ? '/q/new' : `/q/${PREBUILT_QUERIES[0].id}`);
+              navigate(
+                id === 'edit' ? '/q/new' : `/q/${PREBUILT_QUERIES[0].id}`,
+              );
             }
           }}
         />

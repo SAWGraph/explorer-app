@@ -84,7 +84,7 @@ export function adviceForOversizedQuestion(question?: AnalysisQuestion): string 
     return `Try a shorter distance than ${relationship.maxDistanceKm} km, or run those areas one at a time.`;
   }
   if (isTrace) {
-    return 'Setting a maximum distance on the relationship is the most effective change — an unbounded trace follows the river network to the sea.';
+    return 'Setting a maximum distance on the relationship is the most effective change. An unbounded trace follows the river network to the sea.';
   }
 
   const wide = !isNarrowed(blockC) ? 'second' : !isNarrowed(blockA) ? 'first' : null;

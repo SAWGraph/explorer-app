@@ -26,7 +26,7 @@ export function PartialResultsNotice() {
   return (
     <div className='partial-results-notice'>
       <span>
-        Showing incomplete results — {reasons.join(', ')}.{' '}
+        Showing incomplete results: {reasons.join(', ')}.{' '}
         {skipped.length > 0 && 'Running the question again picks up where this left off. '}
         {failed.length > 0 && adviceForOversizedQuestion(question)}
       </span>

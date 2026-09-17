@@ -1,6 +1,6 @@
 name: Dashboard health
 
-# Runs the eight dashboard questions against the live endpoints once a week and
+# Runs every dashboard question against the live endpoints once a week and
 # writes down what happened: worked or not, how long, how many rows. The point
 # is dating a regression. Without this, "the Indiana question broke sometime in
 # the last month" is the best anyone can say.
