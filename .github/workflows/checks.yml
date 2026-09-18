@@ -51,6 +51,9 @@ jobs:
       - name: Substance labels
         run: npm run check-substance-labels
 
+      - name: Query join order and observation joins
+        run: npm run check-query-joins
+
       # Not blocking yet: `npm run lint` reports 15 pre-existing errors, all in
       # components and none related to the engine. Make this a required step in
       # the same change that clears them, not before, or the signal is noise

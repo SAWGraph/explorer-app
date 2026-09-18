@@ -499,3 +499,69 @@ side does not (`?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor` before
 attaching to a flowline). So "A upstream from C" and "C downstream from A" are
 not exactly reciprocal even now, which is part of the 840 vs 474 gap above.
 Making them reciprocal means applying that tolerance to both sides or neither.
+
+---
+
+## 2026-09-17: Two silent filters in the fused queries, join order and the unit join
+
+Both found while running "What facilities are upstream from PFOS samples in York
+and Cumberland counties (Maine)?" with the facilities block left empty. The
+pipeline failed at step 1 after 116.3s with `500 out-of-memory` ("tried to
+allocate 204.8 MB, only 159.3 MB available"), sliced into the two counties, and
+both slices failed the same way.
+
+**Join order (fixed).** `buildFusedWhereBody` always wrote the anchor side
+first, and for an upstream question the planner puts block A on the anchor side.
+With no region and no industry filter on block A, the query started from every
+facility in the graph and traced the national flowline network to look for
+samples in two Maine counties.
+
+QLever does not search join orders exhaustively at these body sizes (12-14
+triples), so it follows the query text. Writing the constrained side first is
+the whole fix: same triples, same variables, different order. Measured across
+all 72 hydrology shape/config pairs, one county scope: 5 shapes rescued, 0
+regressions, 0 rows lost, faster in 50 of 66 comparable runs.
+
+Two things this is *not*, both measured, so nobody re-derives them:
+
+- **Not volume.** Rows materialised through the trace from Cumberland seeds:
+  samples + PFOS 872,385, facilities 681,299, wells 4,183,432. The samples seed
+  materialises more than the facilities seed and succeeds where it fails.
+- **Not a sub-SELECT.** Fencing the constrained side in a sub-SELECT rescues the
+  same 5 shapes but breaks 7 that work today, all OOM: a sub-SELECT is an
+  optimiser barrier, so it forces one plan and forbids every other. A variant
+  that carried only the distinct cells through the fence and re-joined the
+  entity last failed the same 7, three of them degrading from OOM into 60s
+  timeouts.
+
+**The unit join (fixed).** `bindEntityInCell` emitted the entire observation
+chain whenever *any* sample filter was set, including
+`?result coso:measurementUnit ?unit`. A non-detect has no
+`coso:measurementUnit` (`templates/samples.ts` documents this, and the by-IRI
+templates already gated it behind `needsUnitJoin`), so a substance-only question
+with "include non-detects" ticked silently dropped every non-detect. Cumberland
+PFOS observations: 1,688 total, 914 with a unit, 774 non-detect with none. At
+sample-point level, 23 points and 13 facilities became 32 and 15 once the joins
+a substance filter actually reads were the only ones emitted.
+
+The same required join was hiding non-detects in the popup's observation table
+(`buildSampleDetailByIriQuery`): on sample point 64220, **474 of 3,334 rows**,
+the missing 2,860 all non-detects. `OPTIONAL` in place OOMs at 819.7 MB; joining
+it after `resultValueClauses()` with the symbol lookup nested inside costs what
+it did before (6.88s vs 6.59s).
+
+**Lessons**
+
+- **Every required triple is also a filter.** Joining detail the query only
+  displays, or that an inactive filter would have read, deletes rows. Both bugs
+  here are one habit: an all-or-nothing gate that conflated "the user set a
+  filter" with "fetch the whole record".
+- **Textual triple order is a semantic-free change with a non-semantic-free
+  cost.** It cannot alter the answer, and it decided whether this question
+  answered at all. That makes it cheap to try and worth asserting:
+  `scripts/check-query-joins.mts` reads the emitted SPARQL and fails if the
+  unconstrained side leads, or if the unit join appears without a concentration
+  range.
+- **Measure the fix against the shapes it touches, not the one that prompted
+  it.** The sub-SELECT looked like a 48% median win on the question at hand and
+  was a net regression across the shape space.

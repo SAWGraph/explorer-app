@@ -2,6 +2,7 @@ import { PREFIXES } from '../../constants/prefixes';
 import type {
   EntityBlock,
   FacilityFilters,
+  SampleFilters,
   AquiferFilters,
   StreamFilters,
   SpatialRelationship,
@@ -45,25 +46,37 @@ function buildAquiferTypeFilterSuffixed(filters: AquiferFilters | undefined, suf
 // is supplied so the same helper can fill either ?s2anchor or ?s2target).
 // `suffix` disambiguates internal variables so same-type anchor+target queries
 // don't collide.
-// True when the sample block actually constrains observations. When it does not,
-// the IRI-finding queries can skip the observation join entirely.
-export function hasSampleFilters(block: EntityBlock): boolean {
-  const f = block.type === 'samples' ? block.sampleFilters : undefined;
-  if (!f) return false;
-  return Boolean(
-    f.substances?.length ||
-      f.materialTypes?.length ||
-      f.minConcentration != null ||
-      f.maxConcentration != null ||
-      f.includeNondetects === false,
-  );
+// The observation joins a samples block needs to *filter*, which is a smaller
+// set than the joins it needs to *display*. Every required triple is also a
+// filter, so asking for detail the filters never read deletes rows: the unit
+// join is the worst of them, because a non-detect has no coso:measurementUnit
+// (see needsUnitJoin in ./samples) and requiring it dropped 774 of 1,688
+// Cumberland PFOS observations while "include non-detects" was ticked.
+function sampleJoinsNeeded(filters: SampleFilters | undefined) {
+  const range = filters?.minConcentration != null || filters?.maxConcentration != null;
+  // buildSampleFilterClauses reads ?numericResult / ?nonDetect for both of
+  // these, and resultValueClauses is what binds them.
+  const result = range || filters?.includeNondetects === false;
+  return {
+    substance: Boolean(filters?.substances?.length),
+    material: Boolean(filters?.materialTypes?.length),
+    result,
+    // The ng/L comparison is the only thing that reads the unit.
+    unit: range,
+    observation: Boolean(filters?.substances?.length || filters?.materialTypes?.length || result),
+  };
 }
 
-// `sampleObservations: false` drops the observation/material/result joins from a
-// samples block. Only the IRI-finding queries may pass it: they project just the
+// `sampleObservations: false` drops the observation joins from a samples block
+// outright. Only the IRI-finding queries may pass it: they project just the
 // sample-point IRI, and re-deriving every observation there is what pushes the
 // hydrology queries past QLever's 30s limit / memory ceiling (429/500). The
-// hydrate queries still project those vars and must keep the full block.
+// hydrate queries still project ?matTypeLabel / ?unit / ?result_value and must
+// keep the full block.
+//
+// With `false` and an active sample filter the block is rebuilt from
+// sampleJoinsNeeded: enough to honour the filter, nothing that only feeds a
+// popup.
 export function bindEntityInCell(
   block: EntityBlock,
   s2Var: string,
@@ -82,16 +95,37 @@ export function bindEntityInCell(
       ${industry}`;
     }
     case 'samples': {
-      if (!sampleObservations) {
-        return `?sp${suffix} rdf:type coso:SamplePoint ;
+      const point = `?sp${suffix} rdf:type coso:SamplePoint ;
                 spatial:connectedTo ${s2Var} .`;
-      }
       const filters = buildSampleFilterClauses(block.sampleFilters, suffix);
-      // ponytail: coso:measurementUnit exists only on detects, so the join below
-      // also excludes non-detects. Dropping it is correct but triples the matched
-      // rows and the endpoint OOMs on statewide pipelines. Revisit if capacity grows.
-      return `?sp${suffix} rdf:type coso:SamplePoint ;
-                spatial:connectedTo ${s2Var} .
+
+      if (!sampleObservations) {
+        const need = sampleJoinsNeeded(block.sampleFilters);
+        if (!need.observation) return point;
+        const parts = [
+          point,
+          `?observation${suffix} coso:observedAtSamplePoint ?sp${suffix} .`,
+        ];
+        if (need.substance) {
+          parts.push(`?observation${suffix} coso:ofDSSToxSubstance ?substance${suffix} .`);
+        }
+        if (need.material) {
+          // The material lives on the analysed sample, not the observation.
+          parts.push(`?observation${suffix} coso:analyzedSample ?sample${suffix} .
+      ?sample${suffix} coso:sampleOfMaterialType ?matType${suffix} .`);
+        }
+        if (need.result) {
+          parts.push(`?observation${suffix} coso:hasResult ?result${suffix} .
+      ${resultValueClauses(suffix)}`);
+        }
+        if (need.unit) {
+          parts.push(`?result${suffix} coso:measurementUnit ?unit${suffix} .`);
+        }
+        parts.push(filters);
+        return parts.join('\n      ');
+      }
+
+      return `${point}
       ?observation${suffix} rdf:type coso:ContaminantObservation ;
           coso:observedAtSamplePoint ?sp${suffix} ;
           coso:ofDSSToxSubstance ?substance${suffix} ;
@@ -148,7 +182,11 @@ export function buildEntityProbeQuery(
   limit: number,
 ): string {
   const entityVar = entityIriVar(block, 'P');
-  const bind = bindEntityInCell(block, '?s2probe', 'P', hasSampleFilters(block));
+  // `false`, like the IRI-finding queries: the probe lists entity IRIs, and the
+  // list it returns becomes the chunk membership (src/engine/scope.ts). A
+  // narrowing join here removes entities from every slice, so the probe has to
+  // see exactly what discovery sees.
+  const bind = bindEntityInCell(block, '?s2probe', 'P', false);
   const region = regionClause(regionCodes, '?s2probe', '?_regionP');
   return `
     ${PREFIXES}
@@ -275,8 +313,11 @@ function boundedTrace(
 function buildFusedWhereBody(opts: FusedBodyOpts): string {
   // A sample block keeps its observation joins unless the caller drops them AND
   // no sample filter depends on them.
-  const anchorObs = (opts.anchorSampleObservations ?? true) || hasSampleFilters(opts.anchor);
-  const targetObs = (opts.targetSampleObservations ?? true) || hasSampleFilters(opts.target);
+  // No `|| hasSampleFilters(...)` override any more: bindEntityInCell now keeps
+  // exactly the joins an active filter reads, so a filtered side no longer has
+  // to fall back on the whole observation chain.
+  const anchorObs = opts.anchorSampleObservations ?? true;
+  const targetObs = opts.targetSampleObservations ?? true;
   const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A', anchorObs);
   const targetBind = bindEntityInCell(opts.target, '?s2target', 'C', targetObs);
   const anchorPin = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
@@ -327,9 +368,64 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       ${tRegion}
       ${targetBind}`;
 
+  // Write the constrained side first. QLever's planner does not search join
+  // orders exhaustively at this size (12-14 triples), so it follows the query
+  // text, and leading with an unfiltered side makes it trace the national
+  // flowline graph: "facilities upstream from PFOS samples in York and
+  // Cumberland" OOMs at 116s with the anchor first and answers in 18.6s with
+  // the target first. Measured across all 72 hydrology shape/config pairs: 5
+  // rescued, 0 regressions, 0 rows lost (docs/plans/…-fused-seed-side-….md).
+  //
+  // Bounded traces keep the anchor-first order: boundedTrace embeds `seed` a
+  // second time and that shape has not been measured either way.
+  if (!opts.maxDistanceKm && sideIsConstrained(opts, 'target') && !sideIsConstrained(opts, 'anchor')) {
+    // The target's own entity and filters come first, then the hop onto the
+    // river network. A streams target *is* the flowline, so it needs no hop.
+    const targetHead =
+      opts.target.type === 'streams'
+        ? `?ds_flowline rdf:type hyf:HY_FlowPath .
+      ${targetPart}`
+        : `?s2target rdf:type kwg-ont:S2Cell_Level13 .
+      ${tRegion}
+      ${targetBind}
+      ?s2target spatial:connectedTo ?ds_flowline .`;
+
+    // spatial:connectedTo is stored both ways between cells and flowlines
+    // (1,391,903 pairs each direction, verified on federation), so reading it
+    // off the flowline here matches the same pairs as ?s2neighbor → flowline.
+    return `${targetPin}${targetHead}
+      ${trace}
+      ?upstream_flowline rdf:type hyf:HY_FlowPath ;
+                spatial:connectedTo ?s2neighbor .
+      ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .
+      ${anchorPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
+      ${aRegion}
+      ${anchorBind}`;
+  }
+
   return `${seed}
       ${trace}
       ${targetPin}${targetPart}`;
+}
+
+// A side is constrained when the question already narrows it: a region, any
+// entity filter, or an IRI pin from chunking. Unconstrained means "every
+// facility in the graph", which is the side that must not lead the query.
+function sideIsConstrained(opts: FusedBodyOpts, side: 'anchor' | 'target'): boolean {
+  const block = side === 'anchor' ? opts.anchor : opts.target;
+  const region = side === 'anchor' ? opts.anchorRegion : opts.targetRegion;
+  const pins = side === 'anchor' ? opts.anchorIris : opts.targetIris;
+  if (pins?.length || region?.length) return true;
+  const filters =
+    block.sampleFilters ??
+    block.facilityFilters ??
+    block.waterBodyFilters ??
+    block.wellFilters ??
+    block.aquiferFilters ??
+    block.streamFilters;
+  return Boolean(
+    filters && Object.values(filters).some((v) => (Array.isArray(v) ? v.length > 0 : v != null)),
+  );
 }
 
 export interface FusedBaseOpts {
@@ -358,8 +454,12 @@ export function buildFusedNearQuery(opts: FusedNearOpts): string {
     hops: opts.hops,
     anchorIris: opts.anchorIris,
     targetIris: opts.targetIris,
-    anchorSampleObservations: opts.project !== 'anchor',
-    targetSampleObservations: opts.project !== 'target',
+    // Both sides, not just the projected one: a near query projects a single
+    // IRI, so neither side needs observation detail beyond its own filters.
+    // Keying this off `project` left the *non*-projected samples side carrying
+    // the full chain even with no filters set.
+    anchorSampleObservations: false,
+    targetSampleObservations: false,
   });
   const projectVar =
     opts.project === 'anchor'
