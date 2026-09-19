@@ -81,8 +81,12 @@ for (const blockA of ENTITY_TYPES) {
         );
         // The reach clause must be a bare TC. `TC?` was measured: it recovers
         // 0 flowlines and costs 8s on the York question.
+        // Bare `includes`, not the downstream spelling: the reflexive form is
+        // `?flowline TC? ?_flTarget` downstream and `?_flTarget TC? ?flowline`
+        // upstream, and matching only the first left the upstream shape
+        // unguarded by a check whose whole point is the `TC?` regression.
         assert.ok(
-          !sparql.includes('downstreamFlowPathTC? ?_flTarget'),
+          !sparql.includes('downstreamFlowPathTC?'),
           `${where}: reflexive target reach, measured to add nothing`,
         );
         checks += 4;

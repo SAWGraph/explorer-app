@@ -7,7 +7,7 @@ import type {
   StreamFilters,
   SpatialRelationship,
 } from '../../types/query';
-import { wrapUri, buildSampleFilterClauses, resultValueClauses } from './samples';
+import { wrapUri, buildSampleFilterClauses, resultValueClauses, needsUnitJoin } from './samples';
 import { buildIndustryValues } from './facilities';
 import { AQUIFER_TYPE_VALUES } from './aquifers';
 import { buildWellCategoryFilter } from './wells';
@@ -53,7 +53,7 @@ function buildAquiferTypeFilterSuffixed(filters: AquiferFilters | undefined, suf
 // (see needsUnitJoin in ./samples) and requiring it dropped 774 of 1,688
 // Cumberland PFOS observations while "include non-detects" was ticked.
 function sampleJoinsNeeded(filters: SampleFilters | undefined) {
-  const range = filters?.minConcentration != null || filters?.maxConcentration != null;
+  const range = needsUnitJoin(filters);
   // buildSampleFilterClauses reads ?numericResult / ?nonDetect for both of
   // these, and resultValueClauses is what binds them.
   const result = range || filters?.includeNondetects === false;
@@ -70,9 +70,9 @@ function sampleJoinsNeeded(filters: SampleFilters | undefined) {
 // `sampleObservations: false` drops the observation joins from a samples block
 // outright. Only the IRI-finding queries may pass it: they project just the
 // sample-point IRI, and re-deriving every observation there is what pushes the
-// hydrology queries past QLever's 30s limit / memory ceiling (429/500). The
-// hydrate queries still project ?matTypeLabel / ?unit / ?result_value and must
-// keep the full block.
+// hydrology queries past QLever's 30s limit / memory ceiling (429/500).
+// buildFusedWellQuery is the one caller left on the `true` default: it projects
+// well columns from a body that may carry a samples block on the other side.
 //
 // With `false` and an active sample filter the block is rebuilt from
 // sampleJoinsNeeded: enough to honour the filter, nothing that only feeds a
@@ -311,8 +311,6 @@ function boundedTrace(
 // anchor binding + spatial path (neighbor expansion for "near", hydrology trace
 // for downstream/upstream) + target binding + region clauses on each side.
 function buildFusedWhereBody(opts: FusedBodyOpts): string {
-  // A sample block keeps its observation joins unless the caller drops them AND
-  // no sample filter depends on them.
   // No `|| hasSampleFilters(...)` override any more: bindEntityInCell now keeps
   // exactly the joins an active filter reads, so a filtered side no longer has
   // to fall back on the whole observation chain.
@@ -408,16 +406,21 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       ${targetPin}${targetPart}`;
 }
 
-// A side is constrained when the question already narrows it: a region, any
-// entity filter, or an IRI pin from chunking. Unconstrained means "every
-// facility in the graph", which is the side that must not lead the query.
-function sideIsConstrained(opts: FusedBodyOpts, side: 'anchor' | 'target'): boolean {
-  const block = side === 'anchor' ? opts.anchor : opts.target;
-  const region = side === 'anchor' ? opts.anchorRegion : opts.targetRegion;
-  const pins = side === 'anchor' ? opts.anchorIris : opts.targetIris;
-  if (pins?.length || region?.length) return true;
+// True when the question narrows this block at all. Exported because
+// engine/scope.ts asks the same question to pick a chunking axis, and the two
+// have to agree: if the template thinks a side is constrained and the executor
+// thinks it is wide open, the executor slices on an axis the template already
+// led with. engine/sparqlErrors.ts still keeps its own `isNarrowed`, which is
+// this plus the region check.
+//
+// A samples block is the one type with a filter that defaults to set:
+// `includeNondetects: true` is the UI's default checked state and narrows
+// nothing, so only `=== false` counts. sampleJoinsNeeded above already draws
+// that line; a generic "any field is non-null" scan does not, and read
+// `includeNondetects: true` alone as a reason to reorder the whole body.
+export function blockIsFiltered(block: EntityBlock): boolean {
+  if (block.type === 'samples') return sampleJoinsNeeded(block.sampleFilters).observation;
   const filters =
-    block.sampleFilters ??
     block.facilityFilters ??
     block.waterBodyFilters ??
     block.wellFilters ??
@@ -426,6 +429,16 @@ function sideIsConstrained(opts: FusedBodyOpts, side: 'anchor' | 'target'): bool
   return Boolean(
     filters && Object.values(filters).some((v) => (Array.isArray(v) ? v.length > 0 : v != null)),
   );
+}
+
+// A side is constrained when the question already narrows it: a region, any
+// entity filter, or an IRI pin from chunking. Unconstrained means "every
+// facility in the graph", which is the side that must not lead the query.
+function sideIsConstrained(opts: FusedBodyOpts, side: 'anchor' | 'target'): boolean {
+  const block = side === 'anchor' ? opts.anchor : opts.target;
+  const region = side === 'anchor' ? opts.anchorRegion : opts.targetRegion;
+  const pins = side === 'anchor' ? opts.anchorIris : opts.targetIris;
+  return Boolean(pins?.length || region?.length) || blockIsFiltered(block);
 }
 
 export interface FusedBaseOpts {
@@ -609,14 +622,12 @@ function targetReachClause(opts: FusedFlowlineOpts): string {
   // ponytail: target IRIs inlined whole. Only anchors are sliced today
   // (iriScopes/divideIriList in the planner); add target slicing if a question
   // ever pushes this past the gateway's body limit.
-  const targetValues = `VALUES ${entityIriVar(opts.target, 'C')} { ${opts.targetIris
-    .map(wrapUri)
-    .join(' ')} }`;
+  const targetValues = pinValues(entityIriVar(opts.target, 'C'), opts.targetIris);
   // Filters stripped: the pinned IRIs are already the filtered answer set, so
   // every filter clause here is a join that can only re-confirm what the VALUES
-  // list states. Passing the bare block rather than opts.target keeps this to
-  // the cell-membership triple. Measured on the York question: re-deriving the
-  // substance filter cost 1s of the 8 and changed nothing.
+  // list states. Passing the bare block rather than opts.target drops those
+  // clauses. Measured on the York question: re-deriving the substance filter
+  // cost 1s of the 8 and changed nothing.
   const targetBind = bindEntityInCell({ type: opts.target.type }, '?s2celltarget', 'C', false);
   const reach =
     opts.direction === 'downstream'
@@ -651,12 +662,16 @@ function targetReachClause(opts: FusedFlowlineOpts): string {
 // leaving sample points with no stream under them. Binding the resolved IRIs
 // removes the guess and keeps this layer consistent with the facility layer.
 export function buildFusedFlowlineQuery(opts: FusedFlowlineOpts): string {
-  const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A');
+  // Bare block, same reasoning as targetReachClause: anchorIris is the resolved
+  // answer set, so the block's own filters can only re-confirm the VALUES list.
+  // For a facilities anchor that drops `fio:ofIndustry` plus a NAICS type scan
+  // per pinned IRI; for a samples anchor it drops the whole observation chain,
+  // including the coso:measurementUnit join this branch exists to keep out of
+  // queries that do not read it.
+  const anchorBind = bindEntityInCell({ type: opts.anchor.type }, '?s2anchor', 'A', false);
   // ponytail: inlined as VALUES rather than re-derived. Anchor sets are small
   // (tens), unlike the sample IRI lists that forced server-side fusion.
-  const anchorValues = `VALUES ${entityIriVar(opts.anchor, 'A')} { ${opts.anchorIris
-    .map(wrapUri)
-    .join(' ')} }`;
+  const anchorValues = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
 
   const seedCells = `{
         SELECT DISTINCT ?s2cellus WHERE {

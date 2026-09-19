@@ -44,8 +44,8 @@ function leadsWith(query: string): 'anchor' | 'target' | 'other' {
   const body = query.slice(query.indexOf('WHERE {') + 'WHERE {'.length).trimStart();
   if (body.startsWith('?s2target') || body.startsWith('?ds_flowline')) return 'target';
   if (body.startsWith('?s2anchor')) return 'anchor';
-  // A pinned side is inlined as VALUES before anything else.
-  if (body.startsWith('VALUES ?sp') || body.startsWith('VALUES ?facility')) return 'other';
+  // A pinned side leads with its VALUES block, so neither branch above matches.
+  // That is the 'other' case and the pinned assertions below allow for it.
   return 'other';
 }
 

@@ -95,17 +95,35 @@ Sketch, to be firmed up during implementation:
 1. Add the `widen` option to `buildFusedWhereBody` and thread it through
    `buildFusedHydrologyQuery` and `buildFusedWellQuery`. Default preserves
    current output; assert that in `scripts/check-query-joins.mts`.
-2. Decide the variant mechanism on `PipelineStep` and whether it shares
+   **Restructure the body emission first.** `buildFusedWhereBody` currently
+   writes the whole body out twice, once anchor-first and once target-first,
+   with the streams-target case spelled in both. Adding `widen` on top of that
+   gives 2 orders x 2 widen sides = four hand-maintained renderings of the same
+   triples. Emitting from an ordered list of named fragments (`anchorSide`,
+   `hop`, `trace`, `targetSide`) with `lead` and `widen` deciding order and ring
+   placement makes it one definition. Output equality is checkable by diffing
+   generated SPARQL for all 72 shapes before and after, which the check scripts
+   already build. Doing this as part of task 1 is much cheaper than doing it
+   after.
+2. Bound `targetReachClause` by the target *region* rather than the IRI list
+   when the list exceeds a threshold. Today it inlines the entire resolved
+   target set into one `VALUES` with no cap and, unlike `anchorIris`, cannot be
+   sliced: `anchorIris` partitions the answer (union of slices = whole) while
+   `targetIris` is a bound (each slice is wrong on its own). A question
+   resolving a few thousand targets puts that whole list in the request body
+   with no `divide` to rescue it. This is a latent hard failure, not a slow
+   path.
+3. Decide the variant mechanism on `PipelineStep` and whether it shares
    machinery with the deferred retry hook. See "Sequencing" below.
-3. Executor: issue both variants, union, single step report. Partial failure of
+4. Executor: issue both variants, union, single step report. Partial failure of
    one variant should degrade to the other's rows rather than failing the step,
    matching how the flowline layer is already `optional`.
-4. Extend `scripts/check-flowline-scope.mts` or add a sibling check asserting
+5. Extend `scripts/check-flowline-scope.mts` or add a sibling check asserting
    both variants are emitted for all 72 hydrology shapes.
-5. Re-run `npm run query-matrix` in engine mode and commit a dated CSV. Counts
+6. Re-run `npm run query-matrix` in engine mode and commit a dated CSV. Counts
    will move upward across hydrology shapes; the sweep is how that is recorded
    rather than discovered later.
-6. Update `docs/QUERY-MATRIX.md` Part 3.2/3.3 costs, and `docs/SCHEMA.md` with
+7. Update `docs/QUERY-MATRIX.md` Part 3.2/3.3 costs, and `docs/SCHEMA.md` with
    the cell-coverage numbers above, which are not currently written down
    anywhere.
 

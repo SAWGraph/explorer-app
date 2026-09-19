@@ -100,6 +100,11 @@ per-filter rule removes it.
 - [ ] re-run `npm run health-check` and record the row-count movement in `docs/health/STATUS.md`
 - [ ] `npm run query-matrix` sweep, then `--index`, to price both fixes across the shape space
 - [ ] update `docs/QUERY-MATRIX.md` (error catalogue: the OOM that this removes)
+- [ ] measure the distance-bounded shape reordered, and drop the `!maxDistanceKm`
+      exclusion if it holds. This is the one condition in the gate that is a "we
+      did not look", not a "we looked and it was worse": `boundedTrace` takes the
+      seed as a pre-rendered string and embeds it twice, so there was no seam to
+      reorder at. Left unmeasured it hardens into folklore.
 - [ ] decide on the retry variant below
 
 ## Verified after implementing (2026-09-17)

@@ -1,7 +1,7 @@
 import type { EntityBlock } from '../types/query';
 import type { EndpointKey } from '../constants/endpoints';
 import { executeSparql } from './sparqlClient';
-import { buildEntityProbeQuery } from './templates/fusedQueries';
+import { blockIsFiltered, buildEntityProbeQuery } from './templates/fusedQueries';
 import { buildDiscoverCountiesQuery } from './templates/regions';
 
 // A Scope is a slice of one pipeline step's work. `undefined` scope means "the
@@ -41,17 +41,6 @@ const ENTITY_CHUNK = 25;
 // time.
 const REGION_CHUNK = 1;
 export const IRI_CHUNK = 1000; // by-IRI hydration: 1,000 IRIs ≈ 70KB, 1.0–3.3s
-
-function hasBlockFilters(block: EntityBlock): boolean {
-  const f =
-    block.sampleFilters ??
-    block.facilityFilters ??
-    block.waterBodyFilters ??
-    block.wellFilters ??
-    block.aquiferFilters ??
-    block.streamFilters;
-  return Boolean(f && Object.values(f).some((v) => (Array.isArray(v) ? v.length > 0 : v != null)));
-}
 
 export function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -193,7 +182,7 @@ async function probeSide(
 ): Promise<string[] | null> {
   // No region and no filters means every entity of that type in the graph —
   // certainly past the probe limit, and the probe itself would scan nationwide.
-  if (!regionCodes?.length && !hasBlockFilters(block)) return null;
+  if (!regionCodes?.length && !blockIsFiltered(block)) return null;
 
   const rows = await executeSparql(
     endpoint,
