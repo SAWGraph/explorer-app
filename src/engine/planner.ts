@@ -328,8 +328,12 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
       buildQuery: (ctx, scope) =>
         buildFusedFlowlineQuery({
           anchor: anchorBlock,
+          target: targetBlock,
           direction: traceDirection,
           anchorIris: scope?.anchorIris ?? ctx.anchorIris,
+          // Never sliced: the target set bounds the trace, so a partial list
+          // would silently shrink the drawn network rather than split it.
+          targetIris: ctx.targetIris,
           maxDistanceKm: relationship.maxDistanceKm,
         }),
       initialScopes: (ctx) => iriScopes(ctx.anchorIris, 'anchor'),
