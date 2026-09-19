@@ -760,7 +760,31 @@ supply — see [Bounded Execution](#bounded-execution).
 - Easy to debug — copy query into SPARQL editor to test
 - Full control — no library limitations
 
-### 5. Why Transform SPARQL Rows to Features?
+### 5. Why Each Filter Declares Its Own Joins
+
+**Problem:** In SPARQL a triple pattern is an inner join, so *every required
+triple is also a filter*. Asking for a field that some records lack deletes
+those records, silently and with no filter anywhere in the query saying so.
+
+**What went wrong:** `bindEntityInCell` used one boolean — did the user set any
+sample filter? — and if so fetched the whole measurement record. Ticking a
+substance therefore pulled in `coso:measurementUnit`, and a non-detect has no
+unit (there is no quantity to put a unit on; the record carries detection limits
+instead). So a substance-only question dropped **774 of 1,688** Cumberland PFOS
+observations while "Include non-detects" sat ticked. Non-detects are 77% of
+Maine's observations, so this understated PFAS presence across the app, and
+nothing looked broken: the map still drew, with fewer dots.
+
+**We chose:** `sampleJoinsNeeded` maps each active filter to the joins that
+filter actually reads. Substance needs two triples. A concentration range
+genuinely reads the unit, so that case keeps it. Nothing ever needs the material
+*label*, which is display-only.
+
+**The rule to carry into new templates:** fetch what you project or filter on,
+nothing else, and reach for `OPTIONAL` the moment a field is not universal.
+`scripts/check-query-joins.mts` asserts this across all 108 shapes in CI.
+
+### 6. Why Transform SPARQL Rows to Features?
 
 **Problem:** SPARQL returns flat rows with WKT strings:
 ```javascript
@@ -908,6 +932,18 @@ subquery that sums `nhdplusv2:hasFlowPathLength` along the path and drops
 anything past the budget, then extends one segment further so the drawn line
 does not stop mid-channel. On one Maine question, a 30 km bound cut 15,782
 reaches to 3,705 while keeping all 616 facilities.
+
+**A closure needs both ends bound, and a distance cap is not a substitute.** The
+pattern above is safe because it ends at `?spC`, a real target. The stream layer
+(`buildFusedFlowlineQuery`) drew its geometry from the seed side only, with
+nothing on the right of the closure, and that is not a narrower version of the
+same query — it is a fan-out to the end of the network. An anchor near a
+drainage divide brought back the neighbouring basin: on "facilities upstream
+from PFOS samples in York County, ME", 122 segments of the Merrimack and 21 of
+the Winnipesaukee, 130 km away. Intersecting the closure with the flowlines that
+reach the resolved targets removed 755 flowlines and added 0. A 25 km cap did
+*not* prevent it, because the wrong basin was inside the budget. See
+DEBUGGING.md, 2026-09-19.
 
 **Upstream questions use this same pattern, unchanged.** There is no upstream
 query. "A upstream from C" seeds from block A and traces downstream to block C,

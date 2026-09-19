@@ -103,4 +103,9 @@ material type URI says nothing about which bucket it belongs to. `buildTree` han
 For completeness, the Samples filter panel also has Min and Max concentration number inputs
 in ng/L, and an "Include non-detects" checkbox. None of them query anything; they are applied
 inside the pipeline queries.
+
+The non-detects checkbox is ticked by default and moves the answer more than any dropdown on
+this page, because non-detects are 70 to 77% of the observations. It filters both which
+sample points appear and which rows appear inside their popups. See
+[Include non-detects](Samples%20Non%20Detects).
 [`SampleFilters.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SampleFilters.tsx)

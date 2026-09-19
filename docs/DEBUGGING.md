@@ -565,3 +565,86 @@ it did before (6.88s vs 6.59s).
 - **Measure the fix against the shapes it touches, not the one that prompted
   it.** The sub-SELECT looked like a 48% median win on the question at hand and
   was a net regression across the shape space.
+
+## 2026-09-19: The stream layer drew rivers in a basin no sample drains from (FIXED)
+
+Reported from outside the team: "What facilities are upstream from PFOS samples?"
+scoped to York County, ME drew the entire Merrimack River, which is in another
+state and another watershed.
+
+**What was broken.** `GET_FLOWLINE_GEOMETRIES` is a separate query from
+discovery, and it traced a one-sided transitive closure. It seeded from the
+cells of every resolved anchor, widened each by `sfTouches`, and followed
+`hyf:downstreamFlowPathTC` to the end of the network:
+
+```sparql
+?upstream_flowline rdf:type hyf:HY_FlowPath ;
+      spatial:connectedTo ?s2cellus ;
+      hyf:downstreamFlowPathTC ?flowline .
+```
+
+Nothing in it references the target. An anchor sitting near a drainage divide
+therefore pulled in the whole of the neighbouring basin. Drawn for that
+question: 122 segments of the Merrimack, 40 of the Presumpscot, 37 of the
+Suncook, 24 of Cohas Brook, 21 of the Winnipesaukee (~130km away), 16 of the
+Powwow.
+
+**Where it was not.** The discovery query was innocent, which is why the first
+guess was wrong. Filtering its own `?upstream_flowline` set for those names
+returns zero rows. Only the layer query was one-sided.
+
+**The fix.** Intersect the closure with the flowlines that reach the resolved
+targets. Measured with the real answer sets (1,497 facilities, 200 sample
+points): 3,271 flowlines down to 2,516 in the same 7s, **755 removed and 0
+added**, so the change can only subtract flowlines that were never on a path
+from a facility to a sample. Of the 755, 684 are in a different basin and 71 lie
+below a sample, the latter being a deliberate behaviour change: the drawn river
+now stops at the sample instead of running on to the sea.
+
+**Two forms measured and rejected.**
+
+- *The direct membership test*, `?flowline hyf:downstreamFlowPathTC? ?_flTarget`,
+  leaves `?flowline` unbound on the left and QLever times out at 31s ("Join on
+  ?flowline"). Two `SELECT DISTINCT` closures intersected on `?flowline` run in
+  the same 7s the one-sided query took.
+- *A reflexive reach*, `TC?` instead of `TC` on the target side, recovers **0**
+  flowlines and costs 8s. `hyf:downstreamFlowPathTC` is already reflexive, so
+  `TC?` is the same relation spelled more expensively: `X TC X` holds for 2,104
+  of 2,104 York County flowlines and there are 434,501 self-pairs graph-wide.
+  ARCHITECTURE.md Pattern 3 already said so. The segment a target sits on is
+  therefore drawn; what the intersection excludes is the river *below* it.
+
+**A distance bound is not a substitute.** The bounded branch got the same
+intersection. At 25km it went 3,034 to 2,516, matching the unbounded set,
+because connectivity dominates the cap at that range; at 5km the cap still bites
+(2,314), so the two constraints compose. The shipped bounded query had been
+drawing a Merrimack segment straight through its own 25km cap.
+
+`scripts/check-flowline-scope.mts` asserts both ends are bound for all 100
+shapes that draw the layer, bounded and unbounded.
+
+**Also fixed here: `includeNondetects: true` counted as a filter.** The
+seed-side rule added on 2026-09-17 asked "is this side narrowed" with a generic
+"any filter field is non-null" scan. `includeNondetects: true` is the UI's
+default ticked state and narrows nothing, so a samples block carrying only that
+was read as constrained and reordered the entire body. Ticking the checkbox and
+un-ticking it back therefore changed the emitted SPARQL for a semantically
+identical question. Samples now delegate to `sampleJoinsNeeded`, which already
+drew the line at `=== false`.
+
+The same predicate existed three times (`scope.ts` as `hasBlockFilters`,
+`sparqlErrors.ts` as `isNarrowed`, and the new copy). `scope.ts` asks it to pick
+a chunking axis, so a drift means the executor slices on an axis the template
+already led with. It is now one exported `blockIsFiltered`.
+
+**Lessons**
+
+- **A one-sided closure is not a filter, it is a fan-out.** Seeding from the
+  answer set feels bounded and is not: transitive closure from any seed reaches
+  the end of the network. If both ends of a relationship are known, bind both.
+- **The query that produces the wrong output is not always the query that looks
+  wrong.** Three queries feed one map. Name-filtering each layer's own result
+  set located this in one step after a day of reading the wrong query.
+- **"Stop at the cutoff" and "stop where it stops mattering" are different
+  bounds.** A distance cap looked like it should have prevented this and did
+  not, because the wrong basin was well within range.

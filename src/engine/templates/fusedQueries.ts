@@ -614,10 +614,12 @@ export interface FusedFlowlineOpts {
 // (31s, "Join on ?flowline"). The intersection runs in the same 7s the
 // one-sided query took.
 //
-// The closure is strict on both ends, so the segment a target sits on is not
-// drawn. Making the target side reflexive (`TC?`) was measured and recovers
-// nothing (0 extra flowlines) while costing 8s, because that segment already
-// arrives via another target upstream of it.
+// `TC?` on the target side was measured and recovers nothing (0 extra
+// flowlines) while costing 8s. That is not a quirk: hyf:downstreamFlowPathTC is
+// already reflexive (`X TC X` holds for 2,104 of 2,104 York County flowlines,
+// 434,501 self-pairs graph-wide), so `TC?` is definitionally the same relation.
+// The segment a target sits on is therefore drawn; what is excluded is the
+// river below it.
 function targetReachClause(opts: FusedFlowlineOpts): string {
   // ponytail: target IRIs inlined whole. Only anchors are sliced today
   // (iriScopes/divideIriList in the planner); add target slicing if a question

@@ -18,6 +18,8 @@ Where the options in each filter control come from.
 * [Industry](Dropdowns%20Industry)
 * [Industry counts](Dropdowns%20Industry%20Counts)
 * [County](Dropdowns%20County)
+* [Include non-detects](Samples%20Non%20Detects), the Samples checkbox that moves the
+  numbers most
 
 ## Elsewhere in the repository
 

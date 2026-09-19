@@ -79,9 +79,10 @@ for (const blockA of ENTITY_TYPES) {
           /\?flowline hyf:downstreamFlowPathTC \?_flTarget|\?_flTarget hyf:downstreamFlowPathTC \?flowline/,
           `${where}: target reach clause does not close on ?flowline`,
         );
-        // The reach clause must be a bare TC. `TC?` was measured: it recovers
-        // 0 flowlines and costs 8s on the York question.
-        // Bare `includes`, not the downstream spelling: the reflexive form is
+        // The reach clause must be a bare TC. hyf:downstreamFlowPathTC is
+        // already reflexive, so `TC?` is the same relation spelled more
+        // expensively: measured at 0 extra flowlines and +8s.
+        // Bare `includes`, not the downstream spelling: the form is
         // `?flowline TC? ?_flTarget` downstream and `?_flTarget TC? ?flowline`
         // upstream, and matching only the first left the upstream shape
         // unguarded by a check whose whole point is the `TC?` regression.
