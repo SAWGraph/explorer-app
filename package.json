@@ -13,6 +13,7 @@
     "check-cache-key": "tsx scripts/check-cache-key.mts",
     "check-step-labels": "tsx scripts/check-step-labels.mts",
     "check-trace-direction": "tsx scripts/check-trace-direction.mts",
+    "check-flowline-scope": "tsx scripts/check-flowline-scope.mts",
     "check-substance-labels": "tsx scripts/check-substance-labels.mts",
     "check-query-joins": "tsx scripts/check-query-joins.mts",
     "query-matrix": "tsx scripts/query-matrix.mts",

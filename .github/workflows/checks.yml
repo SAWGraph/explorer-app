@@ -42,6 +42,9 @@ jobs:
       - name: Trace direction
         run: npm run check-trace-direction
 
+      - name: Flowline scope
+        run: npm run check-flowline-scope
+
       - name: Cache key
         run: npm run check-cache-key
 

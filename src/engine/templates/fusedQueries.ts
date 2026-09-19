@@ -581,9 +581,61 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
 
 export interface FusedFlowlineOpts {
   anchor: EntityBlock;
+  target: EntityBlock;
   direction: 'downstream' | 'upstream';
   anchorIris: string[];
+  targetIris: string[];
   maxDistanceKm?: number;
+}
+
+// Restricts the traced closure to flowlines that actually connect the anchors
+// to the targets. Without it the trace is one-sided: it runs from the anchor
+// cells to the end of the network, so an anchor sitting near a drainage divide
+// drags in the whole of the neighbouring basin. On "facilities upstream from
+// PFOS samples in York County, ME" that drew 122 segments of the Merrimack and
+// 21 of the Winnipesaukee, ~130km away in a basin no York sample drains from.
+//
+// Written as an intersection of two DISTINCT closures rather than the direct
+// `?flowline hyf:downstreamFlowPathTC? ?_flEnd` membership test: that form
+// leaves ?flowline unbound on the left and QLever times out joining on it
+// (31s, "Join on ?flowline"). The intersection runs in the same 7s the
+// one-sided query took.
+//
+// The closure is strict on both ends, so the segment a target sits on is not
+// drawn. Making the target side reflexive (`TC?`) was measured and recovers
+// nothing (0 extra flowlines) while costing 8s, because that segment already
+// arrives via another target upstream of it.
+function targetReachClause(opts: FusedFlowlineOpts): string {
+  // ponytail: target IRIs inlined whole. Only anchors are sliced today
+  // (iriScopes/divideIriList in the planner); add target slicing if a question
+  // ever pushes this past the gateway's body limit.
+  const targetValues = `VALUES ${entityIriVar(opts.target, 'C')} { ${opts.targetIris
+    .map(wrapUri)
+    .join(' ')} }`;
+  // Filters stripped: the pinned IRIs are already the filtered answer set, so
+  // every filter clause here is a join that can only re-confirm what the VALUES
+  // list states. Passing the bare block rather than opts.target keeps this to
+  // the cell-membership triple. Measured on the York question: re-deriving the
+  // substance filter cost 1s of the 8 and changed nothing.
+  const targetBind = bindEntityInCell({ type: opts.target.type }, '?s2celltarget', 'C', false);
+  const reach =
+    opts.direction === 'downstream'
+      ? `?flowline hyf:downstreamFlowPathTC ?_flTarget .`
+      : `?_flTarget hyf:downstreamFlowPathTC ?flowline .`;
+
+  return `{
+        SELECT DISTINCT ?flowline WHERE {
+          {
+            SELECT DISTINCT ?s2celltarget WHERE {
+              ${targetValues}
+              ?s2celltarget rdf:type kwg-ont:S2Cell_Level13 .
+              ${targetBind}
+            }
+          }
+          ?_flTarget spatial:connectedTo ?s2celltarget .
+          ${reach}
+        }
+      }`;
 }
 
 // Returns flowline geometries traced from the anchor entities the pipeline
@@ -624,13 +676,20 @@ export function buildFusedFlowlineQuery(opts: FusedFlowlineOpts): string {
             spatial:connectedTo ?s2cellus .
         ?flowline hyf:downstreamFlowPathTC ?downstream_flowline .`;
 
+  const reachesTarget = targetReachClause(opts);
+
   // Unbounded: the flowline set is the plain transitive closure.
   if (!opts.maxDistanceKm) {
     return `
     ${PREFIXES}
     SELECT DISTINCT ?flowline ?flowlineWKT ?fl_type ?streamName WHERE {
-      ${seedCells}
-      ${flowlinePattern}
+      {
+        SELECT DISTINCT ?flowline WHERE {
+          ${seedCells}
+          ${flowlinePattern}
+        }
+      }
+      ${reachesTarget}
       ?flowline geo:hasGeometry/geo:asWKT ?flowlineWKT ;
                 nhdplusv2:hasFTYPE ?fl_type .
       OPTIONAL { ?flowline rdfs:label ?streamName }
@@ -682,6 +741,7 @@ export function buildFusedFlowlineQuery(opts: FusedFlowlineOpts): string {
           BIND(xsd:float(?_plen) + xsd:float(?_extra) AS ?_ptotal)
         } GROUP BY ?flowline
       }
+      ${reachesTarget}
       ?flowline geo:hasGeometry/geo:asWKT ?flowlineWKT ;
                 nhdplusv2:hasFTYPE ?fl_type .
       OPTIONAL { ?flowline rdfs:label ?streamName }
