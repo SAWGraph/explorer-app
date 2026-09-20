@@ -598,6 +598,9 @@
   align-items: center;
   flex-shrink: 0;
   width: 24px;
+  /* ponytail: matches .timeline-content top padding + half a text line, so the dot
+     sits on the first line of text instead of the top of the box */
+  padding-top: 0.5rem;
 }
 
 .timeline-dot {
@@ -643,16 +646,15 @@
 }
 
 .timeline-content {
-  padding-bottom: var(--space-md);
   flex: 1;
   min-width: 0;
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-sm);
 }
 
 .timeline-content--running {
   background: var(--color-primary-50);
   border-radius: var(--radius-sm);
-  padding: var(--space-xs) var(--space-sm);
-  margin: -2px 0 var(--space-md);
 }
 
 .timeline-desc {

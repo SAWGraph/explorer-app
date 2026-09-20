@@ -42,9 +42,38 @@ const FORWARD = [
 ];
 const REVERSED = [
   '?ds_flowline hyf:downstreamFlowPathTC ?upstream_flowline',
-  '?_flEnd hyf:downstreamFlowPathTC ?_flMid',
   '?flowline hyf:downstreamFlowPathTC ?downstream_flowline',
 ];
+
+// `?_flEnd hyf:downstreamFlowPathTC ?_flMid` used to sit in REVERSED. It cannot
+// any more: a bounded block seeded from the target writes that exact triple
+// while tracing perfectly correctly, because it walks outward from the target
+// instead of from the anchor. One string is now correct or reversed depending
+// on which side seeds, so the queries that name both ends are checked by
+// reachability instead, which is what the string was standing in for.
+//
+// Both predicates carry direction, and `?a <pred> ?b` always means a flows into
+// b: hyf:downstreamFlowPathTC is the closure, hyf:downstreamFlowPath? is one
+// segment. Subject-first triples only, which is every trace in the discovery
+// and well queries; the flowline layer writes one of its closures in a
+// predicate-object list and keeps the string check above.
+const FLOW_EDGE = /(\?\w+)\s+hyf:downstreamFlowPath(?:TC)?\??\s+(\?\w+)/g;
+
+function flowsInto(sparql: string, from: string, to: string): boolean {
+  const edges = new Map<string, Set<string>>();
+  for (const [, a, b] of sparql.matchAll(FLOW_EDGE)) {
+    if (!edges.has(a)) edges.set(a, new Set());
+    edges.get(a)!.add(b);
+  }
+  const seen = new Set([from]);
+  const queue = [from];
+  while (queue.length) {
+    const v = queue.shift()!;
+    if (v === to) return true;
+    for (const n of edges.get(v) ?? []) if (!seen.has(n)) { seen.add(n); queue.push(n); }
+  }
+  return false;
+}
 
 const context = (): PipelineContext => ({
   question: {} as AnalysisQuestion,
@@ -76,18 +105,30 @@ for (const a of ENTITY_TYPES) {
           if (!sparql.includes('downstreamFlowPathTC')) continue;
           traced++;
 
-          for (const pattern of REVERSED) {
+          if (sparql.includes('?upstream_flowline') && sparql.includes('?ds_flowline')) {
+            // The anchor's flowline has to reach the target's, whichever end
+            // the bounded block seeds from. This is the property the whole
+            // direction rule exists to protect: pairing anchor=blockA with
+            // direction='upstream' reverses the chain and fails here.
             assert.ok(
-              !sparql.includes(pattern),
-              `${step.type} traces upstream from the seed ("${pattern}"): ${where}`,
+              flowsInto(sparql, '?upstream_flowline', '?ds_flowline'),
+              `${step.type} has no directed path from the anchor's flowline to the target's: ${where}`,
+            );
+            checks++;
+          } else {
+            for (const pattern of REVERSED) {
+              assert.ok(
+                !sparql.includes(pattern),
+                `${step.type} traces upstream from the seed ("${pattern}"): ${where}`,
+              );
+              checks++;
+            }
+            assert.ok(
+              FORWARD.some((pattern) => sparql.includes(pattern)),
+              `${step.type} has no recognisable trace pattern: ${where}`,
             );
             checks++;
           }
-          assert.ok(
-            FORWARD.some((pattern) => sparql.includes(pattern)),
-            `${step.type} has no recognisable trace pattern: ${where}`,
-          );
-          checks++;
         }
 
         // A hydrology question that traced nowhere would pass the loop above

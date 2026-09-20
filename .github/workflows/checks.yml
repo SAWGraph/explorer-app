@@ -42,6 +42,9 @@ jobs:
       - name: Trace direction
         run: npm run check-trace-direction
 
+      - name: Flowline scope
+        run: npm run check-flowline-scope
+
       - name: Cache key
         run: npm run check-cache-key
 
@@ -50,6 +53,15 @@ jobs:
 
       - name: Substance labels
         run: npm run check-substance-labels
+
+      - name: Query join order and observation joins
+        run: npm run check-query-joins
+
+      # Golden-file diff of the SPARQL every shape generates. The one above
+      # asserts a rule; this one notices when a change moves a shape nobody was
+      # thinking about, which is the failure mode of a shared query builder.
+      - name: Query snapshots
+        run: npm run check-query-snapshots
 
       # Not blocking yet: `npm run lint` reports 15 pre-existing errors, all in
       # components and none related to the engine. Make this a required step in

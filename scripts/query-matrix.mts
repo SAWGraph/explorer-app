@@ -9,8 +9,13 @@
 //   npx tsx scripts/query-matrix.mts M2        # subsequent phases append
 //
 // Phases: M1 near(1) all 25 entity pairs | M2 downstream all pairs
-//         M3 upstream all pairs | M4 distance sweep | M5 dashboard queries
+//         M3 upstream all pairs | M4 near-hop distance | M5 dashboard queries
 //         M6 six states | M7 no region | M8 filters | M9 county scopes
+//         MD flow-distance bounds
+//
+// M4 sweeps the `near` relationship's hop distance (miles). MD sweeps the
+// hydrology relationship's flow-distance bound (km), which is a different
+// control and was swept by nothing until MD existed.
 //
 // How long it takes depends entirely on MODE, and the difference is large:
 //
@@ -202,11 +207,34 @@ async function run(matrix: string, label: string, q: AnalysisQuestion, meta: Rec
 }
 
 const TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers'];
-const mk = (a: EntityType, rel: 'near'|'downstream'|'upstream', c: EntityType, hops: number|undefined, state: string|undefined, counties?: string[]): AnalysisQuestion => ({
-  blockA: { type: a, ...(state ? { region: { stateCode: state, ...(counties ? { countyCodes: counties } : {}) } } : {}) },
-  relationship: { type: rel, ...(hops !== undefined ? { hops } : {}) },
-  blockC: { type: c },
-} as AnalysisQuestion);
+// `regionOn` picks which block carries the region, and defaults to 'A', which
+// is what every phase written before MD assumed. That default is not neutral:
+// for an upstream question the planner maps block A to the anchor, so a region
+// on A always left the *anchor* as the constrained side, and the target-first
+// join order — which only fires when the target is narrowed and the anchor is
+// not — was unreachable from this harness. So was every bounded question that
+// leaves block A wide open, which is the shape users actually build.
+const mk = (
+  a: EntityType,
+  rel: 'near'|'downstream'|'upstream',
+  c: EntityType,
+  hops: number|undefined,
+  state: string|undefined,
+  counties?: string[],
+  opts?: { km?: number; regionOn?: 'A' | 'C' },
+): AnalysisQuestion => {
+  const region = state ? { region: { stateCode: state, ...(counties ? { countyCodes: counties } : {}) } } : {};
+  const onC = opts?.regionOn === 'C';
+  return {
+    blockA: { type: a, ...(onC ? {} : region) },
+    relationship: {
+      type: rel,
+      ...(hops !== undefined ? { hops } : {}),
+      ...(opts?.km !== undefined ? { maxDistanceKm: opts.km } : {}),
+    },
+    blockC: { type: c, ...(onC ? region : {}) },
+  } as AnalysisQuestion;
+};
 
 const phase = process.argv[2];
 
@@ -255,6 +283,41 @@ if (phase === 'M9') { // county-scoped (smallest realistic) + multi-county
     await run('M9', `samples near(1) facilities [${label}]`, mk('samples', 'near', 'facilities', 1, '23', counties), { blockA: 'samples', rel: 'near', hops: 1, blockC: 'facilities', region: label, filters: 'none' }, 0);
   for (const [label, counties] of [['1 county (Cumberland)', ['23005']], ['3 counties', ['23005','23019','23003']]] as [string, string[]][])
     await run('M9', `samples downstream facilities [${label}]`, mk('samples', 'downstream', 'facilities', undefined, '23', counties), { blockA: 'samples', rel: 'downstream', hops: '', blockC: 'facilities', region: label, filters: 'none' }, 0);
+}
+
+if (phase === 'MD') { // flow-distance bounds, both narrowing directions
+  // Four shapes, each run bounded and unbounded, with the region on block A and
+  // on block C, and on both discovery steps. Every axis here is one the bounded
+  // path can behave differently on, and none of them were covered before:
+  //
+  //  - region on A vs C decides which side is constrained, which decides the
+  //    join order. Bounded queries currently keep the anchor-first order
+  //    whatever the answer, which is the thing under test.
+  //  - both steps, not just step 0 like M1-M4. The two projections share a
+  //    WHERE clause but not a fate: on "facilities upstream from PFOS samples
+  //    in York" at 30 km, the samples projection answered in 25s while the
+  //    facilities projection ran out of memory at 32s. Measuring step 0 alone
+  //    would have recorded that shape as working.
+  //  - the unbounded twin of every bounded row, so "did the bound remove rows"
+  //    is answerable from this file alone rather than by joining against M2/M3,
+  //    which scope their regions differently.
+  const SHAPES: [EntityType, 'upstream' | 'downstream', EntityType][] = [
+    ['facilities', 'upstream', 'samples'],   // block A wide open: what fails in the app today
+    ['facilities', 'upstream', 'streams'],   // the one bounded dashboard question's shape
+    ['facilities', 'upstream', 'wells'],     // the known-expensive far end (W38 entry 12)
+    ['samples', 'downstream', 'facilities'], // downstream, where A and C swap anchor/target
+  ];
+  for (const [a, rel, c] of SHAPES)
+    for (const km of [undefined, 30])
+      for (const regionOn of ['A', 'C'] as const)
+        for (const step of [0, 1])
+          await run(
+            'MD',
+            `${a} ${rel}${km ? `(${km}km)` : ''} ${c} [ME on ${regionOn}] step${step}`,
+            mk(a, rel, c, undefined, '23', undefined, { km, regionOn }),
+            { blockA: a, rel, hops: '', blockC: c, region: `ME on ${regionOn}`, filters: km ? `${km}km` : 'none' },
+            step,
+          );
 }
 
 // --- the index -------------------------------------------------------------

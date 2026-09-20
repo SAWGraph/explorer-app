@@ -821,3 +821,89 @@ comid/1001 -> comid/1005    a_end == b_start: true    a_start == b_end: false
 So `A TC B` means B is downstream of A, as the predicate name says, and as Part
 8 already concluded by a different route. This is the cheaper check to repeat if
 it is ever in doubt again.
+
+## Part 10: Flow-distance bounds and the seed side (2026-09-20)
+
+Until this date the harness never swept the flow-distance bound at all.
+`maxDistanceKm` appeared zero times in `scripts/query-matrix.mts`, `mk()` had no
+distance parameter, and M4, which the header called a distance sweep, sweeps the
+`near` relationship's hop distance in miles instead. The only bounded shape the
+matrix ever ran was one dashboard prebuilt inside M5.
+
+There was a second gap behind that one. `mk()` attached the region to block A
+unconditionally, and for an upstream question the planner maps block A to the
+anchor, so the anchor was always the constrained side. The join order that only
+fires when the *target* is narrowed was unreachable from this harness, and so
+was every bounded question that leaves block A wide open, which is the shape
+users build.
+
+Phase MD closes both: four shapes, each bounded and unbounded, with the region
+on block A and on block C, on both discovery steps. 32 rows.
+
+### 10.1 What the bound was doing
+
+Every bounded shape whose constrained side was the target failed, and the bound
+was the thing breaking it. `boundedTrace` embeds its seed inside an aggregate
+that sums path lengths across two closure hops, so seeding the wide-open side
+sums them over the national flowline graph, all 1,506,326 facilities. The
+failure is a 30s timeout in *query planning*, before execution starts, or a 4.3
+GB allocation failure.
+
+The isolating measurement, same bound, same target type, only the block A scope
+differing:
+
+| Block A | Result |
+| --- | --- |
+| wide open | 500, tried to allocate 4.3 GB |
+| scoped to York County | 1,429 rows in 4s |
+
+### 10.2 Before and after, warm against warm
+
+`ec221d9` seeds the bounded block from whichever side is constrained, the same
+rule the unbounded path already followed.
+
+| | pre-fix warm | post-fix warm |
+| --- | ---: | ---: |
+| MD rows passing | 12/32 | **14/32** |
+
+| Row | Before | After |
+| --- | --- | --- |
+| `facilities upstream(30km) samples [ME on C] step1` | out of memory | **3,213 rows, 17s** |
+| `samples downstream(30km) facilities [ME on A] step1` | out of memory | **3,213 rows, 15s** |
+| all 8 bounded rows constrained on the anchor | unchanged | unchanged |
+
+0 regressed, and no row-count drift on any row that passed both times. Three
+consecutive post-fix sweeps agree on every row, so run-to-run noise on this
+phase is zero.
+
+### 10.3 Three things this phase says that a spot check did not
+
+**Step 0 of both fixed shapes still fails.** The fix lands on step 1 both times.
+MD runs statewide Maine with no filters, where the samples projection is the
+heavier half; the York County question that prompted the work passes both steps
+in 20s and 3s. So "bounded upstream questions work now" is false as a general
+claim, and the honest one is that the bound no longer fails *because* block A is
+open.
+
+**`facilities upstream(30km) streams [ME on C]` did not start passing.** It
+changed failure mode, from a timeout to an out-of-memory on step 0 and to a
+sort-estimate timeout on step 1.
+
+**Wells is unchanged on all four bounded combinations**, as it was before, for
+the reasons in Part 9 and W38 entry 12.
+
+### 10.4 The cold-cache trap, which cost three extra sweeps
+
+The first MD sweep was the first ever run of the phase, so every query in it
+missed the engine's cache, and the sweep taken after the fix was warm. Compared
+directly, that credits the fix with three flips instead of two. The extra one is
+`facilities upstream samples [ME on A] step1`, which is unbounded and
+anchor-constrained: the reorder cannot reach it, and its generated SPARQL is
+byte-identical at 1,950 characters either side of the fix. It times out cold and
+answers in 15s warm.
+
+The header of `query-matrix.mts` has always said results are cache-sensitive.
+This is what ignoring it looks like in practice: a plausible number, in the
+right direction, that attributes a cache effect to a code change. The pre-fix
+engine was re-run warm into `2026-09-20-raw-e84a11f.csv`, and that file, not the
+cold one, is the before-half of 10.2. The cold sweep carries a `.note` saying so.

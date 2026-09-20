@@ -6,6 +6,17 @@ function spValues(spIris: string[]): string {
   return spIris.map(wrapUri).join(' ');
 }
 
+// A non-detect has no coso:measurementUnit, so requiring the unit join hid
+// every non-detect from the popup's observation table: on sample point 64220,
+// 474 of 3,334 rows survived and the other 2,860 were non-detects. Making it
+// OPTIONAL in place OOMs (819.7MB); joining it after resultValueClauses() with
+// the symbol lookup nested inside costs the same as before, 6.88s vs 6.59s.
+// ?unit_sym stays bound either way because it is a GROUP BY key.
+const UNIT_SYMBOL_CLAUSES = `OPTIONAL { ?result coso:measurementUnit ?unit .
+                 OPTIONAL { ?unit qudt:symbol ?unit_sym0 } }
+      BIND(COALESCE(?unit_sym0,
+             IF(BOUND(?unit), REPLACE(STR(?unit), "^.*[#/]", ""), "")) AS ?unit_sym)`;
+
 export function buildSampleRetrievalByIriQuery(
   spIris: string[],
   filters?: SampleFilters,
@@ -94,10 +105,8 @@ export function buildSampleDetailByIriQuery(
       OPTIONAL { ?substanceUri rdfs:label ?fullLabel }
       OPTIONAL { ?sourceParam comptox:sameAsDSSToxSubstance ?substanceUri ;
                               rdfs:label ?paramLabel }
-      ?result coso:measurementUnit ?unit .
       ${resultValueClauses()}
-      OPTIONAL { ?unit qudt:symbol ?unit_sym0 }
-      BIND(COALESCE(?unit_sym0, REPLACE(STR(?unit), "^.*[#/]", "")) AS ?unit_sym)
+      ${UNIT_SYMBOL_CLAUSES}
       OPTIONAL { ?observation sosa:resultTime ?date }
       OPTIONAL { ?sample dcterms:identifier ?sampleId }
       ${filterClauses}
