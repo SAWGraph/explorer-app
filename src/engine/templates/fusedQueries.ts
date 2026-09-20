@@ -408,7 +408,7 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   // shape whose constrained side was the target failed before this (MD in
   // docs/query-matrix): timeouts in query planning, or 4.3 GB allocation
   // failures. Reordered, the same three shapes answer in seconds.
-  if (sideIsConstrained(opts, 'target') && !sideIsConstrained(opts, 'anchor')) {
+  if (sideNarrowness(opts, 'target') > sideNarrowness(opts, 'anchor')) {
     // The target's own entity and filters come first, then the hop onto the
     // river network. A streams target *is* the flowline, so it needs no hop.
     const targetHead =
@@ -473,11 +473,31 @@ export function blockIsFiltered(block: EntityBlock): boolean {
 // A side is constrained when the question already narrows it: a region, any
 // entity filter, or an IRI pin from chunking. Unconstrained means "every
 // facility in the graph", which is the side that must not lead the query.
-function sideIsConstrained(opts: FusedBodyOpts, side: 'anchor' | 'target'): boolean {
+// How narrow a side is, not whether it is narrowed at all. The seed walks
+// outward from whichever side leads, so the question is always which of the two
+// is *smaller*, and a boolean cannot answer it: an industry filter with no
+// region says "constrained" while meaning every sewage plant in the country.
+// Answering the boolean is what made "facilities upstream from PFOS samples in
+// York" fail the moment an industry filter was added to block A, after the same
+// question had just been fixed without one.
+//
+//   3  an IRI pin. The executor chose this slice; re-seeding from the other
+//      side would throw the slice away.
+//   2  a region. Bounded by geography at any level, and the graph is indexed
+//      for it.
+//   1  an entity filter only. Selective in kind, unbounded in extent.
+//   0  nothing.
+//
+// Ties keep the anchor-first order, so this only ever changes cases where both
+// sides are constrained at different levels. Every shape where one side was
+// constrained and the other was not keeps the order it had.
+function sideNarrowness(opts: FusedBodyOpts, side: 'anchor' | 'target'): 0 | 1 | 2 | 3 {
   const block = side === 'anchor' ? opts.anchor : opts.target;
   const region = side === 'anchor' ? opts.anchorRegion : opts.targetRegion;
   const pins = side === 'anchor' ? opts.anchorIris : opts.targetIris;
-  return Boolean(pins?.length || region?.length) || blockIsFiltered(block);
+  if (pins?.length) return 3;
+  if (region?.length) return 2;
+  return blockIsFiltered(block) ? 1 : 0;
 }
 
 export interface FusedBaseOpts {
