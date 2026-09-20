@@ -63,22 +63,14 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
     id: 'facilities-upstream-pfos-york-cumberland',
     title: 'Facilities Upstream from PFOS Samples in York and Cumberland Counties',
     description:
-      'Given samples that tested positive for PFOS in York and Cumberland counties, Maine, trace the river network back the other way: which facilities in those counties sit upstream, and are therefore candidate sources.',
+      'Given samples that tested positive for PFOS in York and Cumberland counties, Maine, trace the river network back the other way: which facilities sit upstream of them, and are therefore candidate sources.',
     tags: ['Facilities', 'Samples', 'Upstream', 'PFOS', 'Maine', 'York', 'Cumberland'],
     question: {
-      blockA: {
-        type: 'facilities',
-        region: {
-          stateCode: '23',
-          countyCodes: ['23031', '23005'],
-          countyLabels: { '23031': 'York County, Maine', '23005': 'Cumberland County, Maine' },
-        },
-      },
+      // Facilities are left unconstrained: the counties scope the samples, and
+      // an upstream source can sit outside the county the sample is in.
+      blockA: { type: 'facilities' },
       relationship: { type: 'upstream' },
       blockC: {
-        // Both blocks carry the counties, as in the PFHpA question below: the
-        // scope belongs to the samples, and mirroring it keeps the trace from
-        // reaching every PFOS sample in the graph.
         type: 'samples',
         region: {
           stateCode: '23',
