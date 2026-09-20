@@ -252,7 +252,67 @@ for (const c of joinCases) {
   }
 }
 
-// --- 3. The prebuilt dashboard questions must not change plan.
+// --- 2b. Narrowness is a ranking, not a boolean. A region beats a bare entity
+// filter, because a filter with no region is selective in kind and unbounded in
+// extent: "all sewage treatment facilities" is a nationwide set. Getting this
+// wrong is not a slow query, it is no query at all. Adding an industry filter
+// to block A of "facilities upstream from PFOS samples in York" used to turn a
+// 3s answer into a 30s timeout in query planning, because the filter alone
+// counted as constrained and switched the reorder off.
+for (const targetType of ENTITY_TYPES) {
+  for (const maxDistanceKm of [undefined, 30]) {
+    const base = { project: 'target' as const, direction: 'downstream' as const, ...(maxDistanceKm ? { maxDistanceKm } : {}) };
+    const label = `${targetType} <- facilities${maxDistanceKm ? `, bounded ${maxDistanceKm}km` : ''}`;
+
+    // Anchor filtered but unscoped, target scoped: the region wins.
+    const filteredAnchor = buildFusedHydrologyQuery({
+      ...base,
+      anchor: { type: 'facilities', ...filtersFor('facilities') },
+      target: { type: targetType, ...filtersFor(targetType) },
+      targetRegion: ['23005'],
+    });
+    check(
+      leadsWith(filteredAnchor) === 'target',
+      `${label}: a bare industry filter must not outrank a region, or the seed is nationwide`,
+    );
+    if (maxDistanceKm) {
+      check(
+        seedsFrom(filteredAnchor) === 'target',
+        `${label}: the bounded aggregate must seed from the region-scoped side`,
+      );
+    }
+
+    // The mirror: anchor scoped, target only filtered. The anchor keeps it.
+    const filteredTarget = buildFusedHydrologyQuery({
+      ...base,
+      anchor: { type: 'facilities' },
+      target: { type: targetType, ...filtersFor(targetType) },
+      anchorRegion: ['23005'],
+    });
+    check(
+      leadsWith(filteredTarget) === 'anchor',
+      `${label}: a region on the anchor outranks a bare filter on the target`,
+    );
+  }
+}
+
+// --- 3. The prebuilt dashboard questions lead with their narrower side.
+//
+// This used to assert that no prebuilt reorders, on the grounds that every one
+// of them has a constrained anchor. That was a description of the old boolean
+// predicate rather than a rule, and it stopped being true when "constrained"
+// became a ranking: an industry filter with no region is constrained but not
+// narrow. One prebuilt legitimately reorders under the ranking.
+//
+// `samples-downstream-waste-indiana` has samples scoped to Indiana on block A
+// and NAICS 5622 with no region on block C, so the anchor is every waste
+// treatment facility in the country and the target is one state. Both orders
+// were measured on the live endpoint: identical answers, 136 samples and 415
+// facilities either way, with the reordered form no slower (13s and 2s against
+// 16s and 3s). It reorders because the rule says the state-scoped side is the
+// narrower one, and the measurement agrees.
+const EXPECTED_REORDER = new Set(['samples-downstream-waste-indiana']);
+
 for (const prebuilt of PREBUILT_QUERIES) {
   const question: AnalysisQuestion = prebuilt.question;
   if (question.relationship.type === 'near') continue;
@@ -261,9 +321,10 @@ for (const prebuilt of PREBUILT_QUERIES) {
     { question, targetIris: [], anchorIris: [], results: {} } as never,
     undefined,
   );
+  const expected = EXPECTED_REORDER.has(prebuilt.id) ? 'target' : 'anchor';
   check(
-    leadsWith(query) === 'anchor',
-    `${prebuilt.id}: every prebuilt has a constrained anchor, so none of them may reorder`,
+    leadsWith(query) === expected,
+    `${prebuilt.id}: expected the body to lead with the ${expected}, the narrower of its two sides`,
   );
 }
 

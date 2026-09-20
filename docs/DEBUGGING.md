@@ -731,3 +731,49 @@ out-of-memory, one reporting only 2.9 MB available, while a full pipeline run of
 mine was hammering the same endpoint. Re-run alone, they failed differently, as
 planning timeouts. The header of `query-matrix.mts` warns about this; it applies
 to ad-hoc curl measurements just as much.
+
+## 2026-09-20: Adding an industry filter broke a question that worked (FIXED)
+
+Found while answering "what does this result really mean" about the York County
+map. The unfiltered question, facilities within 5 km upstream from PFOS
+detections, returns 418 facilities in 3s. It also returns dentists and schools,
+because block A carries no industry filter and "facility" means anything with a
+NAICS code. The obvious next step is to filter block A to PFAS source
+categories. Doing that returned nothing: 429, `Operation timed out. Last
+operation: Query planning`, on both projections.
+
+**Root cause, one level up from the 2026-09-20 seed-side entry above.**
+`sideIsConstrained` treated a region, an entity filter and an IRI pin as the
+same thing. An industry filter made the anchor count as constrained, so the
+reorder stopped firing, so the query seeded from block A, which with a filter
+and no region means every facility in that industry across the country.
+
+Isolated by varying one thing at a time, all at 5 km, York, detections only:
+
+| Block A | Result |
+| --- | --- |
+| no filter, no region | works, 418 facilities, 3s |
+| 1 code, no region | 429, query planning |
+| 21 codes, region Maine | 429 Cartesian Product, then 500 at 728 MB |
+| 21 codes, region York | 500 at 728 MB |
+| 1 code, region York | works, 21 facilities, 13s |
+
+The pattern is that block A had to be *small*, not merely filtered, and only a
+region made it small.
+
+**The fix** replaces the boolean with a rank: IRI pin 3, region 2, entity filter
+1, nothing 0, lead with the higher, ties keep anchor-first. Only questions with
+both sides constrained at different levels change plan. See
+`docs/QUERY-MATRIX.md` Part 11 for the measurements.
+
+**Long selections: measure before blaming the clause.** The first version of
+this entry said selections beyond about ten codes still fail. Re-measured after
+the ranking landed, that is wrong. 21 codes answers at 5 km (101 facilities,
+13s; 84 samples, 23s) and only fails unbounded (500, 430 MB). Code count is a
+cost on the closure, which a distance bound already caps.
+
+The suspected culprit was cleared too. `fio:subcodeOf` is materialised
+transitively, so `?ic fio:subcodeOf? ?sel` is an exact rewrite of
+`FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`. Measured: 13s with
+the FILTER, query-planning timeout with the path. The FILTER is the fast form
+here; do not "optimise" it.
