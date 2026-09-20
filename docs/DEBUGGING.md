@@ -648,3 +648,86 @@ already led with. It is now one exported `blockIsFiltered`.
 - **"Stop at the cutoff" and "stop where it stops mattering" are different
   bounds.** A distance cap looked like it should have prevented this and did
   not, because the wrong basin was well within range.
+
+## 2026-09-20: A distance bound failed whenever block A was left open (FIXED)
+
+Picking any "within N km of flow" on "what facilities are upstream from PFOS
+samples in York County" returned nothing. Every option, 5, 10 and 30 km, both
+projections, six queries, six identical failures: HTTP 429 carrying
+`Operation timed out. Last operation: Query planning`. Note *planning*, not
+execution. The engine could not even build a plan inside its 30s budget.
+
+**The bound was not the problem; the side it seeded from was.** The
+constrained-side-first reorder that landed on 2026-09-17 deliberately skipped
+bounded queries, with a comment recording that the shape had not been measured
+either way. It has now. `boundedTrace` duplicates its seed block inside an
+aggregate that sums `nhdplusv2:hasFlowPathLength` across two
+`hyf:downstreamFlowPathTC` hops, so seeding the unconstrained side sums path
+lengths over the national flowline graph. With block A left as plain Facilities
+that seed is 1,506,326 facilities.
+
+Isolated by varying one thing. Same 30 km bound, same target type, only the
+block A scope differing:
+
+| Block A | Result |
+| --- | --- |
+| wide open | 500, tried to allocate 4.3 GB |
+| scoped to York County | 1,429 rows in 4s |
+
+And the control that proves bounded queries were fine in general: the Cook
+County dashboard question, whose block A carries both a county and a NAICS
+filter, answers in 28s and 6s throughout.
+
+**The fix** gives `boundedTrace` a seed side and drops one clause from the
+guard, so a bounded trace is reordered by the same rule as everything else. The
+trace, the `GROUP BY` and the `+1` fringe all follow the seed. The fringe still
+extends away from the seed, which means the physical end that receives the extra
+segment follows the seed side; on a question where both forms run, the result
+sets were identical, so nothing observable turns on it.
+
+Measured before trusting the speed:
+
+- where both forms run, identical IRI sets on both projections
+- against the unbounded answer, the bounded one is a strict subset, 918 of 1,494
+  facilities, 0 added
+- across 5, 10, 30 and 50 km the answers nest, each bound's set inside the next
+- the York question answers in 20s and 3s, 132 samples and 918 facilities,
+  against two 429s before
+
+**What it did not fix.** Step 0 of the statewide MD shapes still fails; both
+rescued rows are step 1. `facilities upstream(30km) streams [ME on C]` changed
+failure mode rather than passing. Wells remains unchanged on all four bounded
+combinations. Details in `docs/QUERY-MATRIX.md` Part 10.
+
+### The tripwire this nearly disarmed
+
+`check-trace-direction.mts` kept `?_flEnd hyf:downstreamFlowPathTC ?_flMid` on a
+blacklist of reversed traces. A block seeded from the target writes that exact
+triple while tracing correctly, so the string cannot decide it any more. Deleting
+the entry would have quietly removed the only guard against the 2026-09-16
+direction bug.
+
+Queries that name both ends are now checked by reachability instead: build the
+directed edges from `hyf:downstreamFlowPathTC` and `hyf:downstreamFlowPath?`,
+where `?a <pred> ?b` always means a flows into b, and assert a path from
+`?upstream_flowline` to `?ds_flowline`. That is the property the string was
+standing in for, and it admits both seed sides. Verified by mutation:
+reintroducing the 2026-09-16 bug still fails it, and a half-applied reorder that
+moves the query text while leaving the aggregate seeded from the anchor fails
+the new `seedsFrom` assertion in `check-query-joins.mts`.
+
+### Two measurement traps worth not repeating
+
+**Cold against warm.** The first MD sweep was the phase's first ever run, so it
+was entirely cold, and the post-fix sweep was warm. Compared directly it credits
+the fix with three flips instead of two; the extra row is unbounded and
+anchor-constrained, its SPARQL byte-identical at 1,950 characters either side,
+timing out cold and answering in 15s warm. Re-run the old engine warm before
+quoting a delta. Run-to-run noise, once both halves are warm, is zero: three
+consecutive sweeps at identical code agreed on every row.
+
+**Your own load.** Three bounded queries were measured failing with
+out-of-memory, one reporting only 2.9 MB available, while a full pipeline run of
+mine was hammering the same endpoint. Re-run alone, they failed differently, as
+planning timeouts. The header of `query-matrix.mts` warns about this; it applies
+to ad-hoc curl measurements just as much.
