@@ -92,3 +92,16 @@ export async function cacheKey(question: AnalysisQuestion): Promise<string> {
   const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
   return `q:${hex}`;
 }
+
+// Key for one sample point's observation table (the popup rows), cached
+// server-side so a demo does not depend on the SPARQL endpoints answering on
+// click. Same versioning as the question key: a graph reload retires both.
+export async function sampleDetailKey(
+  samplePointIri: string,
+  filters?: unknown,
+): Promise<string> {
+  const body = `${DATA_VERSION}|${samplePointIri}|${JSON.stringify(canonical(filters ?? {}) ?? {})}`;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body));
+  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `s:${hex}`;
+}
