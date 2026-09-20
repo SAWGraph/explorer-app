@@ -951,11 +951,29 @@ the plan it had. Of the 375 shapes in `scripts/__snapshots__/query-shapes.txt`,
 
 ### 11.3 What it does not fix
 
-**Long industry selections still fail.** 21 codes times out where 8 answers in
-3s. The cost is the `FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`
-clause, evaluated per selected code against every candidate facility, and
-duplicated a second time inside the bounded aggregate. Keep selections under
-about ten codes until that clause is reworked.
+**Long industry selections fail only without a bound.** An earlier draft of
+this part said 21 codes fails outright. Re-measured after the ranking landed,
+that is wrong: the code count only matters when the trace is unbounded.
+
+| Codes | 5 km | Unbounded |
+| ---: | --- | --- |
+| 1 | 22 facilities, 8s | 35 facilities, 16s |
+| 8 | 88 facilities, 3s | 192 facilities, 15s |
+| 21 | 101 facilities, 13s | 500, out of memory at 430 MB |
+
+Which is what a bound is for: the unbounded form walks the whole closure from
+every matched facility, so more codes means more seeds and more work, while the
+bounded form caps it. A long selection is a reason to set a distance, not a
+reason to shorten the list.
+
+**A rewrite of the industry clause was tried and rejected.** The obvious suspect
+was `FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`, evaluated per
+selected code and duplicated inside the bounded aggregate. `fio:subcodeOf` is
+materialised transitively (`325110` is a direct subcode of `32`, `325` and
+`3251`), so `?ic fio:subcodeOf? ?sel` says exactly the same thing as a
+zero-or-one path. It is slower, not faster: the 21-code bounded query answers in
+13s with the FILTER and times out in query planning with the path. Leave the
+clause alone.
 
 **One dashboard question changes plan.** `samples-downstream-waste-indiana`
 scopes samples to Indiana and filters block C to NAICS 5622 with no region, so

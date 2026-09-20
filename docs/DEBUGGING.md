@@ -766,9 +766,14 @@ region made it small.
 both sides constrained at different levels change plan. See
 `docs/QUERY-MATRIX.md` Part 11 for the measurements.
 
-**Not fixed: long industry selections.** 21 codes still fails where 8 answers in
-3s. The `FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })` clause is
-evaluated per selected code against every candidate facility and appears twice
-in a bounded query, once in the body and once inside the aggregate's duplicated
-seed. Keep selections under about ten codes, or rework the clause into a VALUES
-join over the closure of `fio:subcodeOf`.
+**Long selections: measure before blaming the clause.** The first version of
+this entry said selections beyond about ten codes still fail. Re-measured after
+the ranking landed, that is wrong. 21 codes answers at 5 km (101 facilities,
+13s; 84 samples, 23s) and only fails unbounded (500, 430 MB). Code count is a
+cost on the closure, which a distance bound already caps.
+
+The suspected culprit was cleared too. `fio:subcodeOf` is materialised
+transitively, so `?ic fio:subcodeOf? ?sel` is an exact rewrite of
+`FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`. Measured: 13s with
+the FILTER, query-planning timeout with the path. The FILTER is the fast form
+here; do not "optimise" it.
