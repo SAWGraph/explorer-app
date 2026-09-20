@@ -57,6 +57,12 @@ jobs:
       - name: Query join order and observation joins
         run: npm run check-query-joins
 
+      # Golden-file diff of the SPARQL every shape generates. The one above
+      # asserts a rule; this one notices when a change moves a shape nobody was
+      # thinking about, which is the failure mode of a shared query builder.
+      - name: Query snapshots
+        run: npm run check-query-snapshots
+
       # Not blocking yet: `npm run lint` reports 15 pre-existing errors, all in
       # components and none related to the engine. Make this a required step in
       # the same change that clears them, not before, or the signal is noise

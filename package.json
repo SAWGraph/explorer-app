@@ -16,6 +16,7 @@
     "check-flowline-scope": "tsx scripts/check-flowline-scope.mts",
     "check-substance-labels": "tsx scripts/check-substance-labels.mts",
     "check-query-joins": "tsx scripts/check-query-joins.mts",
+    "check-query-snapshots": "tsx scripts/check-query-snapshots.mts",
     "query-matrix": "tsx scripts/query-matrix.mts",
     "health-check": "tsx scripts/health-check.mts"
   },
