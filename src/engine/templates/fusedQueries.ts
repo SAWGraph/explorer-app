@@ -276,33 +276,61 @@ function fringePath(direction: 'downstream' | 'upstream', endVar: string, outVar
 // the cutoff, matching GROUP BY (seed, end) with no MIN. The per-flowline
 // number shown in popups is computed separately in buildFusedFlowlineQuery /
 // buildStreamsByIri, where MIN() picks the shortest qualifying path.
+// `seedSide` decides which end the aggregate starts from, and it is a
+// correctness-neutral, cost-critical choice: the block walks outward from its
+// seed, so seeding the *unconstrained* side means summing path lengths over
+// every flowline the graph has. "Facilities upstream from samples in York" with
+// block A left wide open seeds 1,506,326 facilities and the engine gives up
+// planning the query at 30s; seeded from the 132 samples the same question
+// answers in 20s. Measured identical result sets where both forms run, and the
+// bounded answer is a strict subset of the unbounded one (docs/QUERY-MATRIX.md
+// MD, docs/DEBUGGING.md 2026-09-20).
+//
+// The "+1" fringe always extends *away* from the seed, so which physical end
+// gets the extra segment follows the seed side. That is the same rule as
+// before, not a new one: flipping the seed flips the fringe with it.
 function boundedTrace(
   seed: string,
   direction: 'downstream' | 'upstream',
   maxDistanceKm: number,
+  seedSide: 'anchor' | 'target' = 'anchor',
 ): string {
+  // Which variable the seed binds, and which one the trace has to reach.
+  const seedVar = seedSide === 'anchor' ? '?upstream_flowline' : '?ds_flowline';
+  const farVar = seedSide === 'anchor' ? '?ds_flowline' : '?upstream_flowline';
+  // Walking away from the seed. For an anchor seed that is the direction of the
+  // question; for a target seed it is the reverse, since the target sits at the
+  // far end of the same trace.
+  const walk = seedSide === 'anchor' ? direction : direction === 'downstream' ? 'upstream' : 'downstream';
+  // Both forms write the seed-adjacent triple first and differ only in which
+  // way the chain runs. The anchor form's text is unchanged from before this
+  // parameter existed, so every query that kept the anchor-first order is
+  // byte-identical.
   const trace =
-    direction === 'downstream'
-      ? `?upstream_flowline hyf:downstreamFlowPathTC ?_flMid .
+    walk === 'downstream'
+      ? `${seedVar} hyf:downstreamFlowPathTC ?_flMid .
                 ?_flMid hyf:downstreamFlowPathTC ?_flEnd .`
-      : `?_flEnd hyf:downstreamFlowPathTC ?_flMid .
-                ?_flMid hyf:downstreamFlowPathTC ?upstream_flowline .`;
+      : seedSide === 'anchor'
+        ? `?_flEnd hyf:downstreamFlowPathTC ?_flMid .
+                ?_flMid hyf:downstreamFlowPathTC ${seedVar} .`
+        : `?_flMid hyf:downstreamFlowPathTC ${seedVar} .
+                ?_flEnd hyf:downstreamFlowPathTC ?_flMid .`;
 
   return `{
         SELECT DISTINCT ?upstream_flowline ?ds_flowline WHERE {
           {
-            SELECT ?upstream_flowline ?_flEnd (SUM(?_flLen) AS ?_plen) WHERE {
+            SELECT ${seedVar} ?_flEnd (SUM(?_flLen) AS ?_plen) WHERE {
               {
-                SELECT ?upstream_flowline ?_flMid ?_flEnd WHERE {
-                  { SELECT DISTINCT ?upstream_flowline WHERE { ${seed} } }
+                SELECT ${seedVar} ?_flMid ?_flEnd WHERE {
+                  { SELECT DISTINCT ${seedVar} WHERE { ${seed} } }
                   ${trace}
                 }
               }
               ?_flMid nhdplusv2:hasFlowPathLength/qudt:quantityValue/qudt:numericValue ?_flLen .
-            } GROUP BY ?upstream_flowline ?_flEnd
+            } GROUP BY ${seedVar} ?_flEnd
           }
           FILTER (xsd:float(?_plen) < xsd:float(${maxDistanceKm}))
-          ${fringePath(direction, '?_flEnd', '?ds_flowline')}
+          ${fringePath(walk, '?_flEnd', farVar)}
         }
       }`;
 }
@@ -374,9 +402,13 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   // the target first. Measured across all 72 hydrology shape/config pairs: 5
   // rescued, 0 regressions, 0 rows lost (docs/plans/…-fused-seed-side-….md).
   //
-  // Bounded traces keep the anchor-first order: boundedTrace embeds `seed` a
-  // second time and that shape has not been measured either way.
-  if (!opts.maxDistanceKm && sideIsConstrained(opts, 'target') && !sideIsConstrained(opts, 'anchor')) {
+  // A bounded trace is reordered the same way, and needs it more: boundedTrace
+  // embeds its seed a second time inside an aggregate, so seeding the wide-open
+  // side sums path lengths across the national flowline graph. Every bounded
+  // shape whose constrained side was the target failed before this (MD in
+  // docs/query-matrix): timeouts in query planning, or 4.3 GB allocation
+  // failures. Reordered, the same three shapes answer in seconds.
+  if (sideIsConstrained(opts, 'target') && !sideIsConstrained(opts, 'anchor')) {
     // The target's own entity and filters come first, then the hop onto the
     // river network. A streams target *is* the flowline, so it needs no hop.
     const targetHead =
@@ -388,11 +420,18 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       ${targetBind}
       ?s2target spatial:connectedTo ?ds_flowline .`;
 
+    // The bounded block is rebuilt around the target seed. `trace` above is
+    // seeded from the anchor, which is the right choice only for the
+    // anchor-first order below.
+    const targetTrace = opts.maxDistanceKm
+      ? boundedTrace(targetHead, opts.mode, opts.maxDistanceKm, 'target')
+      : trace;
+
     // spatial:connectedTo is stored both ways between cells and flowlines
     // (1,391,903 pairs each direction, verified on federation), so reading it
     // off the flowline here matches the same pairs as ?s2neighbor → flowline.
     return `${targetPin}${targetHead}
-      ${trace}
+      ${targetTrace}
       ?upstream_flowline rdf:type hyf:HY_FlowPath ;
                 spatial:connectedTo ?s2neighbor .
       ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .

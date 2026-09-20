@@ -49,6 +49,15 @@ function leadsWith(query: string): 'anchor' | 'target' | 'other' {
   return 'other';
 }
 
+// Which end the distance-bounded aggregate walks outward from, read off the
+// innermost sub-SELECT that boundedTrace wraps its seed in. Unbounded queries
+// have no such block and report 'none'.
+function seedsFrom(query: string): 'anchor' | 'target' | 'none' {
+  if (query.includes('SELECT DISTINCT ?upstream_flowline WHERE {')) return 'anchor';
+  if (query.includes('SELECT DISTINCT ?ds_flowline WHERE {')) return 'target';
+  return 'none';
+}
+
 const filtersFor = (type: EntityType): Partial<EntityBlock> => {
   switch (type) {
     case 'samples':
@@ -112,21 +121,52 @@ for (const targetType of ENTITY_TYPES) {
   }
 }
 
-// Distance-bounded traces embed the seed a second time inside boundedTrace and
-// were never measured reordered, so they keep the anchor-first order.
+// Distance-bounded traces follow the same rule, and lean on it harder: the
+// bounded block embeds its seed inside an aggregate that sums path lengths, so
+// seeding the wide-open side sums them across the national flowline graph.
+// Every bounded shape whose constrained side was the target failed before the
+// reorder covered them — 30s query-planning timeouts and 4.3 GB allocation
+// failures, recorded in docs/query-matrix/2026-09-20-raw-002e529.csv.
+//
+// Both halves are checked. A query can read target-first while the aggregate
+// inside still starts from the anchor, which would move the text and leave the
+// cost exactly where it was.
 for (const targetType of ENTITY_TYPES) {
-  const bounded = buildFusedHydrologyQuery({
-    anchor: { type: 'facilities' },
-    target: { type: targetType, ...filtersFor(targetType) },
-    targetRegion: ['23005'],
-    project: 'target',
-    direction: 'downstream',
-    maxDistanceKm: 50,
-  });
-  check(
-    leadsWith(bounded) === 'anchor',
-    `${targetType} <- facilities, bounded: distance-bounded traces keep the anchor-first order`,
-  );
+  for (const maxDistanceKm of [30, 50]) {
+    const targetScoped = buildFusedHydrologyQuery({
+      anchor: { type: 'facilities' },
+      target: { type: targetType, ...filtersFor(targetType) },
+      targetRegion: ['23005'],
+      project: 'target',
+      direction: 'downstream',
+      maxDistanceKm,
+    });
+    check(
+      leadsWith(targetScoped) === 'target',
+      `${targetType} <- facilities, bounded ${maxDistanceKm}km: target is the only constrained side, so it must lead the body`,
+    );
+    check(
+      seedsFrom(targetScoped) === 'target',
+      `${targetType} <- facilities, bounded ${maxDistanceKm}km: the bounded aggregate must seed from the target too`,
+    );
+
+    const anchorScoped = buildFusedHydrologyQuery({
+      anchor: { type: 'facilities', ...filtersFor('facilities') },
+      target: { type: targetType },
+      anchorRegion: ['23005'],
+      project: 'target',
+      direction: 'downstream',
+      maxDistanceKm,
+    });
+    check(
+      leadsWith(anchorScoped) === 'anchor',
+      `${targetType} <- facilities, bounded ${maxDistanceKm}km: anchor is the constrained side, so the body must keep the anchor-first order`,
+    );
+    check(
+      seedsFrom(anchorScoped) === 'anchor',
+      `${targetType} <- facilities, bounded ${maxDistanceKm}km: the bounded aggregate must seed from the anchor`,
+    );
+  }
 }
 
 // --- 2. Observation joins, driven by the filters that are actually set.
