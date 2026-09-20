@@ -731,3 +731,44 @@ out-of-memory, one reporting only 2.9 MB available, while a full pipeline run of
 mine was hammering the same endpoint. Re-run alone, they failed differently, as
 planning timeouts. The header of `query-matrix.mts` warns about this; it applies
 to ad-hoc curl measurements just as much.
+
+## 2026-09-20: Adding an industry filter broke a question that worked (FIXED)
+
+Found while answering "what does this result really mean" about the York County
+map. The unfiltered question, facilities within 5 km upstream from PFOS
+detections, returns 418 facilities in 3s. It also returns dentists and schools,
+because block A carries no industry filter and "facility" means anything with a
+NAICS code. The obvious next step is to filter block A to PFAS source
+categories. Doing that returned nothing: 429, `Operation timed out. Last
+operation: Query planning`, on both projections.
+
+**Root cause, one level up from the 2026-09-20 seed-side entry above.**
+`sideIsConstrained` treated a region, an entity filter and an IRI pin as the
+same thing. An industry filter made the anchor count as constrained, so the
+reorder stopped firing, so the query seeded from block A, which with a filter
+and no region means every facility in that industry across the country.
+
+Isolated by varying one thing at a time, all at 5 km, York, detections only:
+
+| Block A | Result |
+| --- | --- |
+| no filter, no region | works, 418 facilities, 3s |
+| 1 code, no region | 429, query planning |
+| 21 codes, region Maine | 429 Cartesian Product, then 500 at 728 MB |
+| 21 codes, region York | 500 at 728 MB |
+| 1 code, region York | works, 21 facilities, 13s |
+
+The pattern is that block A had to be *small*, not merely filtered, and only a
+region made it small.
+
+**The fix** replaces the boolean with a rank: IRI pin 3, region 2, entity filter
+1, nothing 0, lead with the higher, ties keep anchor-first. Only questions with
+both sides constrained at different levels change plan. See
+`docs/QUERY-MATRIX.md` Part 11 for the measurements.
+
+**Not fixed: long industry selections.** 21 codes still fails where 8 answers in
+3s. The `FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })` clause is
+evaluated per selected code against every candidate facility and appears twice
+in a bounded query, once in the body and once inside the aggregate's duplicated
+seed. Keep selections under about ten codes, or rework the clause into a VALUES
+join over the closure of `fio:subcodeOf`.

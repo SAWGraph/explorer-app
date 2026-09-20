@@ -907,3 +907,59 @@ This is what ignoring it looks like in practice: a plausible number, in the
 right direction, that attributes a cache effect to a code change. The pre-fix
 engine was re-run warm into `2026-09-20-raw-e84a11f.csv`, and that file, not the
 cold one, is the before-half of 10.2. The cold sweep carries a `.note` saying so.
+
+## Part 11: Narrowness is a ranking, not a boolean (2026-09-20)
+
+Part 10 made the distance bound work when block A is left open. Putting an
+industry filter on block A broke it again, and for a reason one level up from
+the seed side.
+
+`sideIsConstrained` answered yes for a region, a filter or an IRI pin alike. An
+industry filter therefore made the anchor "constrained", the reorder stopped
+firing, and the query seeded from block A again. Only now block A meant every
+facility in that industry nationwide rather than every facility in the graph,
+which is smaller and still far too large to seed an aggregate from.
+
+### 11.1 What it cost
+
+"What facilities are within 5 km upstream from PFOS samples", York County,
+detections only, block A carrying no region:
+
+| Block A | Before | After |
+| --- | --- | --- |
+| no filter | 418 facilities, 3s | unchanged |
+| 1 code, unbounded | 429, query planning | 35 facilities, 16s |
+| 1 code, 5 km | 429, query planning | 22 facilities, 8s |
+| 8 codes, 5 km | 429, query planning | **88 facilities, 3s** |
+| 8 codes, unbounded | 429, query planning | 192 facilities, 15s |
+
+Adding a filter to a working question made it fail. That is the shape of the
+report: a user narrowing a result set that was too broad, and getting nothing.
+
+### 11.2 The rank
+
+    3  an IRI pin. The executor chose this slice; re-seeding discards it.
+    2  a region. Bounded by geography at any level, and indexed for.
+    1  an entity filter only. Selective in kind, unbounded in extent.
+    0  nothing.
+
+The body leads with the higher rank, and ties keep the anchor-first order. So
+this only changes questions where both sides are constrained at *different*
+levels; everything where one side was constrained and the other was not keeps
+the plan it had. Of the 375 shapes in `scripts/__snapshots__/query-shapes.txt`,
+2 move, both variants with a region on one side and a bare filter on the other.
+
+### 11.3 What it does not fix
+
+**Long industry selections still fail.** 21 codes times out where 8 answers in
+3s. The cost is the `FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`
+clause, evaluated per selected code against every candidate facility, and
+duplicated a second time inside the bounded aggregate. Keep selections under
+about ten codes until that clause is reworked.
+
+**One dashboard question changes plan.** `samples-downstream-waste-indiana`
+scopes samples to Indiana and filters block C to NAICS 5622 with no region, so
+its anchor is nationwide and its target is one state. Both orders were measured
+before accepting the change: identical answers, 136 samples and 415 facilities
+either way, and the reordered form is no slower at 13s and 2s against 16s and
+3s.
