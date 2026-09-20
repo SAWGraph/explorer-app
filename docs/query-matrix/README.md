@@ -16,6 +16,7 @@ engine change. The two are not comparable row for row.
 
 | Sweep | Mode | Commit | Shapes | Pass | Fail | Since the previous sweep |
 | --- | --- | --- | ---: | ---: | ---: | --- |
+| [`2026-09-20`](./2026-09-20-raw-002e529.csv) | raw | `002e529` | 32 | 11 | 21 | _first sweep in this mode_ |
 | [`2026-09-14`](./2026-09-14-raw-baseline.csv) | raw-baseline | `unrecorded` | 124 | 87 | 37 | _first sweep in this mode_ |
 | [`2026-09-14`](./2026-09-14-engine.csv) | engine | `unrecorded` | 124 | 112 | 9 | _first sweep in this mode_ |
 | [`2026-09-14`](./2026-09-14-engine-contaminated-9128aa9.csv) | engine-contaminated | `9128aa9` | 124 | 94 | 29 | _first sweep in this mode_ |
@@ -33,4 +34,4 @@ The other 99 rows (62 `near`, 37 `downstream`) are unaffected, and are the contr
 diffing this file against the next sweep.
 
 
-Generated 2026-09-16.
+Generated 2026-09-20.
