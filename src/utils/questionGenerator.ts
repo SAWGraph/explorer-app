@@ -1,6 +1,7 @@
 import type {
   AnalysisQuestion,
   EntityBlock,
+  EntityType,
   SpatialRelationship,
   RegionFilter,
   SampleFilters,
@@ -57,6 +58,27 @@ function describeConcentration(f?: SampleFilters): string {
   return '';
 }
 
+// The plural noun for an entity type, with no filters applied. Shared with the
+// pipeline step labels (src/engine/planner.ts) so the progress strip says
+// "surface water bodies" rather than the raw camelCase type name, and so the
+// two places cannot drift into two different vocabularies.
+export function entityTypeLabel(type: EntityType): string {
+  switch (type) {
+    case 'samples':
+      return 'samples';
+    case 'facilities':
+      return 'facilities';
+    case 'waterBodies':
+      return 'surface water bodies';
+    case 'streams':
+      return 'streams';
+    case 'wells':
+      return 'wells';
+    case 'aquifers':
+      return 'aquifers';
+  }
+}
+
 function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
   switch (block.type) {
     case 'samples': {
@@ -65,7 +87,8 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
       const mats = block.sampleFilters?.materialTypes ?? [];
       const subLabels = block.sampleFilters?.substanceLabels ?? {};
       const subItems = subs.map((uri) => subLabels[uri] || extractLabel(uri));
-      const matItems = mats.map(extractLabel);
+      const matLabels = block.sampleFilters?.materialTypeLabels ?? {};
+      const matItems = mats.map((uri) => matLabels[uri] || extractLabel(uri));
 
       const subAll =
         totals?.substances !== undefined &&
@@ -83,7 +106,7 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
         const parts: string[] = [];
         if (subItems.length) parts.push(subItems.join('/'));
         if (matItems.length) parts.push(matItems.join('/'));
-        return (parts.length ? `${parts.join(' ')} samples` : 'samples') + conc;
+        return (parts.length ? `${parts.join(' ')} samples` : entityTypeLabel('samples')) + conc;
       }
 
       // Postfix form for long/all selections — reads naturally.
@@ -105,7 +128,7 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
           ),
         );
       }
-      return (clauses.length ? `samples with ${clauses.join(' and ')}` : 'samples') + conc;
+      return (clauses.length ? `samples with ${clauses.join(' and ')}` : entityTypeLabel('samples')) + conc;
     }
     case 'facilities': {
       const codes = block.facilityFilters?.industryCodes;
@@ -123,7 +146,7 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
         // NAICS roots still trigger this even though Manufacturing/Retail/
         // Transportation dedupe to fewer short labels.
         if (totals?.industries !== undefined && topLevel.length === totals.industries) {
-          return 'facilities';
+          return entityTypeLabel('facilities');
         }
         // Prefer curated short sector names; fall back to official label.
         const seen = new Set<string>();
@@ -145,12 +168,17 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
         );
         return `${summary} facilities`;
       }
-      return 'facilities';
+      return entityTypeLabel('facilities');
     }
     case 'waterBodies':
-      return 'surface water bodies';
+      return entityTypeLabel('waterBodies');
+    case 'streams': {
+      const ftypes = block.streamFilters?.ftypes ?? [];
+      if (!ftypes.length) return entityTypeLabel('streams');
+      return `${summarize(ftypes, undefined, 'stream types', 'stream type', '/', 'any')} streams`;
+    }
     case 'wells':
-      return 'wells';
+      return entityTypeLabel('wells');
     case 'aquifers': {
       const kinds = block.aquiferFilters?.aquiferTypes ?? [];
       const labels: Record<string, string> = {
@@ -161,7 +189,7 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
       if (kinds.length === 1 && labels[kinds[0]]) {
         return `${labels[kinds[0]]} aquifers`;
       }
-      return 'aquifers';
+      return entityTypeLabel('aquifers');
     }
   }
 }
@@ -174,9 +202,13 @@ function describeRelationship(rel: SpatialRelationship): string {
       return `near (~${miles} mile${miles > 1 ? 's' : ''})`;
     }
     case 'downstream':
-      return 'downstream of';
+      return rel.maxDistanceKm
+        ? `within ${rel.maxDistanceKm} km downstream of`
+        : 'downstream of';
     case 'upstream':
-      return 'upstream from';
+      return rel.maxDistanceKm
+        ? `within ${rel.maxDistanceKm} km upstream from`
+        : 'upstream from';
     case 'within':
       return 'within';
   }

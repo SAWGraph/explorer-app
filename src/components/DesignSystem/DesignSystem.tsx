@@ -23,21 +23,24 @@ const COLOR_PALETTES = [
     ],
   },
   {
-    name: 'Primary (Blue)',
+    name: 'Primary (Blue), the only accent ramp',
     tokens: [
+      { variable: '--color-primary-50', hex: '#f5fbff' },
       { variable: '--color-primary-100', hex: '#ebf8ff' },
       { variable: '--color-primary-200', hex: '#bee3f8' },
+      { variable: '--color-primary-300', hex: '#90cdf4' },
+      { variable: '--color-primary-400', hex: '#63b3ed' },
       { variable: '--color-primary-600', hex: '#3182ce' },
       { variable: '--color-primary-700', hex: '#2b6cb0' },
     ],
   },
   {
-    name: 'Indigo (Accent)',
+    name: 'Indigo (aliases of Primary, kept for old call sites)',
     tokens: [
-      { variable: '--color-indigo-100', hex: '#ebf4ff' },
-      { variable: '--color-indigo-300', hex: '#a3bffa' },
-      { variable: '--color-indigo-600', hex: '#5a67d8' },
-      { variable: '--color-indigo-700', hex: '#4c51bf' },
+      { variable: '--color-indigo-100', hex: '#ebf8ff' },
+      { variable: '--color-indigo-300', hex: '#90cdf4' },
+      { variable: '--color-indigo-600', hex: '#3182ce' },
+      { variable: '--color-indigo-700', hex: '#2b6cb0' },
     ],
   },
   {
@@ -60,6 +63,7 @@ const COLOR_PALETTES = [
   {
     name: 'Yellow (Warning)',
     tokens: [
+      { variable: '--color-yellow-50', hex: '#fffbeb' },
       { variable: '--color-yellow-100', hex: '#fefcbf' },
       { variable: '--color-yellow-400', hex: '#ecc94b' },
       { variable: '--color-yellow-800', hex: '#744210' },

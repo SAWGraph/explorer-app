@@ -5,7 +5,13 @@ export interface AnalysisQuestion {
   blockC: EntityBlock;
 }
 
-export type EntityType = 'samples' | 'facilities' | 'waterBodies' | 'wells' | 'aquifers';
+export type EntityType =
+  | 'samples'
+  | 'facilities'
+  | 'waterBodies'
+  | 'wells'
+  | 'aquifers'
+  | 'streams';
 
 export interface EntityBlock {
   type: EntityType;
@@ -15,6 +21,7 @@ export interface EntityBlock {
   waterBodyFilters?: WaterBodyFilters;
   wellFilters?: WellFilters;
   aquiferFilters?: AquiferFilters;
+  streamFilters?: StreamFilters;
 }
 
 export interface RegionFilter {
@@ -28,6 +35,7 @@ export interface SampleFilters {
   substances?: string[];
   substanceLabels?: Record<string, string>; // uri → display label
   materialTypes?: string[];
+  materialTypeLabels?: Record<string, string>; // uri → display label
   minConcentration?: number;
   maxConcentration?: number;
   unit?: string;
@@ -41,6 +49,10 @@ export interface FacilityFilters {
 
 export interface WaterBodyFilters {
   waterTypes?: string[];
+  ftypes?: string[];
+}
+
+export interface StreamFilters {
   ftypes?: string[];
 }
 
@@ -59,4 +71,7 @@ export interface AquiferFilters {
 export interface SpatialRelationship {
   type: 'near' | 'downstream' | 'upstream' | 'within';
   hops?: number;
+  // Cumulative flowpath length cutoff (km) for downstream/upstream traces.
+  // Undefined = unbounded transitive closure, the original behavior.
+  maxDistanceKm?: number;
 }

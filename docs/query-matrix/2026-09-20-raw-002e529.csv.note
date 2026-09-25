@@ -1,0 +1,7 @@
+**Cold. Do not diff this against a later sweep on its own.** This was the first
+MD sweep ever run, so every query in it missed the engine's cache, and the three
+sweeps taken after it were all warm. One row moves on that difference alone:
+`facilities upstream samples [ME on A] step1` times out here and answers in 15s
+warm, with the generated SPARQL byte-identical (1,950 chars either side of
+`ec221d9`). Read against `2026-09-20-raw-e84a11f.csv`, which re-runs the same
+pre-fix engine warm, and is the honest before-half of that comparison.

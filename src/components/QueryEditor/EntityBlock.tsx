@@ -5,6 +5,7 @@ import { FacilityFilters } from './FacilityFilters';
 import { WaterBodyFilters } from './WaterBodyFilters';
 import { WellFilters } from './WellFilters';
 import { AquiferFilters } from './AquiferFilters';
+import { StreamFilters } from './StreamFilters';
 import { RegionSelector } from './RegionSelector';
 import { useState } from 'react';
 
@@ -23,7 +24,8 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
       value.facilityFilters?.industryCodes?.length ||
       value.waterBodyFilters?.ftypes?.length ||
       value.wellFilters?.wellCategories?.length ||
-      value.aquiferFilters?.aquiferTypes?.length
+      value.aquiferFilters?.aquiferTypes?.length ||
+      value.streamFilters?.ftypes?.length
     )
   );
 
@@ -62,6 +64,12 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
             <WaterBodyFilters
               value={value.waterBodyFilters}
               onChange={(f) => onChange({ ...value, waterBodyFilters: f })}
+            />
+          )}
+          {value.type === 'streams' && (
+            <StreamFilters
+              value={value.streamFilters}
+              onChange={(f) => onChange({ ...value, streamFilters: f })}
             />
           )}
           {value.type === 'wells' && (

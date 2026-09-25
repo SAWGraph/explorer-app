@@ -1,7 +1,75 @@
 import type { MapFeature, SamplePointDetail, SampleRecord } from '../../types/map';
+import { useSampleDetails } from '../../hooks/useSampleDetails';
+import { useQueryStore } from '../../store/queryStore';
 
 interface MapPopupProps {
   feature: MapFeature;
+  // True once this feature's popup is open. Sample observation rows are fetched
+  // on open rather than for every sample up front — see useSampleDetails.
+  isOpen?: boolean;
+}
+
+// Wraps the sample popup so the fetch only starts when the popup is open.
+function SamplePopup({ feature, isOpen }: { feature: MapFeature; isOpen: boolean }) {
+  const question = useQueryStore((s) => s.question);
+  const sampleFilters =
+    question.blockA.type === 'samples'
+      ? question.blockA.sampleFilters
+      : question.blockC.sampleFilters;
+  const { data, isLoading, isError } = useSampleDetails(feature.id, isOpen, sampleFilters);
+  const props = feature.properties;
+
+  if (data) {
+    return (
+      <SampleDetailPopup
+        id={feature.id}
+        detail={data}
+        resultCount={props.resultCount}
+        sampleCount={props.sampleCount}
+      />
+    );
+  }
+
+  return (
+    <div className="map-popup">
+      <table className="popup-table">
+        <tbody>
+          {props.sampleCount && (
+            <tr>
+              <td className="popup-label">Samples</td>
+              <td>{props.sampleCount}</td>
+            </tr>
+          )}
+          <tr>
+            <td className="popup-label">Results</td>
+            <td>{props.resultCount}</td>
+          </tr>
+          {props.maxConcentration && (
+            <tr>
+              <td className="popup-label">Max</td>
+              <td>{props.maxConcentration}</td>
+            </tr>
+          )}
+          {props.substances && (
+            <tr>
+              <td className="popup-label">Substances</td>
+              <td>{String(props.substances).split('; ').slice(0, 3).join(', ')}</td>
+            </tr>
+          )}
+          {props.materials && (
+            <tr>
+              <td className="popup-label">Materials</td>
+              <td>{props.materials}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <div className="popup-detail-status">
+        {isLoading && 'Loading measurements…'}
+        {isError && 'Could not load measurements for this sample point.'}
+      </div>
+    </div>
+  );
 }
 
 function SampleDetailPopup({
@@ -94,10 +162,10 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
             </tr>
           </thead>
           <tbody>
-            {sample.observations.map((obs, j) => (
-              <tr key={j}>
+            {sample.observations.map((obs) => (
+              <tr key={obs.substanceUri}>
                 <td>{obs.substance}</td>
-                <td>{obs.result} {obs.unit}</td>
+                <td>{obs.results.join(', ')} {obs.unit}</td>
               </tr>
             ))}
           </tbody>
@@ -107,68 +175,43 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
   );
 }
 
+// The FRS registry id out of a facility IRI, e.g.
+// http://w3id.org/fio/v1/epa-frs-data#d.FRS-Facility.110000344681 -> 110000344681.
+//
+// Matched strictly rather than by taking the last dot-separated segment. The
+// graph also holds d.Record.<PROGRAM>.<id> entities under fio:ofIndustry whose
+// trailing segment is a program id, not a registry id, and a loose split would
+// build a confident link to the wrong FRS page. Those records carry no geometry
+// so they never reach a popup today, but this is now the only link here and
+// there is no second link to fall back to.
+function frsRegistryId(uri: string): string | null {
+  const match = uri.match(/#d\.FRS-Facility\.(\d+)$/);
+  return match ? match[1] : null;
+}
+
+function frsUrl(registryId: string): string {
+  return `https://frs-public.epa.gov/ords/frs_public2/fii_query_detail.disp_program_facility?p_registry_id=${registryId}`;
+}
+
 function extractIlWellId(uri: string): string | null {
   const match = uri.match(/ISGS-Well\.(\d{12})/);
   return match ? match[1] : null;
 }
 
-export function MapPopupContent({ feature }: MapPopupProps) {
+export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
   const props = feature.properties;
 
-  // Rich sample popup when detail data is available
-  if (props.type === 'sample' && feature.sampleDetails) {
-    return (
-      <SampleDetailPopup
-        id={feature.id}
-        detail={feature.sampleDetails}
-        resultCount={props.resultCount}
-        sampleCount={props.sampleCount}
-      />
-    );
-  }
-
   if (props.type === 'sample') {
-    return (
-      <div className="map-popup">
-        <table className="popup-table">
-          <tbody>
-            {props.sampleCount && (
-              <tr>
-                <td className="popup-label">Samples</td>
-                <td>{props.sampleCount}</td>
-              </tr>
-            )}
-            <tr>
-              <td className="popup-label">Results</td>
-              <td>{props.resultCount}</td>
-            </tr>
-            {props.maxConcentration && (
-              <tr>
-                <td className="popup-label">Max</td>
-                <td>{props.maxConcentration}</td>
-              </tr>
-            )}
-            {props.substances && (
-              <tr>
-                <td className="popup-label">Substances</td>
-                <td>{String(props.substances).split('; ').slice(0, 3).join(', ')}</td>
-              </tr>
-            )}
-            {props.materials && (
-              <tr>
-                <td className="popup-label">Materials</td>
-                <td>{props.materials}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    );
+    return <SamplePopup feature={feature} isOpen={isOpen} />;
   }
 
   if (props.type === 'facility') {
-    const registryId = feature.id.split('.').pop() || '';
-    const epaUrl = `https://frs-public.epa.gov/ords/frs_public2/fii_query_detail.disp_program_facility?p_registry_id=${registryId}`;
+    // EPA FRS is the only link in this popup, by request: the w3id.org/fio IRIs
+    // resolve to raw ontology terms, which is not what someone clicking a
+    // facility in a map popup is after. The facility name carries the link and
+    // the NAICS code is plain text.
+    const registryId = frsRegistryId(feature.id);
+    const label = `${props.name || 'Facility'}${registryId ? ` (${registryId})` : ''}`;
     return (
       <div className="map-popup">
         <table className="popup-table">
@@ -176,11 +219,12 @@ export function MapPopupContent({ feature }: MapPopupProps) {
             <tr>
               <td className="popup-label">Facility</td>
               <td>
-                <a href={feature.id} target="_blank" rel="noopener noreferrer">
-                  {props.name || 'Facility'}{registryId ? ` (${registryId})` : ''}
-                </a>
-                {registryId && (
-                  <> · <a href={epaUrl} target="_blank" rel="noopener noreferrer">EPA FRS</a></>
+                {registryId ? (
+                  <a href={frsUrl(registryId)} target="_blank" rel="noopener noreferrer">
+                    {label}
+                  </a>
+                ) : (
+                  label
                 )}
               </td>
             </tr>
@@ -188,9 +232,8 @@ export function MapPopupContent({ feature }: MapPopupProps) {
               <tr>
                 <td className="popup-label">Industry</td>
                 <td>
-                  <a href={String(props.industryCode)} target="_blank" rel="noopener noreferrer">
-                    {props.industryName || 'Industry'} (NAICS {String(props.industryCode).split('-').pop()})
-                  </a>
+                  {props.industryName || 'Industry'} (NAICS{' '}
+                  {String(props.industryCode).split('-').pop()})
                 </td>
               </tr>
             )}
@@ -319,6 +362,12 @@ export function MapPopupContent({ feature }: MapPopupProps) {
               <tr>
                 <td className="popup-label">Type</td>
                 <td>{props.flowType}</td>
+              </tr>
+            )}
+            {props.pathLength && (
+              <tr>
+                <td className="popup-label">Flow distance</td>
+                <td>{Number(props.pathLength).toFixed(1)} km</td>
               </tr>
             )}
             {feature.id && (

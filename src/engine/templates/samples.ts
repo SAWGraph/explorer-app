@@ -7,6 +7,26 @@ export function wrapUri(uri: string): string {
 
 const NG_PER_L_UNIT_URI = 'http://qudt.org/vocab/unit/NanoGM-PER-L';
 
+// The ng/L unit is only consulted by the concentration-range filter. A
+// non-detect has no coso:measurementUnit at all, so binding it unconditionally
+// silently drops ~70% of results. Callers emit the triple only when needed.
+export function needsUnitJoin(filters?: SampleFilters): boolean {
+  return filters?.minConcentration != null || filters?.maxConcentration != null;
+}
+
+// Binds ?numericResult, ?nonDetect and a single-valued ?result_value from
+// qudt:quantityValue. coso:measurementValue is deliberately not used: it is
+// multi-valued for non-detects, returning both "non-detect" and "non-quantified",
+// which duplicates every non-detect row and makes MAX() return a string.
+export function resultValueClauses(suffix = ''): string {
+  return `OPTIONAL { ?result${suffix} qudt:quantityValue/qudt:numericValue ?numericResult${suffix} }
+      OPTIONAL { ?result${suffix} qudt:quantityValue ?_qv${suffix} .
+                 ?_qv${suffix} rdf:type coso:NonDetectQuantityValue .
+                 BIND(true AS ?nonDetect${suffix}) }
+      BIND(COALESCE(STR(?numericResult${suffix}),
+             IF(BOUND(?nonDetect${suffix}), "non-detect", "non-quantified")) AS ?result_value${suffix})`;
+}
+
 // Emits the SPARQL fragment that filters by substance / material / concentration
 // range. Requires the caller to bind ?result, ?result_value, and ?unit before
 // this fragment appears. `suffix` (default '') is appended to every variable
@@ -27,16 +47,14 @@ export function buildSampleFilterClauses(filters?: SampleFilters, suffix = ''): 
     filters.minConcentration != null || filters.maxConcentration != null;
   const excludeNondetects = filters.includeNondetects === false;
 
-  if (hasRange || excludeNondetects) {
-    clauses += `OPTIONAL { ?result${suffix} qudt:quantityValue/qudt:numericValue ?numericResult${suffix} }\n      `;
-    clauses += `OPTIONAL { ?result${suffix} qudt:enumeratedValue ?enumDetected${suffix} }\n      `;
-  }
-
   if (hasRange) {
-    clauses += `BIND(COALESCE(xsd:decimal(?numericResult${suffix}), xsd:decimal(?result_value${suffix})) as ?numericValue${suffix})\n      `;
-    clauses += `VALUES ?unit${suffix} { <${NG_PER_L_UNIT_URI}> }\n      `;
+    clauses += `BIND(xsd:decimal(?numericResult${suffix}) as ?numericValue${suffix})\n      `;
 
-    const numericChecks: string[] = [];
+    const numericChecks: string[] = [
+      // ponytail: the unit test belongs on the numeric branch. A non-detect has
+      // no coso:measurementUnit, so requiring it globally silently drops them.
+      `?unit${suffix} = <${NG_PER_L_UNIT_URI}>`,
+    ];
     if (filters.minConcentration != null) {
       numericChecks.push(`?numericValue${suffix} >= ${filters.minConcentration}`);
     }
@@ -47,12 +65,11 @@ export function buildSampleFilterClauses(filters?: SampleFilters, suffix = ''): 
 
     if (excludeNondetects) {
       clauses += `FILTER(${numericExpr})\n      `;
-      clauses += `FILTER(!BOUND(?enumDetected${suffix}))\n      `;
     } else {
-      clauses += `FILTER((${numericExpr}) || BOUND(?enumDetected${suffix}))\n      `;
+      clauses += `FILTER((${numericExpr}) || BOUND(?nonDetect${suffix}))\n      `;
     }
   } else if (excludeNondetects) {
-    clauses += `FILTER(!BOUND(?enumDetected${suffix}))\n      `;
+    clauses += `FILTER(BOUND(?numericResult${suffix}))\n      `;
   }
 
   return clauses;

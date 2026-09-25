@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from '../types/query';
 import type { StepProgress, PipelineResult, PipelineError } from '../engine/executor';
 import { deepClone } from '../utils/clone';
+import { migrateQuestion } from '../utils/migrateQuestion';
 
 function defaultEntityBlock(type: EntityBlock['type']): EntityBlock {
   return { type };
@@ -22,6 +23,9 @@ interface QueryStore {
   baselineQuestion: AnalysisQuestion;
   stepProgress: StepProgress[];
   pipelineResult: PipelineResult | null;
+  // Set when the result came from the cache rather than a live run, so the UI
+  // can say so. Null means the displayed result was just computed.
+  resultProvenance: { computedAt: string | null; partial: boolean } | null;
   isRunning: boolean;
   isEditModalOpen: boolean;
   questionSnapshot: AnalysisQuestion | null;
@@ -58,6 +62,9 @@ interface QueryStore {
   addStepProgress: (progress: StepProgress) => void;
   clearProgress: () => void;
   setPipelineResult: (result: PipelineResult | null) => void;
+  setResultProvenance: (
+    provenance: { computedAt: string | null; partial: boolean } | null,
+  ) => void;
 
   openTour: () => void;
   closeTour: () => void;
@@ -71,6 +78,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
   baselineQuestion: defaultQuestion(),
   stepProgress: [],
   pipelineResult: null,
+  resultProvenance: null,
   isRunning: false,
   isEditModalOpen: false,
   questionSnapshot: null,
@@ -79,17 +87,22 @@ export const useQueryStore = create<QueryStore>((set) => ({
   isTourOpen: false,
   pendingTour: null,
 
-  loadQuestion: (id, question, name = null, options = {}) =>
-    set({
+  loadQuestion: (id, rawQuestion, name = null, options = {}) => {
+    // Saved and published questions can predate the namespace split; every
+    // load path funnels through here, so migrate once at the door.
+    const question = migrateQuestion(rawQuestion);
+    return set({
       activeQueryId: id,
       activeQueryName: name,
       question,
       baselineQuestion: deepClone(question),
       stepProgress: [],
       pipelineResult: null,
+      resultProvenance: null,
       pendingAutoRun: options.autoRun ?? true,
       lastApplyError: null,
-    }),
+    });
+  },
   setActiveQueryId: (activeQueryId) => set({ activeQueryId }),
   setActiveQueryName: (activeQueryName) => set({ activeQueryName }),
   markBaseline: () =>
@@ -131,6 +144,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
     }),
   clearProgress: () => set({ stepProgress: [] }),
   setPipelineResult: (pipelineResult) => set({ pipelineResult }),
+  setResultProvenance: (resultProvenance) => set({ resultProvenance }),
 
   openTour: () => set({ isTourOpen: true }),
   closeTour: () => set({ isTourOpen: false }),

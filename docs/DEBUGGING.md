@@ -192,3 +192,588 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 **Fix**: Simplified the logic — when a node's code is in `allCodes`, always add it to `userSelections` regardless of whether all descendants are also selected.
 **Files touched**: `src/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts`
 **Prevention**: When writing selection collapse/expand logic, handle the case where stored data may not match the fully expanded representation.
+
+---
+
+## 2026-09-08 — Substance dropdown empty: required label predicate with zero triples
+
+**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`, and `useSubstances()` in `src/hooks/useDiscoveryQueries.ts`
+**Symptom**: The Substance dropdown rendered "No options available" with a state selected, and silently showed the seven-entry `FALLBACK_SUBSTANCES` list with no state selected.
+**Root cause**: The query required `?substance dcterms:alternative ?_label`. That predicate has **zero** triples on substances, on `sawgraph` and `federation` alike. Because it was a required pattern rather than `OPTIONAL`, the whole query returned 0 rows instead of returning substances without labels. Substance names live on `rdfs:label` (896,899 triples). The likely origin of the mistake is `docs/SCHEMA.md`'s facility table, where `dcterms:alternative` is a legitimate *facility* predicate: 3,824,195 triples in fiokg, 3,742,487 of them on `fio:Facility`, 0 on `comptox:ChemicalEntity`.
+**Fix**: Switched to `rdfs:label`, then made both label patterns `OPTIONAL` and added a DTXSID fallback in the hook. Fixing only the predicate still hid 32 of 101 substances (47,642 observations, 5.0% of everything with a substance link) because the label was still required. Live counts: 0 rows → 69 → 101 unfiltered, and 0 → 69 → 79 for Maine.
+**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
+**Prevention**: A label pattern in a discovery query must be `OPTIONAL` with a URI-tail fallback. A required label does not degrade, it deletes: the row disappears along with its data, and the dropdown looks merely short rather than broken. This one mistake caused both the total outage and the 32 hidden substances. Cross-repo confirmation: `SAWGraph/streamlit-app/filters/substance.py:67` carries the identical bug and returns 0 rows live today, while `core/sparql.py:586` and `analyses/pfas_upstream/queries.py:147` in the same repo use `rdfs:label`; `analyses/aquifer_wells/queries.py:96-97` asks for both predicates but marks each `OPTIONAL`, and therefore survives.
+
+---
+
+## 2026-09-09 — QLever aggregate quirks while building the substance label fallback
+
+**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
+**Symptom**: Three separate failures while adding a fallback that borrows a substance name from the source parameter it was matched to.
+**Root cause**: All three are QLever aggregate behaviours, not SPARQL semantics.
+
+1. `COALESCE(SAMPLE(?a), SAMPLE(?b))` returns HTTP 500 on `federation` with `Assertion 'singleResult.size() == 1' failed. An expression returned a vector expression result that contained an unexpected amount of entries ... GroupByImpl.cpp:436`. The same query succeeds on `sawgraph`, so it passes a casual test. `SAMPLE(COALESCE(?a, ?b))` runs on both.
+2. `SAMPLE(?x)` where `?x` is bound inside a nested `OPTIONAL` can return **unbound even when some rows in the group bind it**. This is the dangerous one: it fails silently, costing 8 of 69 acronyms with no error. Requiring the value in the OPTIONAL's own pattern (`OPTIONAL { ?p pred ?s ; rdfs:label ?_x . }`) rather than nesting a second OPTIONAL inside fixes it.
+3. `SAMPLE()` picks arbitrarily across the 41 substances matched by more than one parameter, so labels changed between runs. `MIN()` is deterministic and, because `X` sorts before `X_A`, happens to prefer the unsuffixed base form.
+
+**Fix**: Project the borrowed name as its own column with `MIN(?_viaParam)`, require `rdfs:label` inside the OPTIONAL, and coalesce in the hook rather than in SPARQL.
+**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`
+**Prevention**: Test aggregate expressions against **both** `sawgraph` and `federation`; they do not behave identically. And when an aggregate feeds a fallback chain, assert the expected coverage count rather than eyeballing the first few rows, since a silently unbound `SAMPLE` looks exactly like missing data.
+
+---
+
+## 2026-09-11 — A dead IRI returns 200 with no rows, it does not error
+
+**Component**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Symptom**: The "PFHpA Groundwater Samples Downstream from Facilities in Cumberland County" card ran every pipeline step, reported success, and drew an empty map. No error anywhere.
+**Root cause**: The card's material filter pinned `http://w3id.org/sawgraph/v1/me-egad-data#sampleMaterialType.GW`, which matches zero triples. The August 2026 reload moved the two halves of the graph in opposite directions: instance data to `v2/me-egad-data#` and `v2/us-wqp-data#`, controlled vocabulary out of `-data` and into the roots `v1/me-egad#` and `v1/us-wqp#`. Material types are vocabulary, so the root form is the live one. All six `FALLBACK_MATERIAL_TYPES` entries carried the same dead namespace, and one also used `sampleMaterialType.SO` for sludge, a code that appears nowhere in the vocabulary — the real one is `.SU`.
+
+The failure mode is the point. The filter it builds is `VALUES ?matType { <dead-iri> }`, which is valid SPARQL. The endpoint answers 200 with zero rows, and nothing downstream can distinguish that from an honest "no data matches". Verified live: with the dead IRI, 0 sample points; with the root form, 65 sample points and 171 observations.
+
+**Fix**: `ef0c40b` — both files moved to `v1/me-egad#`, sludge corrected to `.SU`.
+**Files touched**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Prevention**: Same family as the `dcterms:alternative` bug above — *a required pattern that cannot match does not degrade, it deletes*. Extend that to IRIs: a hardcoded IRI is a silent single point of failure the moment a namespace moves. When a query returns nothing, count the triples on the IRIs it names (`SELECT (COUNT(*) AS ?n) WHERE { { <iri> ?p ?o } UNION { ?s ?p2 <iri> } }`) before investigating anything else. Source of truth for the source-specific vocabularies is `SAWGraph/pfas-kg` under `datasets/*/controlledVocab/`, not `contaminoso`, which defines only the shapes.
+
+---
+
+## 2026-09-11 — QLever reports a query timeout as HTTP 429
+
+**Component**: any pipeline step against `apps.okn.us`
+**Symptom**: `429 Too Many Requests` in the network tab after ~30s, which reads as rate limiting and sends you looking for a request budget that does not exist.
+**Root cause**: QLever uses 429 for query timeouts. The response body carries the real reason:
+
+```json
+{ "exception": "Operation timed out. Last operation: Join on ?s2anchor" }
+{ "exception": "Operation timed out. Last operation: Sort (internal order) on ?resultC" }
+```
+
+A related failure appears as HTTP 500 with `Tried to allocate 409.6 MB, but only 351 MB were available`. Both are resource exhaustion; only the reporting differs. Available memory is not stable — observed at 370 MB, 351 MB and 88 MB within one afternoon on the same endpoint, so the same query can pass and fail minutes apart. This matches the endpoint flakiness recorded in changelog week 37 entry 5.
+
+**Fix**: None needed in the app. Diagnostic note only.
+**Prevention**: Always read the response body before concluding rate limiting; the status code alone is misleading. A 429 that took 30 seconds is a timeout, not a throttle — a real throttle returns immediately. Retry on an idle endpoint before investigating a query, and be aware a green run proves less than a red one here.
+
+Trimming unused bindings measurably helps. The downstream `FIND_TARGET_IRIS` query selects only `?spC` but also binds `?matTypeLabelC` and computes `?result_valueC`, neither projected nor filtered on. Removing just those two took the query from a hard timeout to 24.7s before it hit the memory ceiling. Same pattern as the Indiana card in changelog week 37 entry 5.
+## 2026-09-13 — The 429s, and what shipped to stop them
+
+Builds on the 2026-09-11 entry above, which established that a 429 from these
+endpoints is a query timeout. This one records the scale of the problem and the
+fix.
+
+**How widespread**: a sweep of every question the editor can build (95 shapes,
+156 queries) found **37 failing outright and 32 more running over 15s** against
+a 30s limit. River-trace questions were half broken — 23 of 50 worked. Maine was
+the only healthy state: the same plain question failed in 5 of 6 others,
+including Indiana, which is one of our own dashboard cards. Full results and the
+catalogue of all nine failure responses are in `docs/QUERY-MATRIX.md`.
+
+**Root cause beyond the unused bindings** already noted above: `bindEntityInCell`
+(`templates/fusedQueries.ts`) served both the ID-finding queries and the hydrate
+queries. The hydrate side projects `?substance`, `?matTypeLabel`,
+`?result_value`; the ID side projects one column and needs none of it. Both got
+the measurement joins, so the ID queries built every measurement in the state
+and discarded it.
+
+**Fix**: ID-finding queries drop those joins unless a filter needs them, and any
+query the engine refuses is split into slices and merged
+(`src/engine/scope.ts`). 34 of the 37 failures now work, none regressed.
+
+**Three traps worth knowing**
+
+- **An unfiltered second block means every entity in the graph** — 1,506,326
+  facilities, 532,771 wells. That, not the size of the answer, is what blows the
+  limit. Narrowing the *first* block does not help: measured, still OOM at
+  2.6 GB. The three questions that remain unanswerable all have this shape.
+- **413/502 arrives in the browser as a CORS error**, because the gateway's
+  error response omits `Access-Control-Allow-Origin`. It means our *request* was
+  too big — an inlined `VALUES` list — not that anything is wrong with CORS.
+- **`?timeout=120s` returns 403.** Raising the engine's limit needs an access
+  token we do not have, so the 30s ceiling is not negotiable from our side.
+
+**Prevention**: benchmark against more than Maine, and re-run
+`npm run query-matrix` after any engine change, diffing against
+`docs/query-matrix/2026-09-14-raw-baseline.csv`.
+
+---
+
+## 2026-09-14 — Cached results served for the wrong question (FIXED)
+
+**Component**: `src/engine/cacheKey.ts` — `canonicalQuestion`
+
+**Symptom**: none visible. That is the point of this entry. A map would render a
+complete, plausible answer that belonged to a *different* question, with no
+error, no warning, and the usual "showing saved results" banner.
+
+**Root cause**: `canonicalQuestion` normalised the relationship by rebuilding it
+from a whitelist:
+
+```ts
+const relationship =
+  rel.type === 'near' || rel.type === 'within'
+    ? { type: rel.type, hops: rel.hops ?? 1 }
+    : { type: rel.type };          // ← everything else on the relationship is gone
+```
+
+Correct when written — `hops` is genuinely only read on the near path, so a
+leftover value must not split the key. But the `else` branch discards *any* other
+field. When PR #41 added `maxDistanceKm`, a 30 km-bounded question and an
+unbounded one immediately hashed to the same key:
+
+```
+unbounded : q:6b1d1ee8b88e820f5b44f6833c15730d3a9c574894339c8dba671e8c7b04e615
+30 km     : q:6b1d1ee8b88e820f5b44f6833c15730d3a9c574894339c8dba671e8c7b04e615
+```
+
+Caching either would have served its answer for the other. For "facilities
+upstream from PFOS samples in York/Washington/Waldo" that is **12,077 river
+reaches and 14 sample points missing**, presented as the complete answer.
+
+**Caught**: while warming that question for a demo — the key was printed as part
+of checking the upload, and the two matched. The upload was killed before it
+wrote and the cache verified clean (404 on the colliding key), so nothing needed
+purging. It would not have been caught by looking at a map.
+
+**Fix**: strip only the field known to be irrelevant, and carry the rest
+through:
+
+```ts
+const { hops, ...restOfRelationship } = rel;
+const relationship =
+  rel.type === 'near' || rel.type === 'within'
+    ? { ...restOfRelationship, hops: hops ?? 1 }
+    : restOfRelationship;
+```
+
+Unbounded traces keep the key they had before `maxDistanceKm` existed, so
+entries cached earlier stay reachable.
+
+**Prevention** — the general lesson, which matters more than this instance:
+
+- **A cache key must fail safe, and "safe" is asymmetric.** A field wrongly
+  *included* costs a cache miss. A field wrongly *dropped* serves the wrong
+  answer. So build the key by removing known-irrelevant fields, never by
+  listing known-relevant ones — a whitelist silently drops whatever is added
+  next, and adding a field to `AnalysisQuestion` is a normal thing to do.
+- Any new field on `AnalysisQuestion` that changes results must be reflected in
+  `scripts/check-cache-key.mts`. It now covers bounded vs unbounded, two
+  different bounds, and that the unbounded key is unchanged — 19 checks.
+- The same reasoning applies to `WIRE_VERSION` in that file: bump it when the
+  set of stored result keys changes, or cached entries will be missing data the
+  map expects.
+
+---
+
+## 2026-09-16 — "Upstream from" answered the mirror question (FIXED)
+
+**Component**: `src/engine/planner.ts` — `buildFusedSteps`, and
+`src/engine/templates/fusedQueries.ts` — `buildFusedWellQuery`
+
+**Symptom**: reported by Torsten: "the upstream query seems to be switched: I
+asked for facilities upstream of stream but seem to get stream upstream of
+facilities." Every `upstream` question returned the relation read backwards.
+Nothing errored, both layers drew, and the streams were real rivers beside real
+facilities.
+
+**Root cause**: the templates trace one way only. The anchor is bound into
+`?s2anchor`, the seed flowline hangs off it, and the target comes out
+`direction` of the anchor:
+
+```sparql
+downstream mode:  ?upstream_flowline hyf:downstreamFlowPathTC ?ds_flowline   # target below anchor
+upstream mode:    ?ds_flowline hyf:downstreamFlowPathTC ?upstream_flowline   # target above anchor
+```
+
+So the planner decides two things: which block is the anchor (which side seeds)
+and which way to trace from it. For `upstream` the anchor has to be block A,
+because seeding from an unfiltered block C means every stream in the country and
+times out. The anchor was right; the direction was not:
+
+```ts
+if (relationship.type === 'upstream') { anchorBlock = blockA; targetBlock = blockC; }   // correct
+...
+direction: relationship.type === 'downstream' ? 'downstream' : 'upstream',              // wrong
+```
+
+Two flips were required and one was applied. In one line: the code treated *the
+name of the relationship the user picked* and *the direction to trace from the
+seed* as the same value, and they are the same only when the seed is block C.
+
+Not a regression from the fused refactor. `d9ba5a6` carried the bug across
+faithfully, comment and all; the S2-cell pipeline it replaced did the same thing
+(`getS2Step(blockA)` then `traceUpstreamStep()` then `findEntitiesStep(blockC)`),
+and `git log -S buildUpstreamTraceQuery --reverse` puts that in the initial
+commit. Upstream had never worked.
+
+**How wrong**: "samples in Maine upstream from landfills", measured live.
+
+| | Distinct samples |
+| --- | --- |
+| Before | 840 |
+| After | 2,797 |
+| In both | 777 |
+
+72% of the correct answer was missing and 63 rows were false positives. The old
+answer was, in effect, the *downstream* relation, so "samples upstream from
+landfills" and "samples downstream from landfills" were two names for one
+question (404 of 474 rows shared, the rest explained by the seed-side tolerance
+below).
+
+For facility-shaped answers the answer layer barely moves — Cook County returns
+411 facilities either way, because "upstream of some stream" and "downstream of
+some stream" are both nearly vacuous — so the stream layer was the only visible
+tell. That is what was noticed, and it is why no screenshot review ever caught
+it.
+
+**Caught**: by a user, on a shape nothing automated runs. The 9 prebuilt
+dashboard questions are 7 `near` and 2 `downstream`, zero `upstream`, so the
+weekly health check and the warm cache never touched it. `docs/QUERY-MATRIX.md`
+3.3 *did* measure all 36 upstream shapes and passed them: a mirror answer
+returns a plausible row count in a plausible time, and the sweep records status,
+duration and rows, never semantics.
+
+**Fix**: name the decision and make it once.
+
+```ts
+const isUpstream = relationship.type === 'upstream';
+const anchorBlock: EntityBlock = isUpstream ? blockA : blockC;
+const targetBlock: EntityBlock = isUpstream ? blockC : blockA;
+// The anchor is always the upstream side of the question, so the trace always
+// runs downstream from it.
+const traceDirection = 'downstream' as const;
+```
+
+Two further things came out of the fix:
+
+- **A second copy of the rule.** `buildFusedWellQuery` re-derives the whole
+  trace server-side (a statewide well set is 20k+ IRIs, too many to inline) and
+  decided its own direction from `relationship.type` via `relationshipMode()`.
+  Before the fix it agreed with discovery, both wrong. After it, the well layer
+  would have been a different set from the wells discovery found. The planner
+  now passes the direction it used and `relationshipMode` is deleted with its
+  only caller.
+- **The corrected question is much heavier**, and it first failed outright:
+  `chooseAxis` had no axis left for a single-county question (both probes past
+  `PROBE_LIMIT`, one county not splittable), so the step errored after 64s
+  instead of slicing. `scope.ts` gained a last-resort bulk probe.
+
+**Verified** end to end through the real pipeline, and in the app on the PR
+preview: Cook County facilities upstream from streams draws 402 facilities and
+1,290 flowlines running down the Des Plaines, the Illinois and the Mississippi
+past St. Louis. Before the fix the same question drew the headwater tributaries
+north of Chicago and nothing downstream of it.
+
+| Question | Before | After |
+| --- | --- | --- |
+| Cook facilities upstream from streams, any distance | 1.3s, wrong direction | 214s |
+| same, bounded 10 km / 50 km | n/a | 25s / 12s |
+| Cook facilities near streams | 11s | 11s |
+| ME samples downstream from landfills | 38s | 38s |
+
+**Prevention** — the general lessons:
+
+- **A flag that reads like a pass-through is not one.**
+  `rel.type === 'downstream' ? 'downstream' : 'upstream'` looks like it forwards
+  the user's choice. It was duplicated at two call sites, so the decision had no
+  name and no home. Anything with two independent flips has to name both.
+- **Do not overload one variable with a semantic role and an execution
+  property.** `anchor` means both "which side of the question" and "which side
+  seeds, and therefore which side is cheap". One meaning was updated without
+  the other, which is what overloaded variables do.
+- **Plausible output is not verification.** The only assertion that would have
+  caught this is one about the *query*, not the result. That is
+  `scripts/check-trace-direction.mts`: across all 180 planner shapes, every
+  query carrying `hyf:downstreamFlowPathTC` must trace downstream from the seed,
+  and a `near` question must not trace at all. It reads the emitted SPARQL, so
+  it covers all three builders that trace (discovery, the flowline layer, well
+  hydration) rather than trusting the flag each was handed. Confirmed to fail on
+  the code before each of the two fixes.
+- **The dashboard is not coverage.** A third of the question space had no
+  automated exercise of any kind. Where a shape cannot be afforded in CI, an
+  offline assertion about the generated query is the cheap substitute.
+- **A semantics fix does not invalidate the cache.** `cacheKey` hashes the
+  question, not the engine, and complete results live 30 days, so wrong answers
+  keep being served after the fix deploys. Purge by question shape (see
+  `docs/ARCHITECTURE.md`, The Result Cache).
+
+**Known, and not a bug**: the seed side gets a one-cell tolerance the target
+side does not (`?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor` before
+attaching to a flowline). So "A upstream from C" and "C downstream from A" are
+not exactly reciprocal even now, which is part of the 840 vs 474 gap above.
+Making them reciprocal means applying that tolerance to both sides or neither.
+
+---
+
+## 2026-09-17: Two silent filters in the fused queries, join order and the unit join
+
+Both found while running "What facilities are upstream from PFOS samples in York
+and Cumberland counties (Maine)?" with the facilities block left empty. The
+pipeline failed at step 1 after 116.3s with `500 out-of-memory` ("tried to
+allocate 204.8 MB, only 159.3 MB available"), sliced into the two counties, and
+both slices failed the same way.
+
+**Join order (fixed).** `buildFusedWhereBody` always wrote the anchor side
+first, and for an upstream question the planner puts block A on the anchor side.
+With no region and no industry filter on block A, the query started from every
+facility in the graph and traced the national flowline network to look for
+samples in two Maine counties.
+
+QLever does not search join orders exhaustively at these body sizes (12-14
+triples), so it follows the query text. Writing the constrained side first is
+the whole fix: same triples, same variables, different order. Measured across
+all 72 hydrology shape/config pairs, one county scope: 5 shapes rescued, 0
+regressions, 0 rows lost, faster in 50 of 66 comparable runs.
+
+Two things this is *not*, both measured, so nobody re-derives them:
+
+- **Not volume.** Rows materialised through the trace from Cumberland seeds:
+  samples + PFOS 872,385, facilities 681,299, wells 4,183,432. The samples seed
+  materialises more than the facilities seed and succeeds where it fails.
+- **Not a sub-SELECT.** Fencing the constrained side in a sub-SELECT rescues the
+  same 5 shapes but breaks 7 that work today, all OOM: a sub-SELECT is an
+  optimiser barrier, so it forces one plan and forbids every other. A variant
+  that carried only the distinct cells through the fence and re-joined the
+  entity last failed the same 7, three of them degrading from OOM into 60s
+  timeouts.
+
+**The unit join (fixed).** `bindEntityInCell` emitted the entire observation
+chain whenever *any* sample filter was set, including
+`?result coso:measurementUnit ?unit`. A non-detect has no
+`coso:measurementUnit` (`templates/samples.ts` documents this, and the by-IRI
+templates already gated it behind `needsUnitJoin`), so a substance-only question
+with "include non-detects" ticked silently dropped every non-detect. Cumberland
+PFOS observations: 1,688 total, 914 with a unit, 774 non-detect with none. At
+sample-point level, 23 points and 13 facilities became 32 and 15 once the joins
+a substance filter actually reads were the only ones emitted.
+
+The same required join was hiding non-detects in the popup's observation table
+(`buildSampleDetailByIriQuery`): on sample point 64220, **474 of 3,334 rows**,
+the missing 2,860 all non-detects. `OPTIONAL` in place OOMs at 819.7 MB; joining
+it after `resultValueClauses()` with the symbol lookup nested inside costs what
+it did before (6.88s vs 6.59s).
+
+**Lessons**
+
+- **Every required triple is also a filter.** Joining detail the query only
+  displays, or that an inactive filter would have read, deletes rows. Both bugs
+  here are one habit: an all-or-nothing gate that conflated "the user set a
+  filter" with "fetch the whole record".
+- **Textual triple order is a semantic-free change with a non-semantic-free
+  cost.** It cannot alter the answer, and it decided whether this question
+  answered at all. That makes it cheap to try and worth asserting:
+  `scripts/check-query-joins.mts` reads the emitted SPARQL and fails if the
+  unconstrained side leads, or if the unit join appears without a concentration
+  range.
+- **Measure the fix against the shapes it touches, not the one that prompted
+  it.** The sub-SELECT looked like a 48% median win on the question at hand and
+  was a net regression across the shape space.
+
+## 2026-09-19: The stream layer drew rivers in a basin no sample drains from (FIXED)
+
+Reported from outside the team: "What facilities are upstream from PFOS samples?"
+scoped to York County, ME drew the entire Merrimack River, which is in another
+state and another watershed.
+
+**What was broken.** `GET_FLOWLINE_GEOMETRIES` is a separate query from
+discovery, and it traced a one-sided transitive closure. It seeded from the
+cells of every resolved anchor, widened each by `sfTouches`, and followed
+`hyf:downstreamFlowPathTC` to the end of the network:
+
+```sparql
+?upstream_flowline rdf:type hyf:HY_FlowPath ;
+      spatial:connectedTo ?s2cellus ;
+      hyf:downstreamFlowPathTC ?flowline .
+```
+
+Nothing in it references the target. An anchor sitting near a drainage divide
+therefore pulled in the whole of the neighbouring basin. Drawn for that
+question: 122 segments of the Merrimack, 40 of the Presumpscot, 37 of the
+Suncook, 24 of Cohas Brook, 21 of the Winnipesaukee (~130km away), 16 of the
+Powwow.
+
+**Where it was not.** The discovery query was innocent, which is why the first
+guess was wrong. Filtering its own `?upstream_flowline` set for those names
+returns zero rows. Only the layer query was one-sided.
+
+**The fix.** Intersect the closure with the flowlines that reach the resolved
+targets. Measured with the real answer sets (1,497 facilities, 200 sample
+points): 3,271 flowlines down to 2,516 in the same 7s, **755 removed and 0
+added**, so the change can only subtract flowlines that were never on a path
+from a facility to a sample. Of the 755, 684 are in a different basin and 71 lie
+below a sample, the latter being a deliberate behaviour change: the drawn river
+now stops at the sample instead of running on to the sea.
+
+**Two forms measured and rejected.**
+
+- *The direct membership test*, `?flowline hyf:downstreamFlowPathTC? ?_flTarget`,
+  leaves `?flowline` unbound on the left and QLever times out at 31s ("Join on
+  ?flowline"). Two `SELECT DISTINCT` closures intersected on `?flowline` run in
+  the same 7s the one-sided query took.
+- *A reflexive reach*, `TC?` instead of `TC` on the target side, recovers **0**
+  flowlines and costs 8s. `hyf:downstreamFlowPathTC` is already reflexive, so
+  `TC?` is the same relation spelled more expensively: `X TC X` holds for 2,104
+  of 2,104 York County flowlines and there are 434,501 self-pairs graph-wide.
+  ARCHITECTURE.md Pattern 3 already said so. The segment a target sits on is
+  therefore drawn; what the intersection excludes is the river *below* it.
+
+**A distance bound is not a substitute.** The bounded branch got the same
+intersection. At 25km it went 3,034 to 2,516, matching the unbounded set,
+because connectivity dominates the cap at that range; at 5km the cap still bites
+(2,314), so the two constraints compose. The shipped bounded query had been
+drawing a Merrimack segment straight through its own 25km cap.
+
+`scripts/check-flowline-scope.mts` asserts both ends are bound for all 100
+shapes that draw the layer, bounded and unbounded.
+
+**Also fixed here: `includeNondetects: true` counted as a filter.** The
+seed-side rule added on 2026-09-17 asked "is this side narrowed" with a generic
+"any filter field is non-null" scan. `includeNondetects: true` is the UI's
+default ticked state and narrows nothing, so a samples block carrying only that
+was read as constrained and reordered the entire body. Ticking the checkbox and
+un-ticking it back therefore changed the emitted SPARQL for a semantically
+identical question. Samples now delegate to `sampleJoinsNeeded`, which already
+drew the line at `=== false`.
+
+The same predicate existed three times (`scope.ts` as `hasBlockFilters`,
+`sparqlErrors.ts` as `isNarrowed`, and the new copy). `scope.ts` asks it to pick
+a chunking axis, so a drift means the executor slices on an axis the template
+already led with. It is now one exported `blockIsFiltered`.
+
+**Lessons**
+
+- **A one-sided closure is not a filter, it is a fan-out.** Seeding from the
+  answer set feels bounded and is not: transitive closure from any seed reaches
+  the end of the network. If both ends of a relationship are known, bind both.
+- **The query that produces the wrong output is not always the query that looks
+  wrong.** Three queries feed one map. Name-filtering each layer's own result
+  set located this in one step after a day of reading the wrong query.
+- **"Stop at the cutoff" and "stop where it stops mattering" are different
+  bounds.** A distance cap looked like it should have prevented this and did
+  not, because the wrong basin was well within range.
+
+## 2026-09-20: A distance bound failed whenever block A was left open (FIXED)
+
+Picking any "within N km of flow" on "what facilities are upstream from PFOS
+samples in York County" returned nothing. Every option, 5, 10 and 30 km, both
+projections, six queries, six identical failures: HTTP 429 carrying
+`Operation timed out. Last operation: Query planning`. Note *planning*, not
+execution. The engine could not even build a plan inside its 30s budget.
+
+**The bound was not the problem; the side it seeded from was.** The
+constrained-side-first reorder that landed on 2026-09-17 deliberately skipped
+bounded queries, with a comment recording that the shape had not been measured
+either way. It has now. `boundedTrace` duplicates its seed block inside an
+aggregate that sums `nhdplusv2:hasFlowPathLength` across two
+`hyf:downstreamFlowPathTC` hops, so seeding the unconstrained side sums path
+lengths over the national flowline graph. With block A left as plain Facilities
+that seed is 1,506,326 facilities.
+
+Isolated by varying one thing. Same 30 km bound, same target type, only the
+block A scope differing:
+
+| Block A | Result |
+| --- | --- |
+| wide open | 500, tried to allocate 4.3 GB |
+| scoped to York County | 1,429 rows in 4s |
+
+And the control that proves bounded queries were fine in general: the Cook
+County dashboard question, whose block A carries both a county and a NAICS
+filter, answers in 28s and 6s throughout.
+
+**The fix** gives `boundedTrace` a seed side and drops one clause from the
+guard, so a bounded trace is reordered by the same rule as everything else. The
+trace, the `GROUP BY` and the `+1` fringe all follow the seed. The fringe still
+extends away from the seed, which means the physical end that receives the extra
+segment follows the seed side; on a question where both forms run, the result
+sets were identical, so nothing observable turns on it.
+
+Measured before trusting the speed:
+
+- where both forms run, identical IRI sets on both projections
+- against the unbounded answer, the bounded one is a strict subset, 918 of 1,494
+  facilities, 0 added
+- across 5, 10, 30 and 50 km the answers nest, each bound's set inside the next
+- the York question answers in 20s and 3s, 132 samples and 918 facilities,
+  against two 429s before
+
+**What it did not fix.** Step 0 of the statewide MD shapes still fails; both
+rescued rows are step 1. `facilities upstream(30km) streams [ME on C]` changed
+failure mode rather than passing. Wells remains unchanged on all four bounded
+combinations. Details in `docs/QUERY-MATRIX.md` Part 10.
+
+### The tripwire this nearly disarmed
+
+`check-trace-direction.mts` kept `?_flEnd hyf:downstreamFlowPathTC ?_flMid` on a
+blacklist of reversed traces. A block seeded from the target writes that exact
+triple while tracing correctly, so the string cannot decide it any more. Deleting
+the entry would have quietly removed the only guard against the 2026-09-16
+direction bug.
+
+Queries that name both ends are now checked by reachability instead: build the
+directed edges from `hyf:downstreamFlowPathTC` and `hyf:downstreamFlowPath?`,
+where `?a <pred> ?b` always means a flows into b, and assert a path from
+`?upstream_flowline` to `?ds_flowline`. That is the property the string was
+standing in for, and it admits both seed sides. Verified by mutation:
+reintroducing the 2026-09-16 bug still fails it, and a half-applied reorder that
+moves the query text while leaving the aggregate seeded from the anchor fails
+the new `seedsFrom` assertion in `check-query-joins.mts`.
+
+### Two measurement traps worth not repeating
+
+**Cold against warm.** The first MD sweep was the phase's first ever run, so it
+was entirely cold, and the post-fix sweep was warm. Compared directly it credits
+the fix with three flips instead of two; the extra row is unbounded and
+anchor-constrained, its SPARQL byte-identical at 1,950 characters either side,
+timing out cold and answering in 15s warm. Re-run the old engine warm before
+quoting a delta. Run-to-run noise, once both halves are warm, is zero: three
+consecutive sweeps at identical code agreed on every row.
+
+**Your own load.** Three bounded queries were measured failing with
+out-of-memory, one reporting only 2.9 MB available, while a full pipeline run of
+mine was hammering the same endpoint. Re-run alone, they failed differently, as
+planning timeouts. The header of `query-matrix.mts` warns about this; it applies
+to ad-hoc curl measurements just as much.
+
+## 2026-09-20: Adding an industry filter broke a question that worked (FIXED)
+
+Found while answering "what does this result really mean" about the York County
+map. The unfiltered question, facilities within 5 km upstream from PFOS
+detections, returns 418 facilities in 3s. It also returns dentists and schools,
+because block A carries no industry filter and "facility" means anything with a
+NAICS code. The obvious next step is to filter block A to PFAS source
+categories. Doing that returned nothing: 429, `Operation timed out. Last
+operation: Query planning`, on both projections.
+
+**Root cause, one level up from the 2026-09-20 seed-side entry above.**
+`sideIsConstrained` treated a region, an entity filter and an IRI pin as the
+same thing. An industry filter made the anchor count as constrained, so the
+reorder stopped firing, so the query seeded from block A, which with a filter
+and no region means every facility in that industry across the country.
+
+Isolated by varying one thing at a time, all at 5 km, York, detections only:
+
+| Block A | Result |
+| --- | --- |
+| no filter, no region | works, 418 facilities, 3s |
+| 1 code, no region | 429, query planning |
+| 21 codes, region Maine | 429 Cartesian Product, then 500 at 728 MB |
+| 21 codes, region York | 500 at 728 MB |
+| 1 code, region York | works, 21 facilities, 13s |
+
+The pattern is that block A had to be *small*, not merely filtered, and only a
+region made it small.
+
+**The fix** replaces the boolean with a rank: IRI pin 3, region 2, entity filter
+1, nothing 0, lead with the higher, ties keep anchor-first. Only questions with
+both sides constrained at different levels change plan. See
+`docs/QUERY-MATRIX.md` Part 11 for the measurements.
+
+**Long selections: measure before blaming the clause.** The first version of
+this entry said selections beyond about ten codes still fail. Re-measured after
+the ranking landed, that is wrong. 21 codes answers at 5 km (101 facilities,
+13s; 84 samples, 23s) and only fails unbounded (500, 430 MB). Code count is a
+cost on the closure, which a distance bound already caps.
+
+The suspected culprit was cleared too. `fio:subcodeOf` is materialised
+transitively, so `?ic fio:subcodeOf? ?sel` is an exact rewrite of
+`FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`. Measured: 13s with
+the FILTER, query-planning timeout with the path. The FILTER is the fast form
+here; do not "optimise" it.

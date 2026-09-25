@@ -12,12 +12,12 @@ const GLOSSARY: Record<GlossaryTerm, GlossaryEntry> = {
   analysisQuestion: {
     label: 'Analysis Question',
     definition:
-      'A ready-made query you can run on the SAWGraph knowledge graph. It pairs two things you care about — samples, facilities, water bodies, or wells — with a spatial or hydrological relationship (near, upstream, downstream), then shows them together on the map.',
+      'A ready-made query you can run on the SAWGraph knowledge graph. It pairs two things you care about (samples, facilities, water bodies, or wells) with a spatial or hydrological relationship (near, upstream, downstream), then shows them together on the map.',
   },
   feature: {
     label: 'Feature',
     definition:
-      "A real-world thing on the map with a fixed location — a facility, a water body, or a well. It's there whether or not anyone has measured it.",
+      "A real-world thing on the map with a fixed location, such as a facility, a water body, or a well. It's there whether or not anyone has measured it.",
   },
   observation: {
     label: 'Observation',

@@ -7,7 +7,18 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build-thumbnails": "tsx scripts/build-thumbnails.mts",
+    "warm-cache": "tsx scripts/warm-cache.mts",
+    "check-cache-key": "tsx scripts/check-cache-key.mts",
+    "check-step-labels": "tsx scripts/check-step-labels.mts",
+    "check-trace-direction": "tsx scripts/check-trace-direction.mts",
+    "check-flowline-scope": "tsx scripts/check-flowline-scope.mts",
+    "check-substance-labels": "tsx scripts/check-substance-labels.mts",
+    "check-query-joins": "tsx scripts/check-query-joins.mts",
+    "check-query-snapshots": "tsx scripts/check-query-snapshots.mts",
+    "query-matrix": "tsx scripts/query-matrix.mts",
+    "health-check": "tsx scripts/health-check.mts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
@@ -34,6 +45,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "tsx": "^4.23.13",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.1"

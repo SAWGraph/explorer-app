@@ -1,0 +1,9 @@
+**The 25 `upstream` rows measured the wrong question.** Every upstream shape
+traced the relation backwards until 2026-09-16 (`docs/DEBUGGING.md`,
+2026-09-16), so their status, timing and row counts describe the mirror
+question. They are not a baseline: the corrected direction is materially more
+expensive where block C is unfiltered. See `docs/QUERY-MATRIX.md` Part 9, and
+re-sweep.
+
+The other 99 rows (62 `near`, 37 `downstream`) are unaffected, and are the control when
+diffing this file against the next sweep.

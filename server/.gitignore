@@ -2,3 +2,6 @@ node_modules
 dist
 .env
 .env.local
+
+# local backups of env files — may contain credentials
+.env.backup*

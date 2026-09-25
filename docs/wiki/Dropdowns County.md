@@ -65,7 +65,7 @@ Androscoggin, Aroostook, Cumberland.
   [`RegionSelector.tsx:47`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/RegionSelector.tsx#L47),
   inside a block that only renders when a state is set.
 * Its options come from
-  [`useCounties(stateCode)`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L142),
+  [`useCounties(stateCode)`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L166),
   called at
   [`RegionSelector.tsx:12`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/RegionSelector.tsx#L12).
 * The query text is built by
@@ -82,7 +82,7 @@ Cached under `['counties', <stateCode>]` with `staleTime: Infinity` and gated by
 `retry` override, which is what makes the loading state visible here and invisible elsewhere.
 
 The code derivation happens at
-[`useDiscoveryQueries.ts:151`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L151).
+[`useDiscoveryQueries.ts:151`](https://github.com/SAWGraph/explorer-app/blob/main/src/hooks/useDiscoveryQueries.ts#L166).
 
 ## If it looks wrong
 

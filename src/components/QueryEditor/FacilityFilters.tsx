@@ -17,7 +17,7 @@ export function FacilityFilters({ value, onChange, region }: FacilityFiltersProp
       <div className="filter-field">
         <label>Industry (NAICS):</label>
         <HierarchicalSelect
-          industries={industries}
+          items={industries}
           selectedCodes={value?.industryCodes ?? []}
           onChange={(codes, labels) => onChange({ ...value, industryCodes: codes, industryLabels: labels })}
           placeholder="Any industry..."

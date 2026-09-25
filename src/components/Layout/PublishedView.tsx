@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQueryStore } from '../../store/queryStore';
+import { fetchPublishedResult } from '../../api/resultCacheClient';
 import { AnalysisQuestionBar } from './AnalysisQuestionBar';
 import { MainContent } from './MainContent';
 import { EditModal } from '../QueryEditor/EditModal';
@@ -15,6 +16,7 @@ interface PublishedWorkflow {
   question: AnalysisQuestion;
   created_at: string;
   view_count: number;
+  result_key?: string | null;
 }
 
 function getApiBase(): string {
@@ -46,9 +48,23 @@ export function PublishedView() {
         }
         const data = (await res.json()) as PublishedWorkflow;
         if (cancelled) return;
+
+        // A published result the publisher already computed. Without this every
+        // visitor re-ran the whole pipeline in their own browser (26-218s, and
+        // sometimes failing) to rebuild an answer that never changes.
+        const cached = data.result_key ? await fetchPublishedResult(data.id) : null;
+        if (cancelled) return;
+
         useQueryStore
           .getState()
-          .loadQuestion(`published:${data.id}`, data.question, data.title);
+          .loadQuestion(`published:${data.id}`, data.question, data.title, {
+            autoRun: !cached,
+          });
+        if (cached) {
+          const store = useQueryStore.getState();
+          store.setPipelineResult(cached.result);
+          store.setResultProvenance({ computedAt: cached.computedAt, partial: cached.partial });
+        }
         setMeta(data);
         setStatus('ready');
       } catch (err) {

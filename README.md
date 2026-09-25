@@ -38,8 +38,19 @@ npm run preview  # Preview production build
 
 ## Deployment
 
-Deployed on **Railway** from the `main` branch. Build config lives in the Railway
-dashboard, not in this repo — there is no `railway.json` or `nixpacks.toml` here.
+Deployed on **Railway**, two environments, each with a frontend and an API
+service. Build config lives in the Railway dashboard, not in this repo — there
+is no `railway.json` or `nixpacks.toml` here.
+
+| Environment | Branch | Frontend | API |
+| --- | --- | --- | --- |
+| Production | `main` | https://sawgraph-explorer.up.railway.app | https://sawgraph-explorer-api.up.railway.app |
+| Development | `development` | https://sawgraph-explorer-development.up.railway.app | https://sawgraph-explorer-api-development.up.railway.app |
+
+The frontend reaches the API through `VITE_API_BASE_URL`, baked in at build
+time, so each environment's frontend points at its own API. The API allows the
+frontend's origin via `FRONTEND_ORIGIN`. Both services share a Postgres
+instance per environment.
 
 ## How queries work
 
@@ -56,8 +67,13 @@ When you click Apply, the query engine:
 2. **Executes** steps sequentially (`engine/executor.ts`), threading S2 cell sets between steps
 3. **Renders** results as map layers (`resultTransformer.ts` → `MapFeature[]`)
 
-Supported entity types: **samples**, **facilities**, **water bodies**
+Supported entity types: **samples**, **facilities**, **water bodies**, **wells**, **streams**
 Supported relationships: **near** (~1–2 km), **downstream**, **upstream**
+
+Downstream/upstream traces accept an optional cumulative flowpath cutoff
+(`Within N km of flow`). Unset, the trace is the full transitive closure.
+`node scripts/flow-distance-check.mjs` verifies the bounded trace against the
+live endpoints.
 
 ## SPARQL endpoints
 
@@ -85,11 +101,16 @@ All hosted at `apps.okn.us`:
 
 Inside `docs/`:
 
-| File              | Contents                                            |
-| ----------------- | --------------------------------------------------- |
-| `ARCHITECTURE.md` | System design, module boundaries, data flow         |
-| `SCHEMA.md`       | Predicate inventories, class counts, endpoint roles |
-| `DEBUGGING.md`    | Documented bugs with root causes and fixes          |
-| `CONVENTIONS.md`  | Coding standards, endpoint selection rules          |
-| `changelog/`      | Weekly changelogs (`YYYY-Www.md`)                   |
-| `plans/`          | Feature planning: `drafts/` → `active/` → `done/`   |
+| File                | Contents                                                        |
+| ------------------- | --------------------------------------------------------------- |
+| `ARCHITECTURE.md`   | System design, module boundaries, data flow                     |
+| `SCHEMA.md`         | Predicate inventories, class counts, endpoint roles             |
+| `QUERY-MATRIX.md`   | Every query shape, measured — plus the error catalogue (Part 4) |
+| `health/STATUS.md`  | Weekly dashboard health: working, timings, row-count drift       |
+| `query-matrix/`     | One CSV per sweep, dated, with a generated index                |
+| `DEBUGGING.md`      | Documented bugs with root causes and fixes                      |
+| `CONVENTIONS.md`    | Coding standards, endpoint selection rules                      |
+| `wiki/`             | One page per filter dropdown; source of truth for the GitHub Wiki |
+| `queries/`          | Write-ups of individual real questions                          |
+| `changelog/`        | Weekly changelogs (`YYYY-Www.md`)                               |
+| `plans/`            | Feature planning: `drafts/` → `active/` → `done/`               |
