@@ -12,7 +12,7 @@
     "warm-cache": "tsx scripts/warm-cache.mts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:live": "LIVE=1 vitest run live",
+    "test:live": "LIVE=1 vitest run live --no-file-parallelism",
     "sparql": "tsx scripts/sparql.mts",
     "query-matrix": "tsx scripts/query-matrix.mts",
     "health-check": "tsx scripts/health-check.mts"

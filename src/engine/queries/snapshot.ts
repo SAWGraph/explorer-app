@@ -66,6 +66,32 @@ function headings(text: string): Map<string, string> {
   return map;
 }
 
+// A snapshot read back: each entry's steps, and every query body by hash, with
+// the PREFIX block restored so a body can be sent as it is.
+export interface ParsedSnapshot {
+  entries: Map<string, Array<{ type: string; endpoint: string; hash: string }>>;
+  query: (hash: string) => string | undefined;
+}
+
+export function parseSnapshot(text: string): ParsedSnapshot {
+  const entries: ParsedSnapshot['entries'] = new Map();
+  const bodies = new Map<string, string>();
+  let prefixes = '';
+  let current = '';
+  let inBodies = false;
+  for (const line of text.split('\n')) {
+    if (line === BODIES_MARKER) inBodies = true;
+    else if (inBodies && line) bodies.set(line.slice(0, 12), line.slice(13));
+    else if (line.startsWith('## ')) current = line.slice(3);
+    else if (current === 'PREFIXES' && line.startsWith('  ')) prefixes = line.trim();
+    else if (current && current !== 'PREFIXES' && line) {
+      const m = line.match(/^(\S+) \[(\S+)\] ([0-9a-f]{12})$/);
+      if (m) entries.set(current, [...(entries.get(current) ?? []), { type: m[1], endpoint: m[2], hash: m[3] }]);
+    }
+  }
+  return { entries, query: (hash) => (bodies.has(hash) ? `${prefixes} ${bodies.get(hash)}` : undefined) };
+}
+
 export interface BlastRadius {
   total: number;
   moved: string[];
@@ -98,6 +124,7 @@ const BUCKETS: Array<[string, RegExp]> = [
   ['dropdowns', /^DROPDOWN/],
   ['popups', /^POPUP/],
   ['probes', /^PROBE/],
+  ['dashboard', /^PREBUILT/],
 ];
 
 export function formatBlastRadius(r: BlastRadius, limit = 40): string {

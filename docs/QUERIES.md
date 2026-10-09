@@ -10,7 +10,7 @@ step receives identifiers from an earlier step, they appear as `http://example.o
 placeholders. The PREFIX block is the same in every query, so it is left out and printed once
 under [Prefixes](#prefixes).
 
-This page shows 4 worked analysis questions. The catalog has 374
+This page shows 4 worked analysis questions. The catalog has 382
 question shapes in all; print any of them with
 
 ```bash

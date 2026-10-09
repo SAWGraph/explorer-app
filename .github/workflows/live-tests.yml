@@ -1,0 +1,62 @@
+name: Live tests
+
+# Tests that query the real SPARQL endpoints, kept out of checks.yml so that one
+# stays offline and fast.
+#
+# Every pull request: each dropdown query must still answer with the columns
+# its hook reads (about 20s). A dropdown that comes back empty does not error,
+# it silently shows a hardcoded fallback.
+#
+# Pull requests labelled `live-check`: the flow-distance test, then every
+# query the PR changed, run on the base branch's version and on the PR's, side
+# by side on the run's summary page. Fails if a query that worked before fails
+# after. This is the check for "fixed one shape, broke another", which is a
+# timeout on the endpoint and invisible offline. Takes minutes, so it is opt-in.
+#
+# Not in the shared sawgraph-endpoint concurrency group: GitHub cancels a
+# pending run when another queues in the same group, so pull requests joining
+# it could cancel a queued health check or cache warm. Instead one run per pull
+# request, a newer push replacing an older one.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: live-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dropdowns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - name: Dropdown queries answer live
+        run: LIVE=1 npx vitest run catalog.live
+
+  changed-queries:
+    if: contains(github.event.pull_request.labels.*.name, 'live-check')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - name: Live tests
+        run: npm run test:live
+      - name: Changed queries, base against this branch
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          git show FETCH_HEAD:src/engine/queries/__snapshots__/query-shapes.txt > "$RUNNER_TEMP/base.txt"
+          set -o pipefail
+          npx tsx scripts/sparql-live-diff.mts "$RUNNER_TEMP/base.txt" | tee -a "$GITHUB_STEP_SUMMARY"

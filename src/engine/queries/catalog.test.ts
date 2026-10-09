@@ -8,11 +8,13 @@
 // clauses, IRI pinning, sample-observation joins) is common. So a fix aimed at
 // a trace bug silently rewrites the `near` queries too, and the only thing that
 // noticed until this existed was a live sweep taking about 30 minutes.
-import { expect, test } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { catalog } from './catalog';
+import { describe, expect, test } from 'vitest';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { PREFIXES } from '../../constants/prefixes';
+import { catalog, prebuiltEntries } from './catalog';
 import { blastRadius, formatBlastRadius, renderSnapshot } from './snapshot';
-import { renderQueriesDoc } from './docs';
+import { renderQueriesDoc, renderQuestionPage } from './docs';
+import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
 
 const SNAPSHOT = new URL('./__snapshots__/query-shapes.txt', import.meta.url);
 
@@ -32,4 +34,39 @@ test('generated SPARQL matches the snapshot', async () => {
 // hand-written docs/queries pages drifted into.
 test('docs/QUERIES.md matches the code', async () => {
   await expect(renderQueriesDoc(catalog())).toMatchFileSnapshot(new URL('../../../docs/QUERIES.md', import.meta.url).pathname);
+});
+
+// One page per dashboard question. These replaced hand-written pages that
+// still described the six-step S2 pipeline months after the engine stopped
+// running it.
+describe('docs/queries pages match the code', () => {
+  const entries = prebuiltEntries();
+  PREBUILT_QUERIES.forEach((prebuilt, i) => {
+    test(prebuilt.id, async () => {
+      await expect(renderQuestionPage(prebuilt, entries[i])).toMatchFileSnapshot(
+        new URL(`../../../docs/queries/${prebuilt.id}.md`, import.meta.url).pathname,
+      );
+    });
+  });
+});
+
+// The wiki explains queries in prose and quotes them, which is the only
+// hand-copied SPARQL left. Each quote must still be something the app sends:
+// a whole query, or for a fragment, part of one. Region codes are compared as
+// placeholders, so a page may pick its own example county.
+describe('SPARQL quoted in docs/wiki is still what the app sends', () => {
+  const norm = (q: string) =>
+    q.replace(PREFIXES, '').replace(/administrativeRegion\.USA\.\d+/g, 'administrativeRegion.USA.N').replace(/\s+/g, ' ').trim();
+  const sent = catalog().flatMap((e) => e.steps.map((s) => norm(s.query)));
+  const whole = new Set(sent);
+  const dir = new URL('../../../docs/wiki/', import.meta.url);
+  for (const page of readdirSync(dir).filter((f) => f.endsWith('.md'))) {
+    const quotes = [...readFileSync(new URL(page, dir), 'utf8').matchAll(/```sparql\n([\s\S]*?)```/g)].map((m) => norm(m[1]));
+    quotes.forEach((quote, i) => {
+      test(`${page}, block ${i + 1}`, () => {
+        const ok = /^(PREFIX|SELECT|ASK|CONSTRUCT)/.test(quote) ? whole.has(quote) : sent.some((q) => q.includes(quote));
+        expect(ok, `this quote matches no query in the catalog: ${quote.slice(0, 200)}`).toBe(true);
+      });
+    });
+  }
 });

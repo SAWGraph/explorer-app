@@ -34,6 +34,7 @@ import { planPipeline, type PipelineContext } from '../planner';
 import { LOOKUPS, type Lookup } from '../lookupQueries';
 import { buildEntityProbeQuery } from '../templates/fusedQueries';
 import { PREFIXES } from '../../constants/prefixes';
+import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
 import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../../types/query';
 
 export interface CatalogStep {
@@ -299,9 +300,16 @@ export function lookupEntries(): CatalogEntry[] {
   ];
 }
 
-// Analysis shapes first, so the snapshot's existing order never moves.
+// The dashboard questions, exactly as the landing page runs them. Each one also
+// gets a generated page in docs/queries/.
+export function prebuiltEntries(): CatalogEntry[] {
+  return PREBUILT_QUERIES.map((p) => analysisEntry(`PREBUILT: ${p.id}`, p.question));
+}
+
+// Oldest sections first and new ones appended, so adding a section never moves
+// the snapshot's existing lines.
 export function catalog(): CatalogEntry[] {
-  return [...analysisEntries(), ...lookupEntries()];
+  return [...analysisEntries(), ...lookupEntries(), ...prebuiltEntries()];
 }
 
 // A query as a person reads it: the shared PREFIX block taken out (it is the
