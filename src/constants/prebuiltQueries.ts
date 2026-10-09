@@ -14,6 +14,97 @@ export interface PrebuiltQuery {
 // the thing being asked about — rather than four variations on "samples near
 // facilities", which is what a reader took to be the whole tool.
 export const PREBUILT_QUERIES: PrebuiltQuery[] = [
+  // Demo set (Proto-OKN close-out): pinned to the top so they are the four
+  // cards on the landing page. Their results and sample popups are prewarmed.
+  // Remove this block after the demo to restore the ordering described above.
+  {
+    id: 'samples-near-airports-indiana',
+    title: 'Samples Near Airport Facilities in Indiana',
+    description:
+      'Find PFAS sample points within roughly two miles of Other Airport Operations (NAICS 488119) and Scheduled Passenger Air Transportation (NAICS 481111) facilities across Indiana.',
+    tags: ['Samples', 'Facilities', 'Near', 'Indiana', 'Airports'],
+    question: {
+      blockA: { type: 'samples', region: { stateCode: '18' } },
+      relationship: { type: 'near', hops: 2 },
+      blockC: {
+        type: 'facilities',
+        facilityFilters: {
+          industryCodes: ['488119', '481111'],
+          industryLabels: {
+            '488119': 'Other Airport Operations',
+            '481111': 'Scheduled Passenger Air Transportation',
+          },
+        },
+      },
+    },
+  },
+  {
+    id: 'waterbodies-near-airports-indiana',
+    title: 'Surface Water Bodies Near Airport Facilities in Indiana',
+    description:
+      'Locate surface water bodies within roughly a mile of Other Airport Operations (NAICS 488119) and Scheduled Passenger Air Transportation (NAICS 481111) facilities across Indiana.',
+    tags: ['Surface Water Bodies', 'Facilities', 'Near', 'Indiana', 'Airports'],
+    question: {
+      blockA: { type: 'waterBodies', region: { stateCode: '18' } },
+      relationship: { type: 'near', hops: 1 },
+      blockC: {
+        type: 'facilities',
+        facilityFilters: {
+          industryCodes: ['488119', '481111'],
+          industryLabels: {
+            '488119': 'Other Airport Operations',
+            '481111': 'Scheduled Passenger Air Transportation',
+          },
+        },
+      },
+    },
+  },
+  {
+    id: 'facilities-upstream-pfos-york-cumberland',
+    title: 'Facilities Upstream from PFOS Samples in York and Cumberland Counties',
+    description:
+      'Given samples that tested positive for PFOS in York and Cumberland counties, Maine, trace the river network back the other way: which facilities sit upstream of them, and are therefore candidate sources.',
+    tags: ['Facilities', 'Samples', 'Upstream', 'PFOS', 'Maine', 'York', 'Cumberland'],
+    question: {
+      // Facilities are left unconstrained: the counties scope the samples, and
+      // an upstream source can sit outside the county the sample is in.
+      blockA: { type: 'facilities' },
+      relationship: { type: 'upstream' },
+      blockC: {
+        type: 'samples',
+        region: {
+          stateCode: '23',
+          countyCodes: ['23031', '23005'],
+          countyLabels: { '23031': 'York County, Maine', '23005': 'Cumberland County, Maine' },
+        },
+        sampleFilters: {
+          substances: ['http://w3id.org/DSSTox/v1/DTXSID3031864'],
+          substanceLabels: { 'http://w3id.org/DSSTox/v1/DTXSID3031864': 'PFOS' },
+        },
+      },
+    },
+  },
+  {
+    id: 'samples-downstream-airports-indiana',
+    title: 'Indiana Samples Downstream of Airports & Air Transportation Sites',
+    description:
+      'Trace downstream flow paths from Other Airport Operations (NAICS 488119) and Scheduled Passenger Air Transportation (NAICS 481111) facilities in Indiana to find PFAS sample points in potentially affected areas.',
+    tags: ['Samples', 'Facilities', 'Downstream', 'Indiana', 'Airports'],
+    question: {
+      blockA: { type: 'samples', region: { stateCode: '18' } },
+      relationship: { type: 'downstream' },
+      blockC: {
+        type: 'facilities',
+        facilityFilters: {
+          industryCodes: ['488119', '481111'],
+          industryLabels: {
+            '488119': 'Other Airport Operations',
+            '481111': 'Scheduled Passenger Air Transportation',
+          },
+        },
+      },
+    },
+  },
   {
     id: 'facilities-upstream-pfhpa-gw-cumberland',
     title: 'Facilities Upstream from PFHpA Groundwater Contamination in Cumberland County',

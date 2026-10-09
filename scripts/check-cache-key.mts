@@ -7,7 +7,7 @@
 // too-loose means two different questions share an answer and the map shows data
 // for a question nobody asked. Hence a runnable check rather than a comment.
 import assert from 'node:assert/strict';
-import { cacheKey } from '../src/engine/cacheKey';
+import { cacheKey, sampleDetailKey } from '../src/engine/cacheKey';
 import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
 import type { AnalysisQuestion } from '../src/types/query';
 
@@ -100,5 +100,22 @@ const keys = await Promise.all(PREBUILT_QUERIES.map((p) => cacheKey(p.question))
 assert.equal(new Set(keys).size, keys.length, 'dashboard questions must have distinct keys');
 assert.equal(await cacheKey(PREBUILT_QUERIES[0].question), keys[0], 'key must be stable across calls');
 checks += 2;
+
+// Sample-point popup keys (warm-sample-details.mts writes these). The filter
+// argument is part of the key: the same point under a substance filter is a
+// different observation table.
+const spA = 'http://w3id.org/sawgraph/v1/me-egad#d.SamplePoint.1';
+const spB = 'http://w3id.org/sawgraph/v1/me-egad#d.SamplePoint.2';
+const pfos = { substances: ['http://w3id.org/DSSTox/v1/DTXSID3031864'] };
+assert.equal(await sampleDetailKey(spA), await sampleDetailKey(spA), 'sample key must be stable');
+assert.notEqual(await sampleDetailKey(spA), await sampleDetailKey(spB), 'different points differ');
+assert.notEqual(await sampleDetailKey(spA), await sampleDetailKey(spA, pfos), 'filters are part of the key');
+assert.equal(
+  await sampleDetailKey(spA, { substances: [] }),
+  await sampleDetailKey(spA),
+  'an emptied filter must not miss the cache',
+);
+assert.ok((await sampleDetailKey(spA)).startsWith('s:'), 'sample keys live in the s: namespace');
+checks += 5;
 
 console.log(`cache key: ${checks} checks passed`);

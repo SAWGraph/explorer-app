@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { useMap } from 'react-leaflet';
+import { Popup as LeafletPopup } from 'leaflet';
 import type { MapFeature, SamplePointDetail, SampleRecord } from '../../types/map';
 import { useSampleDetails } from '../../hooks/useSampleDetails';
 import { useQueryStore } from '../../store/queryStore';
@@ -18,6 +21,19 @@ function SamplePopup({ feature, isOpen }: { feature: MapFeature; isOpen: boolean
       : question.blockC.sampleFilters;
   const { data, isLoading, isError } = useSampleDetails(feature.id, isOpen, sampleFilters);
   const props = feature.properties;
+  const map = useMap();
+
+  // Leaflet measures a popup once, when it opens (react-leaflet calls
+  // instance.update() on popupopen and never again). Our rows arrive after
+  // that, so the first open is sized and anchored for the placeholder and the
+  // real content spills out of the box. Opening it a second time looks fine
+  // only because React Query already has the rows. Re-measure when they land.
+  useEffect(() => {
+    if (!data) return;
+    map.eachLayer((layer) => {
+      if (layer instanceof LeafletPopup) layer.update();
+    });
+  }, [data, map]);
 
   if (data) {
     return (

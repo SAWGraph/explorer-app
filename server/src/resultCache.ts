@@ -3,9 +3,11 @@ import { pool } from './db.js';
 
 // Payload budget for a single cached result. Measured pipelines run 3-7MB of
 // JSON once the internal IRI lists are trimmed client-side; the largest observed
-// (a statewide downstream trace with 15MB of river geometry) reached 21MB.
+// (a statewide downstream trace with 15MB of river geometry) reached 21MB, and
+// the Indiana water-bodies-near-airports demo question 26.6MB of polygons.
 // Anything past this is skipped rather than stored — publishing still succeeds.
-export const MAX_RESULT_BYTES = 25 * 1024 * 1024;
+// Stored gzipped, so the row itself is a fraction of this.
+export const MAX_RESULT_BYTES = 32 * 1024 * 1024;
 
 // A clean result is stable until the graph reloads. A partial one is not: it
 // means slices failed, and a warmer engine may answer them, so it must not be

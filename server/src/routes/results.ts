@@ -43,8 +43,9 @@ resultsRouter.put('/:key', largeJson, async (req: Request, res: Response) => {
   if (!body?.question || !body?.result) {
     return res.status(400).json({ error: 'question and result are required' });
   }
-  if (!key.startsWith('q:')) {
-    return res.status(400).json({ error: 'key must be in the q: namespace' });
+  // q: a whole pipeline result, s: one sample point's popup rows.
+  if (!key.startsWith('q:') && !key.startsWith('s:')) {
+    return res.status(400).json({ error: 'key must be in the q: or s: namespace' });
   }
 
   const serialized = JSON.stringify(body.result);
