@@ -59,7 +59,9 @@ function headings(text: string): Map<string, string> {
   for (const line of text.split('\n')) {
     if (line === BODIES_MARKER) break;
     if (line.startsWith('## ')) current = line.slice(3);
-    else if (current) map.set(current, (map.get(current) ?? '') + line + '\n');
+    // Blank lines are layout, not content: the one before the body table
+    // would otherwise belong to whichever entry happens to be last.
+    else if (current && line) map.set(current, (map.get(current) ?? '') + line + '\n');
   }
   return map;
 }
@@ -107,11 +109,15 @@ export function formatBlastRadius(r: BlastRadius, limit = 40): string {
       (r.removed.length ? `, ${r.removed.length} removed` : '') +
       '.',
     '',
-    '| ' + BUCKETS.map(([name]) => name).join(' | ') + ' |',
-    '|' + BUCKETS.map(() => ' ---: |').join(''),
-    '| ' + BUCKETS.map(([, re]) => r.moved.filter((n) => re.test(n)).length).join(' | ') + ' |',
-    '',
   ];
+  if (r.moved.length) {
+    lines.push(
+      '| ' + BUCKETS.map(([name]) => name).join(' | ') + ' |',
+      '|' + BUCKETS.map(() => ' ---: |').join(''),
+      '| ' + BUCKETS.map(([, re]) => r.moved.filter((n) => re.test(n)).length).join(' | ') + ' |',
+      '',
+    );
+  }
   const list = (title: string, names: string[]) => {
     if (!names.length) return;
     lines.push(`${title}:`);

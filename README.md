@@ -48,11 +48,28 @@ Tests sit next to the code they test (`planner.ts` and `planner.test.ts`). They
 use [Vitest](https://vitest.dev) with `node:assert/strict` for assertions, and
 CI runs `npm test` on every pull request.
 
-`src/engine/queries/catalog.test.ts` records the SPARQL generated for every
-question shape in `src/engine/queries/__snapshots__/query-shapes.txt` and fails
-when any of it changes. When the change is intended, re-record with
-`npm test -- -u` and commit the snapshot with the code. On failure, the test
-prints which shapes moved, grouped by relationship, before the raw diff.
+### Every query, in one place
+
+`src/engine/queries/catalog.ts` lists every SPARQL query the app can send: each
+dropdown, the sample popup, the probes, and 374 analysis-question shapes. It
+calls the same builders the app does, so it cannot list a query the app does
+not send. Three things are generated from it:
+
+- `src/engine/queries/__snapshots__/query-shapes.txt`, the golden file.
+  `catalog.test.ts` fails when any query changes, and prints which catalog
+  entries moved, grouped by relationship, before the raw diff.
+- [`docs/QUERIES.md`](docs/QUERIES.md), the readable reference. It is a
+  snapshot too, so CI fails when it stops matching the code.
+- On every pull request, a "SPARQL blast radius" section on the Checks run's
+  summary page, listing which entries the PR changes.
+
+When a change to a query is intended, re-record both files with
+`npm test -- -u` and commit them with the code. To see the SPARQL for any
+entry, `npm run sparql -- "<name>"`; with no name it lists them all.
+
+A new query belongs in the catalog: dropdown and popup queries go through
+`LOOKUPS` in `src/engine/lookupQueries.ts`, which pairs each builder with its
+endpoint for both the hooks and the catalog.
 
 Older docs and changelogs refer to the self-check scripts these tests replaced:
 
@@ -134,6 +151,7 @@ Inside `docs/`:
 | File                | Contents                                                        |
 | ------------------- | --------------------------------------------------------------- |
 | `ARCHITECTURE.md`   | System design, module boundaries, data flow                     |
+| `QUERIES.md`        | Every SPARQL query the app sends, generated from the code       |
 | `SCHEMA.md`         | Predicate inventories, class counts, endpoint roles             |
 | `QUERY-MATRIX.md`   | Every query shape, measured — plus the error catalogue (Part 4) |
 | `health/STATUS.md`  | Weekly dashboard health: working, timings, row-count drift       |

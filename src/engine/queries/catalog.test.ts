@@ -12,6 +12,7 @@ import { expect, test } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { catalog } from './catalog';
 import { blastRadius, formatBlastRadius, renderSnapshot } from './snapshot';
+import { renderQueriesDoc } from './docs';
 
 const SNAPSHOT = new URL('./__snapshots__/query-shapes.txt', import.meta.url);
 
@@ -24,4 +25,11 @@ test('generated SPARQL matches the snapshot', async () => {
     if (prev !== next) console.log(formatBlastRadius(blastRadius(prev, next)));
   }
   await expect(next).toMatchFileSnapshot(SNAPSHOT.pathname);
+});
+
+// The query reference is generated from the same catalog, so it cannot
+// describe a pipeline the engine no longer runs, which is what the
+// hand-written docs/queries pages drifted into.
+test('docs/QUERIES.md matches the code', async () => {
+  await expect(renderQueriesDoc(catalog())).toMatchFileSnapshot(new URL('../../../docs/QUERIES.md', import.meta.url).pathname);
 });

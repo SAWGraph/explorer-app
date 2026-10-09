@@ -2,7 +2,7 @@ import type { EntityBlock } from '../types/query';
 import type { EndpointKey } from '../constants/endpoints';
 import { executeSparql } from './sparqlClient';
 import { blockIsFiltered, buildEntityProbeQuery } from './templates/fusedQueries';
-import { buildDiscoverCountiesQuery } from './templates/regions';
+import { LOOKUPS } from './lookupQueries';
 
 // A Scope is a slice of one pipeline step's work. `undefined` scope means "the
 // whole thing" — the executor always tries that first and only slices when the
@@ -204,9 +204,8 @@ async function expandToCounties(regionCodes: string[]): Promise<string[]> {
       out.push(code);
       continue;
     }
-    const rows = await executeSparql('spatialkg', buildDiscoverCountiesQuery(code), {
-      cache: true,
-    });
+    const { endpoint, query } = LOOKUPS.counties(code);
+    const rows = await executeSparql(endpoint, query, { cache: true });
     for (const row of rows) {
       const fips = row.county?.match(/administrativeRegion\.USA\.(\d+)$/)?.[1];
       if (fips && fips.length > 2) {

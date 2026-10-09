@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { executeSparql } from '../engine/sparqlClient';
-import { buildSampleDetailsByIri } from '../engine/templates/hydrate';
+import { LOOKUPS } from '../engine/lookupQueries';
 import { buildSamplePointDetail } from '../engine/resultTransformer';
 import type { SamplePointDetail } from '../types/map';
 import type { SampleFilters } from '../types/query';
@@ -22,10 +22,8 @@ export function useSampleDetails(
     staleTime: Infinity,
     retry: false,
     queryFn: async () => {
-      const rows = await executeSparql(
-        'federation',
-        buildSampleDetailsByIri([samplePointIri as string], filters),
-      );
+      const { endpoint, query } = LOOKUPS.sampleDetails(samplePointIri as string, filters);
+      const rows = await executeSparql(endpoint, query);
       return buildSamplePointDetail(rows);
     },
   });

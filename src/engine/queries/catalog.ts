@@ -31,18 +31,25 @@
 // 6 x 6 x 3 x 2 = 216 unbounded, plus 6 x 6 x 2 x 2 = 144 bounded, plus the
 // variants that reach clauses the grid does not vary.
 import { planPipeline, type PipelineContext } from '../planner';
+import { LOOKUPS, type Lookup } from '../lookupQueries';
+import { buildEntityProbeQuery } from '../templates/fusedQueries';
+import { PREFIXES } from '../../constants/prefixes';
 import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../../types/query';
 
 export interface CatalogStep {
   type: string;
   endpoint: string;
   query: string;
+  // What the step is called in the app's progress strip, for pipeline steps.
+  description?: string;
 }
 
 export interface CatalogEntry {
   name: string;
   steps: CatalogStep[];
   question?: AnalysisQuestion;
+  // Where the app sends it from, for entries outside a question's pipeline.
+  usedBy?: string;
 }
 
 const ENTITY_TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers', 'streams'];
@@ -69,7 +76,12 @@ export function analysisEntry(name: string, question: AnalysisQuestion): Catalog
   return {
     name,
     question,
-    steps: planPipeline(question).map((step) => ({ type: step.type, endpoint: step.endpoint, query: step.buildQuery(ctx) })),
+    steps: planPipeline(question).map((step) => ({
+      type: step.type,
+      endpoint: step.endpoint,
+      query: step.buildQuery(ctx),
+      description: step.description,
+    })),
   };
 }
 
@@ -218,6 +230,90 @@ export function analysisEntries(): CatalogEntry[] {
   return out;
 }
 
+const ME = { stateCode: '23' };
+const ME_COUNTIES = { stateCode: '23', countyCodes: ['23005', '23019'] };
+const step = (type: string, { endpoint, query }: Lookup): CatalogStep => ({ type, endpoint, query });
+const DISCOVERY_HOOKS = 'src/hooks/useDiscoveryQueries.ts';
+
+// Everything outside a question's pipeline. Each region-aware dropdown is
+// recorded three ways because the region decides both the endpoint and the
+// shape of the region join: none, a state, and counties.
+export function lookupEntries(): CatalogEntry[] {
+  const regional = (label: string, hook: string, key: 'substances' | 'materialTypes'): CatalogEntry[] => [
+    { name: `DROPDOWN: ${label}, no region`, usedBy: `${hook} in ${DISCOVERY_HOOKS}`, steps: [step(key, LOOKUPS[key]())] },
+    { name: `DROPDOWN: ${label}, state`, usedBy: `${hook} in ${DISCOVERY_HOOKS}`, steps: [step(key, LOOKUPS[key](ME))] },
+    { name: `DROPDOWN: ${label}, counties`, usedBy: `${hook} in ${DISCOVERY_HOOKS}`, steps: [step(key, LOOKUPS[key](ME_COUNTIES))] },
+  ];
+  const popupUsedBy = 'useSampleDetails in src/hooks/useSampleDetails.ts, when a sample popup opens';
+  const samplePoint = 'http://example.org/samplepoint/1';
+  return [
+    { name: 'DROPDOWN: Industry', usedBy: `useIndustries in ${DISCOVERY_HOOKS}`, steps: [step('industries', LOOKUPS.industries())] },
+    {
+      name: 'DROPDOWN: Industry counts, state',
+      usedBy: `useIndustryCounts in ${DISCOVERY_HOOKS}`,
+      steps: [step('industryCounts', LOOKUPS.industryCounts(ME))],
+    },
+    {
+      name: 'DROPDOWN: Industry counts, counties',
+      usedBy: `useIndustryCounts in ${DISCOVERY_HOOKS}`,
+      steps: [step('industryCounts', LOOKUPS.industryCounts(ME_COUNTIES))],
+    },
+    ...regional('Substance', 'useSubstances', 'substances'),
+    ...regional('Material', 'useMaterialTypes', 'materialTypes'),
+    {
+      name: 'DROPDOWN: County',
+      usedBy: `useCounties in ${DISCOVERY_HOOKS}, and expandToCounties in src/engine/scope.ts`,
+      steps: [step('counties', LOOKUPS.counties('23'))],
+    },
+    {
+      name: 'DROPDOWN: Well classification',
+      usedBy: `useWellClassifications in ${DISCOVERY_HOOKS}, three queries run together`,
+      steps: [
+        step('illinoisWellPurposes', LOOKUPS.illinoisWellPurposes()),
+        step('maineWellTypes', LOOKUPS.maineWellTypes()),
+        step('maineWellUses', LOOKUPS.maineWellUses()),
+      ],
+    },
+    { name: 'POPUP: Sample point', usedBy: popupUsedBy, steps: [step('sampleDetails', LOOKUPS.sampleDetails(samplePoint))] },
+    {
+      name: 'POPUP: Sample point, with sample filters',
+      usedBy: popupUsedBy,
+      steps: [
+        step(
+          'sampleDetails',
+          LOOKUPS.sampleDetails(samplePoint, {
+            substances: ['http://w3id.org/DSSTox/v1/DTXSID3031864'],
+            includeNondetects: false,
+          }),
+        ),
+      ],
+    },
+    // The probe counts one side of a question that was too big to run whole,
+    // to decide how to slice it. It runs on the failing step's endpoint, which
+    // is federation for every discovery step; 201 is PROBE_LIMIT in scope.ts.
+    ...ENTITY_TYPES.map((type) => ({
+      name: `PROBE: ${type}`,
+      usedBy: 'chooseAxis in src/engine/scope.ts, after a step times out',
+      steps: [{ type: 'probe', endpoint: 'federation', query: buildEntityProbeQuery({ type }, ['23'], 201) }],
+    })),
+  ];
+}
+
+// Analysis shapes first, so the snapshot's existing order never moves.
 export function catalog(): CatalogEntry[] {
-  return analysisEntries();
+  return [...analysisEntries(), ...lookupEntries()];
+}
+
+// A query as a person reads it: the shared PREFIX block taken out (it is the
+// same in every query and printed once in docs/QUERIES.md), indentation made
+// consistent, runs of blank lines collapsed.
+export function pretty(query: string): string {
+  const lines = query.replace(PREFIXES, '').split('\n').map((l) => l.trimEnd());
+  while (lines.length && !lines[0].trim()) lines.shift();
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  const indent = Math.min(...lines.filter((l) => l.trim()).map((l) => l.length - l.trimStart().length));
+  return lines
+    .map((l) => l.slice(indent))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n');
 }

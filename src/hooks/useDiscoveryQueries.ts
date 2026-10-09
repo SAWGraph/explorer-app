@@ -1,16 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { executeSparql } from '../engine/sparqlClient';
 import type { SparqlRow } from '../types/sparql';
-import {
-  buildDiscoverIndustriesQuery,
-  buildDiscoverSubstancesQuery,
-  buildDiscoverMaterialTypesQuery,
-  buildDiscoverCountiesQuery,
-  buildIndustryCountsQuery,
-  buildDiscoverIllinoisPurposesQuery,
-  buildDiscoverMaineTypesQuery,
-  buildDiscoverMaineUsesQuery,
-} from '../engine/templates/regions';
+
+const run = ({ endpoint, query }: Lookup) => executeSparql(endpoint, query);
+import { LOOKUPS, type Lookup, type RegionParam } from '../engine/lookupQueries';
 import { FALLBACK_NAICS, type NaicsIndustry } from '../constants/naics';
 import { FALLBACK_SUBSTANCES, substanceLabel, type Substance } from '../constants/substances';
 import { FALLBACK_MATERIAL_TYPES, MATERIAL_GROUP_BY_PRIO, type MaterialType } from '../constants/materialTypes';
@@ -26,7 +19,7 @@ export function useIndustries() {
   return useQuery<NaicsIndustry[]>({
     queryKey: ['industries'],
     queryFn: async () => {
-      const rows = await executeSparql('fiokg', buildDiscoverIndustriesQuery());
+      const rows = await run(LOOKUPS.industries());
       if (rows.length === 0) return FALLBACK_NAICS;
       const seen = new Set<string>();
       const result: NaicsIndustry[] = [];
@@ -68,11 +61,6 @@ export function useIndustries() {
   });
 }
 
-interface RegionParam {
-  stateCode?: string;
-  countyCodes?: string[];
-}
-
 export function useIndustryCounts(region?: RegionParam) {
   const key = region?.stateCode
     ? (region.countyCodes?.length ? [...region.countyCodes].sort() : [region.stateCode]).join(',')
@@ -81,10 +69,7 @@ export function useIndustryCounts(region?: RegionParam) {
     queryKey: ['industryCounts', key],
     queryFn: async () => {
       if (!region?.stateCode) return {};
-      const rows = await executeSparql(
-        'federation',
-        buildIndustryCountsQuery({ stateCode: region.stateCode, countyCodes: region.countyCodes }),
-      );
+      const rows = await run(LOOKUPS.industryCounts({ stateCode: region.stateCode, countyCodes: region.countyCodes }));
       const counts: Record<string, number> = {};
       for (const r of rows) {
         const uri = r.industryCode || '';
@@ -110,10 +95,7 @@ export function useSubstances(region?: RegionParam) {
   return useQuery<Substance[]>({
     queryKey: ['substances', key],
     queryFn: async () => {
-      const rows = await executeSparql(
-        region?.stateCode ? 'federation' : 'sawgraph',
-        buildDiscoverSubstancesQuery(region),
-      );
+      const rows = await run(LOOKUPS.substances(region));
       if (rows.length === 0) return key ? [] : FALLBACK_SUBSTANCES;
       return rows.map((r) => ({
         uri: r.substance,
@@ -135,10 +117,7 @@ export function useMaterialTypes(region?: RegionParam) {
   return useQuery<MaterialType[]>({
     queryKey: ['materialTypes', key],
     queryFn: async () => {
-      const rows = await executeSparql(
-        region?.stateCode ? 'federation' : 'sawgraph',
-        buildDiscoverMaterialTypesQuery(region),
-      );
+      const rows = await run(LOOKUPS.materialTypes(region));
       if (rows.length === 0) return key ? [] : FALLBACK_MATERIAL_TYPES;
       return rows.map((r) => ({
         uri: r.matType,
@@ -158,7 +137,7 @@ export function useCounties(stateCode?: string) {
     queryKey: ['counties', stateCode],
     queryFn: async () => {
       if (!stateCode) return [];
-      const rows = await executeSparql('spatialkg', buildDiscoverCountiesQuery(stateCode));
+      const rows = await run(LOOKUPS.counties(stateCode));
       return rows.map((r) => ({
         uri: r.county,
         name: r.countyName,
@@ -218,9 +197,9 @@ export function useWellClassifications() {
     queryKey: ['wellClassifications'],
     queryFn: async () => {
       const [il, meType, meUse] = await Promise.all([
-        executeSparql('hydrologykg', buildDiscoverIllinoisPurposesQuery()),
-        executeSparql('hydrologykg', buildDiscoverMaineTypesQuery()),
-        executeSparql('hydrologykg', buildDiscoverMaineUsesQuery()),
+        run(LOOKUPS.illinoisWellPurposes()),
+        run(LOOKUPS.maineWellTypes()),
+        run(LOOKUPS.maineWellUses()),
       ]);
       const merged = [
         ...collapseIllinois(il),
