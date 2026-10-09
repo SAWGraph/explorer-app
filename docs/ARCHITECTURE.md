@@ -158,7 +158,6 @@ explorer/
 │
 ├── scripts/                 # Maintainer tools (tsx)
 │   ├── warm-cache.mts       # Run the dashboard questions, upload the results
-│   ├── check-cache-key.mts  # Assertions on cache-key canonicalisation
 │   └── query-matrix.mts     # Measure every query shape, write the CSV
 │
 └── docs/                    # See CLAUDE.md for the full map
@@ -266,7 +265,7 @@ the two decisions have to be made separately rather than passing
 `relationship.type` through as the direction. Doing exactly that answered the
 mirror question for every upstream shape until 2026-09-16
 (`docs/DEBUGGING.md`, 2026-09-16), and it is guarded now by
-`scripts/check-trace-direction.mts`, which reads the emitted SPARQL rather than
+the trace-direction tests in `src/engine/planner.test.ts`, which read the emitted SPARQL rather than
 the flag, because three separate builders trace and they all have to agree.
 
 ### 3. Executor Runs the Steps
@@ -782,7 +781,7 @@ genuinely reads the unit, so that case keeps it. Nothing ever needs the material
 
 **The rule to carry into new templates:** fetch what you project or filter on,
 nothing else, and reach for `OPTIONAL` the moment a field is not universal.
-`scripts/check-query-joins.mts` asserts this across all 108 shapes in CI.
+`src/engine/templates/fusedQueries.test.ts` asserts this across all 108 shapes in CI.
 
 ### 6. Why Transform SPARQL Rows to Features?
 

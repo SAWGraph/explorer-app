@@ -36,6 +36,36 @@ npm run lint     # ESLint
 npm run preview  # Preview production build
 ```
 
+## Testing
+
+```bash
+npm test             # every *.test.ts under src/, offline, a few seconds
+npm run test:watch   # the same, rerunning on save
+npm test -- -u       # re-record snapshots after an intended change
+```
+
+Tests sit next to the code they test (`planner.ts` and `planner.test.ts`). They
+use [Vitest](https://vitest.dev) with `node:assert/strict` for assertions, and
+CI runs `npm test` on every pull request.
+
+`src/engine/queries/catalog.test.ts` records the SPARQL generated for every
+question shape in `src/engine/queries/__snapshots__/query-shapes.txt` and fails
+when any of it changes. When the change is intended, re-record with
+`npm test -- -u` and commit the snapshot with the code. On failure, the test
+prints which shapes moved, grouped by relationship, before the raw diff.
+
+Older docs and changelogs refer to the self-check scripts these tests replaced:
+
+| Old script | Now |
+| --- | --- |
+| `scripts/check-trace-direction.mts` | `src/engine/planner.test.ts`, "trace direction" |
+| `scripts/check-flowline-scope.mts` | `src/engine/planner.test.ts`, "flowline scope" |
+| `scripts/check-step-labels.mts` | `src/engine/planner.test.ts`, "step labels" |
+| `scripts/check-query-joins.mts` | `src/engine/templates/fusedQueries.test.ts` |
+| `scripts/check-cache-key.mts` | `src/engine/cacheKey.test.ts` |
+| `scripts/check-substance-labels.mts` | `src/constants/substances.test.ts`, `src/engine/resultTransformer.test.ts` |
+| `scripts/check-query-snapshots.mts` | `src/engine/queries/catalog.test.ts` |
+
 ## Deployment
 
 Deployed on **Railway**, two environments, each with a frontend and an API

@@ -94,7 +94,7 @@ Sketch, to be firmed up during implementation:
 
 1. Add the `widen` option to `buildFusedWhereBody` and thread it through
    `buildFusedHydrologyQuery` and `buildFusedWellQuery`. Default preserves
-   current output; assert that in `scripts/check-query-joins.mts`.
+   current output; assert that in `src/engine/templates/fusedQueries.test.ts`.
    **Restructure the body emission first.** `buildFusedWhereBody` currently
    writes the whole body out twice, once anchor-first and once target-first,
    with the streams-target case spelled in both. Adding `widen` on top of that
@@ -118,7 +118,7 @@ Sketch, to be firmed up during implementation:
 4. Executor: issue both variants, union, single step report. Partial failure of
    one variant should degrade to the other's rows rather than failing the step,
    matching how the flowline layer is already `optional`.
-5. Extend `scripts/check-flowline-scope.mts` or add a sibling check asserting
+5. Extend the flowline-scope tests in `src/engine/planner.test.ts` or add a sibling test asserting
    both variants are emitted for all 72 hydrology shapes.
 6. Re-run `npm run query-matrix` in engine mode and commit a dated CSV. Counts
    will move upward across hydrology shapes; the sweep is how that is recorded

@@ -946,7 +946,7 @@ report: a user narrowing a result set that was too broad, and getting nothing.
 The body leads with the higher rank, and ties keep the anchor-first order. So
 this only changes questions where both sides are constrained at *different*
 levels; everything where one side was constrained and the other was not keeps
-the plan it had. Of the 375 shapes in `scripts/__snapshots__/query-shapes.txt`,
+the plan it had. Of the 375 shapes in `src/engine/queries/__snapshots__/query-shapes.txt`,
 2 move, both variants with a region on one side and a bare filter on the other.
 
 ### 11.3 What it does not fix
