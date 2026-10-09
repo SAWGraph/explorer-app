@@ -24,9 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 22, not 20: Vitest 5 needs Node 22 or later.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       # react-leaflet's peer range does not include React 19 (see CLAUDE.md)
@@ -35,33 +36,24 @@ jobs:
       - name: Build (tsc -b && vite build)
         run: npm run build
 
-      # Each of these asserts something that is silent when wrong: a wrong
-      # answer, a mislabelled step, a cache key that collides. They fail the
-      # build rather than reporting, because a self-check nobody is obliged to
-      # read is a self-check that does not exist.
-      - name: Trace direction
-        run: npm run check-trace-direction
+      # Every *.test.ts under src/: the engine checks that used to be seven
+      # separate scripts, plus the SPARQL snapshot. One command, so a new test
+      # file runs in CI the moment it exists, rather than when someone remembers
+      # to add a step for it, which is how the original checks went unrun.
+      # *.live.test.ts files are skipped here; they need LIVE=1 (npm run test:live).
+      - name: Tests
+        run: npm test
 
-      - name: Flowline scope
-        run: npm run check-flowline-scope
-
-      - name: Cache key
-        run: npm run check-cache-key
-
-      - name: Step labels
-        run: npm run check-step-labels
-
-      - name: Substance labels
-        run: npm run check-substance-labels
-
-      - name: Query join order and observation joins
-        run: npm run check-query-joins
-
-      # Golden-file diff of the SPARQL every shape generates. The one above
-      # asserts a rule; this one notices when a change moves a shape nobody was
-      # thinking about, which is the failure mode of a shared query builder.
-      - name: Query snapshots
-        run: npm run check-query-snapshots
+      # Which queries this pull request changes, against the base branch, on
+      # the run's summary page. npm test above already guarantees the
+      # committed snapshot matches the code, so comparing two committed
+      # snapshots is enough. Reports; never fails the build.
+      - name: SPARQL blast radius
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          git show FETCH_HEAD:src/engine/queries/__snapshots__/query-shapes.txt > "$RUNNER_TEMP/base.txt" || true
+          npx tsx scripts/sparql-blast-radius.mts "$RUNNER_TEMP/base.txt" >> "$GITHUB_STEP_SUMMARY"
 
       # Not blocking yet: `npm run lint` reports 15 pre-existing errors, all in
       # components and none related to the engine. Make this a required step in

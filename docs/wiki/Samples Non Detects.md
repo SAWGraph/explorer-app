@@ -162,4 +162,4 @@ renders the checkbox.
 decides which joins each filter needs, in `sampleJoinsNeeded`.
 [`samples.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/samples.ts)
 holds `needsUnitJoin` and `resultValueClauses`.
-`scripts/check-query-joins.mts` asserts the rule across all 108 question shapes in CI.
+`src/engine/templates/fusedQueries.test.ts` asserts the rule across all 108 question shapes in CI.

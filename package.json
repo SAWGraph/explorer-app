@@ -10,13 +10,10 @@
     "preview": "vite preview",
     "build-thumbnails": "tsx scripts/build-thumbnails.mts",
     "warm-cache": "tsx scripts/warm-cache.mts",
-    "check-cache-key": "tsx scripts/check-cache-key.mts",
-    "check-step-labels": "tsx scripts/check-step-labels.mts",
-    "check-trace-direction": "tsx scripts/check-trace-direction.mts",
-    "check-flowline-scope": "tsx scripts/check-flowline-scope.mts",
-    "check-substance-labels": "tsx scripts/check-substance-labels.mts",
-    "check-query-joins": "tsx scripts/check-query-joins.mts",
-    "check-query-snapshots": "tsx scripts/check-query-snapshots.mts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:live": "LIVE=1 vitest run live --no-file-parallelism",
+    "sparql": "tsx scripts/sparql.mts",
     "query-matrix": "tsx scripts/query-matrix.mts",
     "health-check": "tsx scripts/health-check.mts"
   },
@@ -48,6 +45,7 @@
     "tsx": "^4.23.13",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^5.0.3"
   }
 }

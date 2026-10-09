@@ -168,7 +168,7 @@ same substance read as "10-H-Perfluorodecanoic acid" in the dropdown and as a ba
 `DTXSID10630918` in the popup, which looked like a broken query rather than a missing label.
 The popup's query now projects the label parts instead of picking a winner in SPARQL, and
 aggregates each one, which also stops a substance with two labels from duplicating its
-observation's row. `npm run check-substance-labels` asserts the order.
+observation's row. `src/constants/substances.test.ts` asserts the order.
 
 ## If it looks wrong
 
