@@ -2,7 +2,15 @@
 // up as a missing polygon or a wrong popup value, never as an error.
 import { describe, test } from 'vitest';
 import assert from 'node:assert/strict';
-import { buildSamplePointDetail } from './resultTransformer';
+import {
+  transformSamplesToFeatures,
+  transformFacilitiesToFeatures,
+  transformWaterBodiesToFeatures,
+  transformWellsToFeatures,
+  transformFlowlinesToFeatures,
+  transformRegionBoundaries,
+  buildSamplePointDetail,
+} from './resultTransformer';
 import type { SparqlRow } from '../types/sparql';
 
 // The popup's grouping. Grouping that keys on the label instead of the URI
@@ -54,4 +62,86 @@ describe('sample popup grouping', () => {
     ]);
     assert.equal(shared?.samples[0].observations.length, 2);
   });
+});
+
+describe('map features', () => {
+  test('WKT points are lon lat, Leaflet wants lat lon', () => {
+    const [f] = transformSamplesToFeatures([{ sp: 'sp1', spWKT: 'POINT(-69.5 44.2)' }]);
+    assert.deepEqual(f.geometry, { type: 'Point', coordinates: [44.2, -69.5] });
+    assert.equal(f.properties.resultCount, '0');
+  });
+
+  test('rows without geometry, or with unparseable geometry, are dropped', () => {
+    assert.equal(transformSamplesToFeatures([{ sp: 'a' }, { sp: 'b', spWKT: 'garbage' }]).length, 0);
+    assert.equal(transformWellsToFeatures([{ well: 'w', wellWKT: 'LINESTRING(1 2, 3 4)' }]).length, 0);
+  });
+
+  test('a facility with several industry codes is one marker, first row wins', () => {
+    const out = transformFacilitiesToFeatures([
+      { facility: 'f1', facWKT: 'POINT(1 2)', industryCode: '562212' },
+      { facility: 'f1', facWKT: 'POINT(1 2)', industryCode: '562211' },
+      { facility: 'f2', facWKT: 'POINT(3 4)', industryCode: '325' },
+    ]);
+    assert.deepEqual(out.map((f) => [f.id, f.properties.industryCode]), [['f1', '562212'], ['f2', '325']]);
+  });
+
+  test('water bodies: point, line, polygon with a hole, multipolygon', () => {
+    const out = transformWaterBodiesToFeatures([
+      { waterBody: 'p', wbWKT: 'POINT(1 2)' },
+      { waterBody: 'l', wbWKT: 'LINESTRING(1 2, 3 4)' },
+      { waterBody: 'h', wbWKT: 'POLYGON((0 0, 4 0, 4 4, 0 0), (1 1, 2 1, 2 2, 1 1))' },
+      { waterBody: 'm', wbWKT: 'MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)), ((5 5, 6 5, 6 6, 5 5)))' },
+    ]);
+    assert.deepEqual(out.map((f) => [f.id, f.geometry.type]), [
+      ['p', 'Point'],
+      ['l', 'LineString'],
+      ['h', 'Polygon'],
+      ['m_0', 'Polygon'],
+      ['m_1', 'Polygon'],
+    ]);
+    // The hole survives as a second ring.
+    assert.equal((out[2].geometry.coordinates as unknown[]).length, 2);
+    assert.equal(out[0].properties.name, 'Unknown Water Body');
+  });
+
+  test('a MULTIPOLYGON is never read as a single POLYGON', () => {
+    const out = transformRegionBoundaries([
+      { region: 'r', regionWKT: 'MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)), ((5 5, 6 5, 6 6, 5 5)))' },
+    ]);
+    assert.deepEqual(out.map((f) => f.id), ['r_0', 'r_1']);
+  });
+
+  test('well classification IRIs are shown by local name', () => {
+    const [w] = transformWellsToFeatures([
+      { well: 'w', wellWKT: 'POINT(1 2)', meUse: 'http://example.org/me-mgs.Domestic', ilDepth: '40' },
+    ]);
+    assert.equal(w.properties.wellUse, 'Domestic');
+    assert.equal(w.properties.depth, '40');
+  });
+
+  test('flowlines are deduplicated, and pathLength appears only when present', () => {
+    const out = transformFlowlinesToFeatures([
+      { flowline: 'a', flowlineWKT: 'LINESTRING(1 2, 3 4)', path_length: '2.5' },
+      { flowline: 'a', flowlineWKT: 'LINESTRING(1 2, 3 4)' },
+      { flowline: 'b', flowlineWKT: 'LINESTRING(5 6, 7 8)' },
+    ]);
+    assert.deepEqual(out.map((f) => f.id), ['a', 'b']);
+    assert.equal(out[0].properties.pathLength, '2.5');
+    assert.ok(!('pathLength' in out[1].properties));
+  });
+});
+
+describe('sample popup, across samples', () => {
+  test('max is taken across every sample at the point, dates trimmed to the day', () => {
+    const base = { samplePointName: 'Well 7', unit_sym: 'ng/L' };
+    const detail = buildSamplePointDetail([
+      { ...base, sample: 's1', sampleIdentifier: 'S-1', date: '2021-05-04T00:00:00', substanceUri: 'u/PFOS', substanceShortLabel: 'PFOS', result_value: '5' },
+      { ...base, sample: 's2', sampleIdentifier: 'S-2', date: '2022-01-01', substanceUri: 'u/PFOA', substanceShortLabel: 'PFOA', result_value: '9' },
+    ])!;
+    assert.equal(detail.samplePointName, 'Well 7');
+    assert.equal(detail.samples[0].date, '2021-05-04');
+    assert.deepEqual(detail.maxResult, { substance: 'PFOA', value: 9, unit: 'ng/L', sampleId: 'S-2', date: '2022-01-01' });
+  });
+
+  test('no rows, no popup', () => assert.equal(buildSamplePointDetail([]), null));
 });
