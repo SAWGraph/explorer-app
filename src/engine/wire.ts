@@ -1,5 +1,5 @@
 import type { SparqlRow } from '../types/sparql';
-import type { PartialFailure, PipelineSuccess } from './executor';
+import type { PartialFailure, PipelineSuccess, SentQuery } from './executor';
 
 // The shape a cached result takes over the wire and in Postgres.
 //
@@ -10,6 +10,8 @@ export interface WireResult {
   status: 'success';
   data: Record<string, SparqlRow[]>;
   partial?: PartialFailure[];
+  // The SPARQL that produced this result, for the "See Full SPARQL" modal.
+  queries?: SentQuery[];
   computedAt: string;
 }
 
@@ -32,6 +34,7 @@ export function toWire(result: PipelineSuccess, computedAt = new Date().toISOStr
     status: 'success',
     data,
     ...(result.partial?.length ? { partial: result.partial } : {}),
+    ...(result.queries?.length ? { queries: result.queries } : {}),
     computedAt,
   };
 }
@@ -41,6 +44,7 @@ export function fromWire(wire: WireResult): PipelineSuccess {
     status: 'success',
     data: wire.data,
     ...(wire.partial?.length ? { partial: wire.partial } : {}),
+    ...(wire.queries?.length ? { queries: wire.queries } : {}),
   };
 }
 

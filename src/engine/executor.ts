@@ -1,5 +1,6 @@
 import type { AnalysisQuestion } from '../types/query';
 import type { SparqlRow } from '../types/sparql';
+import type { EndpointKey } from '../constants/endpoints';
 import type { PipelineStep, PipelineContext } from './planner';
 import type { Scope } from './scope';
 import { executeSparql } from './sparqlClient';
@@ -15,17 +16,30 @@ export interface PartialFailure {
   skipped: string[];
 }
 
+// One request as it was actually sent, kept so the exact SPARQL behind a map
+// can be shown and copied. A step that was split appears once per slice.
+export interface SentQuery {
+  step: number;
+  description: string;
+  endpoint: EndpointKey;
+  scope?: string;
+  query: string;
+  error?: string;
+}
+
 export interface PipelineSuccess {
   status: 'success';
   data: Record<string, SparqlRow[]>;
   // Set when some slices of the work failed but enough succeeded to show a map.
   partial?: PartialFailure[];
+  queries?: SentQuery[];
 }
 
 export interface PipelineEmpty {
   status: 'empty';
   failedAtStep: number;
   message: string;
+  queries?: SentQuery[];
 }
 
 export interface PipelineError {
@@ -33,6 +47,7 @@ export interface PipelineError {
   failedAtStep: number;
   message: string;
   error: Error;
+  queries?: SentQuery[];
 }
 
 export type PipelineResult = PipelineSuccess | PipelineEmpty | PipelineError;
@@ -85,6 +100,7 @@ async function runStep(
   step: PipelineStep,
   context: PipelineContext,
   report: (chunksDone: number, chunksTotal: number) => void,
+  record: (sent: Omit<SentQuery, 'step' | 'description' | 'endpoint'>) => void,
 ): Promise<StepOutcome> {
   const startedAt = Date.now();
   const queue: (Scope | undefined)[] = step.initialScopes?.(context) ?? [undefined];
@@ -122,6 +138,7 @@ async function runStep(
 
     try {
       const result = await executeSparql(step.endpoint, query, { cache: step.cache });
+      record({ scope: scope?.label, query });
       // Slices can overlap — the same river reach is reached from several
       // anchors — so merge as a set. Whole-row identity is the right key: for
       // aggregate rows the GROUP BY key never spans slices (chunking always
@@ -136,6 +153,7 @@ async function runStep(
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       lastError = error;
+      record({ scope: scope?.label, query, error: error.message });
       const splittable = error instanceof SparqlError && isSplittable(error.kind);
       if (splittable && !scope) knownTooLarge.add(query);
       const smaller = splittable ? await step.divide?.(context, scope) : null;
@@ -166,6 +184,7 @@ export async function executePipeline(
     results: {},
   };
   const partial: PartialFailure[] = [];
+  const queries: SentQuery[] = [];
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
@@ -174,11 +193,16 @@ export async function executePipeline(
 
     let outcome: StepOutcome;
     try {
-      outcome = await runStep(step, context, (chunksDone, chunksTotal) => {
-        if (chunksTotal > 1) {
-          onProgress({ ...base, status: 'running', chunksDone, chunksTotal });
-        }
-      });
+      outcome = await runStep(
+        step,
+        context,
+        (chunksDone, chunksTotal) => {
+          if (chunksTotal > 1) {
+            onProgress({ ...base, status: 'running', chunksDone, chunksTotal });
+          }
+        },
+        (sent) => queries.push({ step: i, description: step.description, endpoint: step.endpoint, ...sent }),
+      );
     } catch (err) {
       onProgress({ ...base, status: 'failed' });
       return {
@@ -186,6 +210,7 @@ export async function executePipeline(
         failedAtStep: i,
         message: `Error at step: ${step.description}`,
         error: err instanceof Error ? err : new Error(String(err)),
+        queries,
       };
     }
 
@@ -198,6 +223,7 @@ export async function executePipeline(
         failedAtStep: i,
         message: `Error at step: ${step.description}`,
         error: outcome.lastError ?? new Error('Query failed'),
+        queries,
       };
     }
     if (missing.length > 0) {
@@ -222,6 +248,7 @@ export async function executePipeline(
           status: 'empty',
           failedAtStep: i,
           message: `No results at step: ${step.description}`,
+          queries,
         };
       }
     }
@@ -248,5 +275,6 @@ export async function executePipeline(
     status: 'success',
     data: context.results,
     ...(partial.length > 0 ? { partial } : {}),
+    queries,
   };
 }
