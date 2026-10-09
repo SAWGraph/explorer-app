@@ -3,6 +3,7 @@ import { ResultsMap } from '../Map/ResultsMap';
 import { PipelineProgressStrip } from '../Pipeline/PipelineProgressStrip';
 import { PartialResultsNotice } from '../Pipeline/PartialResultsNotice';
 import { CachedResultNotice } from '../Pipeline/CachedResultNotice';
+import { SparqlChip } from '../Pipeline/SparqlChip';
 import { useQueryStore } from '../../store/queryStore';
 import { useMapLayers } from '../../hooks/useMapLayers';
 import { useQueryPipeline } from '../../hooks/useQueryPipeline';
@@ -29,6 +30,7 @@ export function MainContent() {
         <CachedResultNotice />
         <PartialResultsNotice />
         <PipelineProgressStrip />
+        <SparqlChip />
       </div>
     </main>
   );

@@ -7,7 +7,7 @@ import type { AnalysisQuestion } from '../types/query';
 //
 // Bump WIRE_VERSION when the set of result keys we store changes (see wire.ts) —
 // old entries would then be missing data the map expects.
-const WIRE_VERSION = 'w1';
+const WIRE_VERSION = 'w2'; // w2: results carry the SPARQL that produced them
 
 // Bump DATA_VERSION after a knowledge-graph reload to make every existing key
 // unreachable in one move.
