@@ -57,11 +57,13 @@ jobs:
       - name: Query join order and observation joins
         run: npm run check-query-joins
 
-      # Golden-file diff of the SPARQL every shape generates. The one above
-      # asserts a rule; this one notices when a change moves a shape nobody was
-      # thinking about, which is the failure mode of a shared query builder.
-      - name: Query snapshots
-        run: npm run check-query-snapshots
+      # Vitest. Includes tests/queryGeneration.test.ts, the golden-file diff of
+      # the SPARQL generated for the prebuilt, representative and critical
+      # questions. The checks above assert a rule; this notices when a change
+      # moves a question nobody was thinking about, which is the failure mode of
+      # a shared query builder.
+      - name: Tests
+        run: npm test
 
       # Not blocking yet: `npm run lint` reports 15 pre-existing errors, all in
       # components and none related to the engine. Make this a required step in

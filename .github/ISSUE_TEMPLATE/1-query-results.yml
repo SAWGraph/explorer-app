@@ -1,0 +1,42 @@
+name: Query / Results Problem
+description: Results look wrong, are missing, or a query is slow
+labels: [query]
+body:
+  - type: input
+    id: link
+    attributes:
+      label: Share link
+      description: Publish the question and paste the /p/... link
+      placeholder: https://sawgraph-explorer-development.up.railway.app/p/p_xxxxxxxx
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's not working today?
+      description: What looks wrong or missing? Add screenshots, marker names, or row counts and timings if it's slow.
+    validations:
+      required: true
+  - type: textarea
+    id: current-sparql
+    attributes:
+      label: Current SPARQL
+      description: Copy it from the See Full SPARQL chip on the map
+      render: sparql
+  - type: textarea
+    id: suggested-sparql
+    attributes:
+      label: Suggested SPARQL (optional)
+      description: Full query, if you have a fix in mind
+      render: sparql
+  - type: dropdown
+    id: impact
+    attributes:
+      label: What would fixing this improve?
+      multiple: true
+      options:
+        - Correctness (wrong or duplicate results)
+        - Coverage (missing results)
+        - Speed
+    validations:
+      required: true

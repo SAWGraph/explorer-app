@@ -1,0 +1,26 @@
+name: Feature Request
+description: A new capability, layer, filter, or question
+labels: [enhancement]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature description
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: What analysis question would this let you answer?
+      placeholder: Which wells in Illinois are downstream of landfills?
+  - type: textarea
+    id: docs
+    attributes:
+      label: Relevant documentation or ontologies (optional)
+      description: Classes, predicates, endpoints, or papers this depends on
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should be the desired behavior?
+    validations:
+      required: true
