@@ -1,7 +1,8 @@
 import type { PipelineSuccess } from '../engine/executor';
-import { cacheKey } from '../engine/cacheKey';
+import { cacheKey, sampleDetailKey } from '../engine/cacheKey';
 import { fromWire, isWireResult, toWire, type WireResult } from '../engine/wire';
 import type { AnalysisQuestion } from '../types/query';
+import type { SamplePointDetail } from '../types/map';
 
 function getApiBase(): string {
   const base = import.meta.env.VITE_API_BASE_URL;
@@ -74,5 +75,22 @@ export async function savePublishedResult(
   } catch (err) {
     console.warn('Could not cache published result', err);
     return false;
+  }
+}
+
+// One sample point's popup rows, if a prewarm run stored them. Any failure is
+// a miss: the caller then queries the endpoint live, as it always did.
+export async function fetchCachedSampleDetail(
+  samplePointIri: string,
+  filters?: unknown,
+): Promise<SamplePointDetail | null> {
+  if (cacheDisabled()) return null;
+  try {
+    const key = await sampleDetailKey(samplePointIri, filters);
+    const res = await fetch(`${getApiBase()}/api/results/${key}`);
+    if (!res.ok) return null;
+    return (await res.json()) as SamplePointDetail;
+  } catch {
+    return null;
   }
 }

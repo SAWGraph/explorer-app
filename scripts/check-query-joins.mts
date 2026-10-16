@@ -311,7 +311,20 @@ for (const targetType of ENTITY_TYPES) {
 // facilities either way, with the reordered form no slower (13s and 2s against
 // 16s and 3s). It reorders because the rule says the state-scoped side is the
 // narrower one, and the measurement agrees.
-const EXPECTED_REORDER = new Set(['samples-downstream-waste-indiana']);
+//
+// `facilities-upstream-pfos-york-cumberland` is the same shape the other way
+// round: facilities are unconstrained on block A, and block C is PFOS samples
+// in two Maine counties. Leading with the samples is rule 1 working, not a
+// regression.
+//
+// `samples-downstream-airports-indiana` is the same shape as the waste one:
+// Indiana samples on block A, NAICS 488119/481111 with no region on block C.
+// It started reordering when the ranking landed on development.
+const EXPECTED_REORDER = new Set([
+  'samples-downstream-waste-indiana',
+  'samples-downstream-airports-indiana',
+  'facilities-upstream-pfos-york-cumberland',
+]);
 
 for (const prebuilt of PREBUILT_QUERIES) {
   const question: AnalysisQuestion = prebuilt.question;
