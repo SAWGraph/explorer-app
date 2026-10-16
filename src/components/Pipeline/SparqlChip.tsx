@@ -1,29 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
-import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
-import { canonicalQuestion } from '../../engine/cacheKey';
 import type { SentQuery } from '../../engine/executor';
 
-// Prebuilt questions only, and only while unedited: an edited prebuilt is a
-// different question, and its SPARQL is no longer the one we vouch for.
-function useIsUneditedPrebuilt(): boolean {
-  const activeQueryId = useQueryStore((s) => s.activeQueryId);
-  const question = useQueryStore((s) => s.question);
-  const prebuilt = PREBUILT_QUERIES.find((q) => q.id === activeQueryId);
-  if (!prebuilt) return false;
-  return (
-    JSON.stringify(canonicalQuestion(question)) ===
-    JSON.stringify(canonicalQuestion(prebuilt.question))
-  );
-}
-
+// Shows the queries behind whatever is on the map: prebuilt, edited or custom.
+// They are the exact requests the executor sent, so they always match the map.
 export function SparqlChip() {
-  const isPrebuilt = useIsUneditedPrebuilt();
   const isRunning = useQueryStore((s) => s.isRunning);
   const queries = useQueryStore((s) => s.pipelineResult?.queries);
   const [open, setOpen] = useState(false);
 
-  if (!isPrebuilt || isRunning || !queries?.length) return null;
+  if (isRunning || !queries?.length) return null;
 
   return (
     <>
