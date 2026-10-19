@@ -68,28 +68,34 @@ function buildSamplePointRegionPattern(region?: { stateCode?: string; countyCode
   `;
 }
 
+// Starts from each dataset's own substance term, so substances with no DSSTox
+// identifier are listed too; those come back with an empty ?dtxsids.
 export function buildDiscoverSubstancesQuery(region?: { stateCode?: string; countyCodes?: string[] }): string {
   const regionPattern = buildSamplePointRegionPattern(region);
   const spType = regionPattern ? '?sp rdf:type coso:SamplePoint .' : '';
   return `
     ${PREFIXES}
-    SELECT ?substance
-      (SAMPLE(?_label) AS ?label)
-      (SAMPLE(?_short) AS ?short_label)
-      (MIN(?_viaParam) AS ?param_label)
-      (COUNT(DISTINCT ?observation) AS ?num)
+    SELECT ?display_label
+      (GROUP_CONCAT(DISTINCT STR(?substance); separator=" ") AS ?dtxsids)
+      (SUM(?count) AS ?num)
     WHERE {
-      ${spType}
-      ${regionPattern}
-      ?observation rdf:type coso:ContaminantObservation ;
-                   ${regionPattern ? 'coso:observedAtSamplePoint ?sp ;' : ''}
-                   coso:ofDSSToxSubstance ?substance .
-      ?substance a comptox:ChemicalEntity .
-      OPTIONAL { ?substance rdfs:label ?_label . }
-      OPTIONAL { ?substance skos:altLabel ?_short . }
-      OPTIONAL { ?pL comptox:sameAsDSSToxSubstance ?substance ; rdfs:label ?_viaParam . }
-    } GROUP BY ?substance
-    ORDER BY DESC(?num) ?label
+      SELECT ?cv ?substance
+        (COUNT(DISTINCT ?observation) AS ?count)
+        (SAMPLE(COALESCE(?short_label, ?label, ?cv_label)) AS ?display_label)
+      WHERE {
+        ${spType}
+        ${regionPattern}
+        ?observation a coso:ContaminantObservation ;
+                     ${regionPattern ? 'coso:observedAtSamplePoint ?sp ;' : ''}
+                     coso:ofDatasetSubstance ?cv .
+        OPTIONAL { ?cv comptox:sameAsDSSToxSubstance ?substance .
+                   OPTIONAL { ?substance rdfs:label ?label }
+                   OPTIONAL { ?substance skos:altLabel ?short_label } }
+        OPTIONAL { ?cv rdfs:label ?cv_label }
+      }
+      GROUP BY ?cv ?substance
+    } GROUP BY ?display_label
+    ORDER BY DESC(?num)
   `;
 }
 
