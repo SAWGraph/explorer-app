@@ -1,0 +1,27 @@
+name: UI Bug
+description: Something in the interface is broken or behaves unexpectedly
+labels: [bug]
+body:
+  - type: input
+    id: link
+    attributes:
+      label: Share link
+      description: Publish the question and paste the /p/... link, if the bug involves a question
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue
+      description: What did you do, and what happened? Add screenshots.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should be the desired behavior?
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: Chrome 141, macOS

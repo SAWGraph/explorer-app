@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Knowledge graph data problem
+    url: https://github.com/SAWGraph/public/issues
+    about: Missing/wrong geometry, values, or other gaps in the SAWGraph data itself
