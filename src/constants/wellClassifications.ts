@@ -49,6 +49,13 @@ export const FALLBACK_WELL_CLASSIFICATIONS: WellClassification[] = [
     group: WELL_GROUP_LABEL.meType,
   },
   {
+    key: encodeWellToken('meType', ['http://sawgraph.spatialai.org/v1/me-mgs-data#d.wellType.Gravel']),
+    label: 'Gravel',
+    state: 'ME',
+    field: 'meType',
+    group: WELL_GROUP_LABEL.meType,
+  },
+  {
     key: encodeWellToken('meUse', ['http://sawgraph.spatialai.org/v1/me-mgs-data#d.wellUse.Domestic']),
     label: 'Domestic',
     state: 'ME',
