@@ -150,6 +150,11 @@ async function openPrebuilt() {
   await waitFor(() => expect(store().pipelineResult).not.toBeNull());
   return router;
 }
+async function save() {
+  fireEvent.click(button('Save'));
+  fireEvent.click(document.querySelector('form button[type="submit"]')!);
+  await waitFor(() => expect(store().activeQueryId).toMatch(/^saved:/));
+}
 // navigate() can land after the click handler returns, so a stray one only shows
 // up in the URL after pending work runs. Checking right after the click would
 // pass even with the bug.
@@ -240,6 +245,19 @@ describe('2 new analysis, filters applied', () => {
     expect(store().question.blockC).toEqual(EDIT2);
     expect(store().pipelineResult?.status).toBe('error');
   });
+
+  it('2e Save: URL becomes /q/saved:<id>, no rerun, map kept, not based on "new"', async () => {
+    const before = await newApplied();
+    const runsBefore = runs();
+    await save();
+    await waitFor(() => expect(before.router.state.location.pathname).toBe(`/q/${store().activeQueryId}`));
+    expect(runs()).toBe(runsBefore);
+    expect(store().pipelineResult).toBe(before.result);
+    expect(savedQuestionsRepo.list()[0].basedOnQueryId).toBeNull();
+    await customize();
+    DISMISSALS['the X']();
+    await expectStayed(before.router, `/q/${store().activeQueryId}`);
+  });
 });
 
 describe('3 prebuilt analysis', () => {
@@ -302,6 +320,16 @@ describe('4 prebuilt, edited and unsaved', () => {
     expect(store().question).toEqual(before.question);
     expect(store().question).not.toEqual(PREBUILT.question);
   });
+
+  it('4c Save: URL becomes /q/saved:<id>, no rerun, map kept', async () => {
+    const before = await editedPrebuilt();
+    const runsBefore = runs();
+    await save();
+    await waitFor(() => expect(before.router.state.location.pathname).toBe(`/q/${store().activeQueryId}`));
+    expect(runs()).toBe(runsBefore);
+    expect(store().pipelineResult).toBe(before.result);
+    expect(savedQuestionsRepo.list()[0].basedOnQueryId).toBe(PREBUILT.id);
+  });
 });
 
 describe('5 saved analysis', () => {
@@ -344,6 +372,19 @@ describe('6 published analysis', () => {
     dismiss();
     await expectStayed(router, '/p/abc');
     expect(store().question).toEqual(PREBUILT.question);
+  });
+
+  it('6b edit, Apply, Save a copy: URL becomes /q/saved:<id>, no rerun, map kept', async () => {
+    const router = await openPublished();
+    await customize();
+    edit();
+    await applied('edited');
+    const result = store().pipelineResult;
+    const runsBefore = runs();
+    await save();
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/q/${store().activeQueryId}`));
+    expect(runs()).toBe(runsBefore);
+    expect(store().pipelineResult).toBe(result);
   });
 });
 

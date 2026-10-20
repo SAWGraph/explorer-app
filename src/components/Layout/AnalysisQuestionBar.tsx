@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryStore } from '../../store/queryStore';
 import { generateQuestion } from '../../utils/questionGenerator';
 import { useQuestionTotals } from '../../hooks/useQuestionTotals';
@@ -21,6 +22,7 @@ import {
 import { deepEqual } from '../../utils/clone';
 import { publishEditTokens } from '../../storage/publishEditTokens';
 import { savePublishedResult } from '../../api/resultCacheClient';
+import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
 
 const PUBLISHED_ID_PREFIX = 'published:';
 
@@ -59,6 +61,8 @@ export function AnalysisQuestionBar() {
   const updateMutation = useUpdateSavedQuestion();
   const publishMutation = usePublishWorkflow();
   const renamePublishedMutation = useRenamePublishedWorkflow();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const isExistingSave = isSavedQuestionId(activeQueryId);
   const isPublished = isPublishedId(activeQueryId);
@@ -106,21 +110,40 @@ export function AnalysisQuestionBar() {
     return generated.length > 80 ? generated.slice(0, 80) + '…' : generated;
   };
 
+  // The first save turns what is on screen (new, prebuilt or published) into a
+  // saved analysis. basedOnQueryId only ever names a prebuilt: it is how the
+  // dashboard labels a saved copy, and nothing else resolves.
+  const createSaved = async (name: string) => {
+    const created = await createMutation.mutateAsync({
+      name,
+      question,
+      basedOnQueryId: PREBUILT_QUERIES.some((q) => q.id === activeQueryId)
+        ? activeQueryId
+        : null,
+    });
+    useQueryStore.getState().setActiveQueryId(toSavedQueryParam(created.id));
+    setActiveQueryName(name);
+    setSavedIndicator(true);
+  };
+
+  // Once saved, the URL names the saved analysis so refresh and Back/Forward
+  // reopen it. keepLoaded tells EditorView this is the analysis already on
+  // screen: reloading it would rerun the pipeline and clear the map. Leaving
+  // /p/ remounts the page, so this waits until no modal is mid-flow.
+  const followSavedUrl = () => {
+    const id = useQueryStore.getState().activeQueryId;
+    if (isSavedQuestionId(id) && location.pathname !== `/q/${id}`) {
+      navigate(`/q/${id}`, { replace: true, state: { keepLoaded: true } });
+    }
+  };
+
   const handleConfirmSave = async (name: string) => {
     setSaveError(null);
     try {
-      const created = await createMutation.mutateAsync({
-        name,
-        question,
-        basedOnQueryId: activeQueryId && !isSavedQuestionId(activeQueryId)
-          ? activeQueryId
-          : null,
-      });
-      useQueryStore.getState().setActiveQueryId(toSavedQueryParam(created.id));
-      setActiveQueryName(name);
+      await createSaved(name);
       markBaseline();
       setModalOpen(false);
-      setSavedIndicator(true);
+      followSavedUrl();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save.');
     }
@@ -325,11 +348,13 @@ export function AnalysisQuestionBar() {
           onCancel={() => {
             setPublishOpen(false);
             setPublishError(null);
+            followSavedUrl();
           }}
           onClose={() => {
             setPublishOpen(false);
             setPublishError(null);
             setPublishedUrl(null);
+            followSavedUrl();
           }}
           onSubmit={async (values) => {
             setPublishError(null);
@@ -343,19 +368,7 @@ export function AnalysisQuestionBar() {
                   });
                 }
               } else {
-                const created = await createMutation.mutateAsync({
-                  name: values.title,
-                  question,
-                  basedOnQueryId:
-                    activeQueryId && !isSavedQuestionId(activeQueryId)
-                      ? activeQueryId
-                      : null,
-                });
-                useQueryStore
-                  .getState()
-                  .setActiveQueryId(toSavedQueryParam(created.id));
-                setActiveQueryName(values.title);
-                setSavedIndicator(true);
+                await createSaved(values.title);
               }
               const result = await publishMutation.mutateAsync({
                 author: values.author,
