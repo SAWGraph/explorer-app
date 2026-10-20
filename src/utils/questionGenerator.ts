@@ -8,9 +8,11 @@ import type {
 } from '../types/query';
 import { ALL_US_STATES } from '../constants/regions';
 import { NAICS_SECTOR_SHORT } from '../constants/naics';
+import { FALLBACK_MATERIAL_TYPES } from '../constants/materialTypes';
+import { STREAM_FTYPES, WATER_BODY_FTYPES, type FtypeOption } from '../constants/featureTypes';
 
 export interface QuestionTotals {
-  counties?: number;
+  counties?: Record<string, number>; // state FIPS → county count
   industries?: number;
   substances?: number;
   materialTypes?: number;
@@ -25,9 +27,11 @@ export function generateQuestion(
   const entityA = describeEntity(q.blockA, totals);
   const entityC = describeEntity(q.blockC, totals);
   const rel = describeRelationship(q.relationship);
+  // Both regions narrow the query, so both are said, even when they match.
   const regionA = describeRegion(q.blockA.region, totals);
+  const regionC = describeRegion(q.blockC.region, totals);
 
-  return `What ${entityA}${regionA} are ${rel} ${entityC}?`;
+  return `What ${entityA}${regionA} are ${rel} ${entityC}${regionC}?`;
 }
 
 // Returns either the joined list, a count summary ("N counties"), or an "all/any" phrase.
@@ -48,15 +52,23 @@ function summarize(
   return items.join(listJoin);
 }
 
+// Concentration range and the non-detect exclusion, as one parenthetical:
+// " (10-1000 ng/L, detections only)". The editor's inputs are ng/L and the
+// query compares in ng/L, so that is the unit when none is stored.
 function describeConcentration(f?: SampleFilters): string {
   if (!f) return '';
-  const { minConcentration: min, maxConcentration: max, unit } = f;
-  const u = unit ? ` ${unit}` : '';
-  if (min !== undefined && max !== undefined) return ` (${min}-${max}${u})`;
-  if (min !== undefined) return ` (above ${min}${u})`;
-  if (max !== undefined) return ` (below ${max}${u})`;
-  return '';
+  const { minConcentration: min, maxConcentration: max } = f;
+  const u = ` ${f.unit ?? 'ng/L'}`;
+  const parts: string[] = [];
+  if (min !== undefined && max !== undefined) parts.push(`${min}-${max}${u}`);
+  else if (min !== undefined) parts.push(`above ${min}${u}`);
+  else if (max !== undefined) parts.push(`below ${max}${u}`);
+  if (f.includeNondetects === false) parts.push('detections only');
+  return parts.length ? ` (${parts.join(', ')})` : '';
 }
+
+const ftypeLabels = (values: string[], options: FtypeOption[]): string[] =>
+  values.map((v) => options.find((o) => o.value === v)?.label ?? v);
 
 // The plural noun for an entity type, with no filters applied. Shared with the
 // pipeline step labels (src/engine/planner.ts) so the progress strip says
@@ -88,7 +100,13 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
       const subLabels = block.sampleFilters?.substanceLabels ?? {};
       const subItems = subs.map((uri) => subLabels[uri] || extractLabel(uri));
       const matLabels = block.sampleFilters?.materialTypeLabels ?? {};
-      const matItems = mats.map((uri) => matLabels[uri] || extractLabel(uri));
+      // Prebuilt questions and older saves carry no label map.
+      const matItems = mats.map(
+        (uri) =>
+          matLabels[uri] ||
+          FALLBACK_MATERIAL_TYPES.find((m) => m.uri === uri)?.label ||
+          extractLabel(uri),
+      );
 
       const subAll =
         totals?.substances !== undefined &&
@@ -170,15 +188,28 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
       }
       return entityTypeLabel('facilities');
     }
-    case 'waterBodies':
-      return entityTypeLabel('waterBodies');
+    case 'waterBodies': {
+      const ftypes = block.waterBodyFilters?.ftypes ?? [];
+      if (!ftypes.length) return entityTypeLabel('waterBodies');
+      // Labels contain " / " themselves, so they are joined with commas.
+      const items = ftypeLabels(ftypes, WATER_BODY_FTYPES);
+      return `${summarize(items, undefined, 'water types', 'water type', ', ', 'any')} ${entityTypeLabel('waterBodies')}`;
+    }
     case 'streams': {
       const ftypes = block.streamFilters?.ftypes ?? [];
       if (!ftypes.length) return entityTypeLabel('streams');
-      return `${summarize(ftypes, undefined, 'stream types', 'stream type', '/', 'any')} streams`;
+      const items = ftypeLabels(ftypes, STREAM_FTYPES);
+      return `${summarize(items, undefined, 'stream types', 'stream type', ', ', 'any')} streams`;
     }
-    case 'wells':
-      return entityTypeLabel('wells');
+    case 'wells': {
+      const tokens = block.wellFilters?.wellCategories ?? [];
+      if (!tokens.length) return entityTypeLabel('wells');
+      // A token ends in its category IRI, whose last segment ("Drilled") is
+      // the fallback when the save predates stored labels.
+      const labels = block.wellFilters?.wellCategoryLabels ?? {};
+      const items = tokens.map((t) => labels[t] || extractLabel(t));
+      return `${summarize(items, undefined, 'well types', 'well type', ', ', 'any')} wells`;
+    }
     case 'aquifers': {
       const kinds = block.aquiferFilters?.aquiferTypes ?? [];
       const labels: Record<string, string> = {
@@ -226,7 +257,7 @@ function describeRegion(region?: RegionFilter, totals?: QuestionTotals): string 
       .map((c) => region.countyLabels?.[c])
       .filter((s): s is string => Boolean(s));
     if (countyNames.length) {
-      const total = totals?.counties;
+      const total = region.stateCode ? totals?.counties?.[region.stateCode] : undefined;
       if (total !== undefined && total > 0 && countyNames.length === total) {
         return stateName ? ` in all counties in ${stateName}` : ' in all counties';
       }
