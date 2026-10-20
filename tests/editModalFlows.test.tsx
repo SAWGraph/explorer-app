@@ -6,9 +6,9 @@
 // these tests render the real routes and read the URL afterwards: a store-only
 // test cannot see a stray navigate().
 //
-// Only the edges are faked: the query engine (so a run can succeed or fail),
-// the result cache, the discovery lookups, and the Leaflet map, none of which
-// jsdom can run or should reach the network for.
+// Only the edges are faked: the query engine (so a run can succeed, fail, or
+// hang until cancelled), the result cache, the discovery lookups, and the
+// Leaflet map, none of which jsdom can run or should reach the network for.
 //
 //   npm test
 import { StrictMode, useEffect } from 'react';
@@ -397,5 +397,38 @@ describe('7 edit tour', () => {
     fireEvent.keyUp(window, { key: 'Escape' });
     await waitFor(() => expect(router.state.location.pathname).toBe('/'));
     expect(document.querySelector('.driver-popover')).toBeNull();
+  });
+});
+
+describe('8 Apply running', () => {
+  // The engine holds the run open until it is cancelled.
+  let signalSeen: AbortSignal | undefined;
+  beforeEach(() => {
+    signalSeen = undefined;
+  });
+  const hangUntilCancelled = (signal?: AbortSignal) => {
+    signalSeen = signal;
+    return new Promise<PipelineResult>((_, reject) =>
+      signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))),
+    );
+  };
+
+  it.each(dismissals)('8 dismiss with %s mid-run: run cancelled, modal stays with edits, map unchanged', async (_, dismiss) => {
+    const router = await openPrebuilt();
+    const result = store().pipelineResult;
+    await customize();
+    edit();
+    nextRun = hangUntilCancelled;
+    fireEvent.click(button('Apply'));
+    await waitFor(() => expect(store().isRunning).toBe(true));
+    dismiss();
+    await waitFor(() => expect(store().isRunning).toBe(false));
+    expect(signalSeen?.aborted).toBe(true);
+    expect(router.state.location.pathname).toBe(`/q/${PREBUILT.id}`);
+    expect(modalOpen()).toBe(true);
+    expect(store().question.blockC).toEqual(EDIT);
+    expect(store().pipelineResult).toBe(result);
+    expect(store().lastApplyError).toBeNull();
+    expect(document.querySelector('.apply-error-callout')).toBeNull();
   });
 });

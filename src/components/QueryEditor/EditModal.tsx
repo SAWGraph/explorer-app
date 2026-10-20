@@ -17,6 +17,7 @@ export function EditModal() {
   const stepProgress = useQueryStore((s) => s.stepProgress);
   const question = useQueryStore((s) => s.question);
   const questionSnapshot = useQueryStore((s) => s.questionSnapshot);
+  const cancelRun = useQueryStore((s) => s.cancelRun);
   const { runPipeline, isRunning } = useQueryPipeline();
 
   const hasChanges = useMemo(() => {
@@ -30,15 +31,18 @@ export function EditModal() {
   );
 
   // Every way out of the modal (X, Esc, outside click, Discard) lands here, and
-  // none of them leaves the page: the map behind is the user's work. It drops
-  // the unapplied edits.
+  // none of them leaves the page: the map behind is the user's work. Mid-run it
+  // only cancels the run, keeping the edits open so they can be adjusted;
+  // otherwise it drops the unapplied edits.
   const handleDismiss = useCallback(() => {
-    if (!isRunning) discardEditModal();
-  }, [isRunning, discardEditModal]);
+    if (isRunning) cancelRun();
+    else discardEditModal();
+  }, [isRunning, cancelRun, discardEditModal]);
 
   const handleApply = useCallback(async () => {
     clearLastApplyError();
     const result = await runPipeline();
+    if (!result) return; // cancelled
     commitSnapshot();
     if (result.status === 'success' || result.status === 'empty') {
       closeEditModal();
@@ -65,7 +69,7 @@ export function EditModal() {
       <div className="modal-content">
         <div className="modal-header">
           <h2>Edit Analysis Question</h2>
-          <button className="modal-close" onClick={handleDismiss} disabled={isRunning}>
+          <button className="modal-close" onClick={handleDismiss}>
             &times;
           </button>
         </div>
@@ -103,7 +107,7 @@ export function EditModal() {
         </div>
 
         <div className="modal-footer">
-          <button className="btn-secondary" onClick={handleDismiss} disabled={isRunning}>
+          <button className="btn-secondary" onClick={handleDismiss}>
             Discard Changes
           </button>
           <button

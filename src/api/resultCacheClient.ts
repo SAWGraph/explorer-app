@@ -22,8 +22,8 @@ export function cacheDisabled(): boolean {
   return new URLSearchParams(window.location.search).get('cache') === 'off';
 }
 
-async function readCache(url: string): Promise<CachedResult | null> {
-  const res = await fetch(url);
+async function readCache(url: string, signal?: AbortSignal): Promise<CachedResult | null> {
+  const res = await fetch(url, { signal });
   if (!res.ok) return null; // 404 is the normal miss; anything else is also just a miss
   const body: unknown = await res.json();
   if (!isWireResult(body)) return null;
@@ -36,10 +36,13 @@ async function readCache(url: string): Promise<CachedResult | null> {
 
 // A cache miss must never break a run — any failure here falls through to
 // executing the pipeline locally, exactly as before this cache existed.
-export async function fetchCachedResult(question: AnalysisQuestion): Promise<CachedResult | null> {
+export async function fetchCachedResult(
+  question: AnalysisQuestion,
+  signal?: AbortSignal,
+): Promise<CachedResult | null> {
   if (cacheDisabled()) return null;
   try {
-    return await readCache(`${getApiBase()}/api/results/${await cacheKey(question)}`);
+    return await readCache(`${getApiBase()}/api/results/${await cacheKey(question)}`, signal);
   } catch {
     return null;
   }

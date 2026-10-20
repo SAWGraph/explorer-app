@@ -27,6 +27,8 @@ interface QueryStore {
   // can say so. Null means the displayed result was just computed.
   resultProvenance: { computedAt: string | null; partial: boolean } | null;
   isRunning: boolean;
+  // The run in flight, so whichever view started it, any view can cancel it.
+  runAbort: AbortController | null;
   isEditModalOpen: boolean;
   questionSnapshot: AnalysisQuestion | null;
   pendingAutoRun: boolean;
@@ -58,7 +60,10 @@ interface QueryStore {
   setLastApplyError: (err: PipelineError | null) => void;
   clearLastApplyError: () => void;
 
-  setIsRunning: (running: boolean) => void;
+  // Begins a run and returns the signal that cancelRun aborts.
+  startRun: () => AbortSignal;
+  endRun: () => void;
+  cancelRun: () => void;
   addStepProgress: (progress: StepProgress) => void;
   clearProgress: () => void;
   setPipelineResult: (result: PipelineResult | null) => void;
@@ -71,7 +76,7 @@ interface QueryStore {
   setPendingTour: (id: 'map' | 'edit' | null) => void;
 }
 
-export const useQueryStore = create<QueryStore>((set) => ({
+export const useQueryStore = create<QueryStore>((set, get) => ({
   activeQueryId: null,
   activeQueryName: null,
   question: defaultQuestion(),
@@ -80,6 +85,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
   pipelineResult: null,
   resultProvenance: null,
   isRunning: false,
+  runAbort: null,
   isEditModalOpen: false,
   questionSnapshot: null,
   pendingAutoRun: false,
@@ -135,7 +141,13 @@ export const useQueryStore = create<QueryStore>((set) => ({
   setLastApplyError: (lastApplyError) => set({ lastApplyError }),
   clearLastApplyError: () => set({ lastApplyError: null }),
 
-  setIsRunning: (isRunning) => set({ isRunning }),
+  startRun: () => {
+    const runAbort = new AbortController();
+    set({ isRunning: true, runAbort, stepProgress: [] });
+    return runAbort.signal;
+  },
+  endRun: () => set({ isRunning: false, runAbort: null }),
+  cancelRun: () => get().runAbort?.abort(),
   addStepProgress: (progress) =>
     set((s) => {
       const updated = [...s.stepProgress];
