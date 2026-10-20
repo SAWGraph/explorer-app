@@ -1,16 +1,11 @@
 import type { WaterBodyFilters as WaterBodyFiltersType } from '../../types/query';
 import { FlatSelect } from './FlatSelect/FlatSelect';
+import { WATER_BODY_FTYPES } from '../../constants/featureTypes';
 
 interface WaterBodyFiltersProps {
   value?: WaterBodyFiltersType;
   onChange: (filters: WaterBodyFiltersType) => void;
 }
-
-const FTYPE_OPTIONS = [
-  { value: 'LakePond', label: 'Lake / Pond' },
-  { value: 'SwampMarsh', label: 'Swamp / Marsh' },
-  { value: 'Reservoir', label: 'Reservoir' },
-];
 
 export function WaterBodyFilters({ value, onChange }: WaterBodyFiltersProps) {
   return (
@@ -18,7 +13,7 @@ export function WaterBodyFilters({ value, onChange }: WaterBodyFiltersProps) {
       <div className="filter-field">
         <label>Water Type:</label>
         <FlatSelect
-          options={FTYPE_OPTIONS}
+          options={WATER_BODY_FTYPES}
           selectedValues={value?.ftypes ?? []}
           onChange={(vals) => onChange({ ...value, ftypes: vals })}
           placeholder="Any water type..."

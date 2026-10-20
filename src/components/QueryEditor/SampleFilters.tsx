@@ -27,9 +27,12 @@ export function SampleFilters({ value, onChange, region }: SampleFiltersProps) {
   const { data: substances = [] } = useSubstances(region);
   const { data: materialTypes = [] } = useMaterialTypes(region);
 
+  // Substances with no DTXSID can't be matched by the sample filter, which
+  // joins on coso:ofDSSToxSubstance, so they are listed but not selectable.
   const substanceOptions = substances.map((s) => ({
-    value: s.uri,
+    value: s.uri || s.label,
     label: withCount(s.shortLabel || s.label, s.count),
+    disabled: !s.uri,
   }));
   const { materialItems, materialCounts, childrenByGroup } = useMemo(() => {
     const childrenByGroup = new Map<string, string[]>();

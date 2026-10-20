@@ -38,7 +38,14 @@ export function WellFilters({ value, onChange, stateCode }: WellFiltersProps) {
         <FlatSelect
           options={options}
           selectedValues={value?.wellCategories ?? []}
-          onChange={(vals) => onChange({ ...value, wellCategories: vals })}
+          onChange={(vals) => {
+            const labels: Record<string, string> = {};
+            for (const key of vals) {
+              const c = classifications.find((cls) => cls.key === key);
+              if (c) labels[key] = c.label;
+            }
+            onChange({ ...value, wellCategories: vals, wellCategoryLabels: labels });
+          }}
           placeholder="All wells..."
           isLoading={isLoading}
         />
