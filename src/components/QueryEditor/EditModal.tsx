@@ -1,5 +1,4 @@
 import { useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQueryStore } from '../../store/queryStore';
 import { useQueryPipeline } from '../../hooks/useQueryPipeline';
 import { QueryEditorContent } from './QueryEditorContent';
@@ -18,14 +17,7 @@ export function EditModal() {
   const stepProgress = useQueryStore((s) => s.stepProgress);
   const question = useQueryStore((s) => s.question);
   const questionSnapshot = useQueryStore((s) => s.questionSnapshot);
-  const activeQueryId = useQueryStore((s) => s.activeQueryId);
   const { runPipeline, isRunning } = useQueryPipeline();
-  const navigate = useNavigate();
-
-  const discardAndMaybeExit = useCallback(() => {
-    discardEditModal();
-    if (activeQueryId === 'new') navigate('/');
-  }, [discardEditModal, activeQueryId, navigate]);
 
   const hasChanges = useMemo(() => {
     if (!questionSnapshot) return false;
@@ -37,9 +29,12 @@ export function EditModal() {
     [question],
   );
 
-  const handleDiscard = useCallback(() => {
-    if (!isRunning) discardAndMaybeExit();
-  }, [isRunning, discardAndMaybeExit]);
+  // Every way out of the modal (X, Esc, outside click, Discard) lands here, and
+  // none of them leaves the page: the map behind is the user's work. It drops
+  // the unapplied edits.
+  const handleDismiss = useCallback(() => {
+    if (!isRunning) discardEditModal();
+  }, [isRunning, discardEditModal]);
 
   const handleApply = useCallback(async () => {
     clearLastApplyError();
@@ -55,22 +50,22 @@ export function EditModal() {
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isRunning) discardAndMaybeExit();
+      if (e.key === 'Escape') handleDismiss();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isOpen, isRunning, discardAndMaybeExit]);
+  }, [isOpen, handleDismiss]);
 
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" onClick={(e) => {
-      if (e.target === e.currentTarget && !isRunning) discardAndMaybeExit();
+      if (e.target === e.currentTarget) handleDismiss();
     }}>
       <div className="modal-content">
         <div className="modal-header">
           <h2>Edit Analysis Question</h2>
-          <button className="modal-close" onClick={handleDiscard} disabled={isRunning}>
+          <button className="modal-close" onClick={handleDismiss} disabled={isRunning}>
             &times;
           </button>
         </div>
@@ -108,7 +103,7 @@ export function EditModal() {
         </div>
 
         <div className="modal-footer">
-          <button className="btn-secondary" onClick={handleDiscard} disabled={isRunning}>
+          <button className="btn-secondary" onClick={handleDismiss} disabled={isRunning}>
             Discard Changes
           </button>
           <button

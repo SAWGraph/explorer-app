@@ -151,9 +151,11 @@ function editSteps(): DriveStep[] {
 
 // openSearchModal is only needed for the dashboard track. onFinish runs after a
 // successful Finish (not on skip/close) — used to return to the dashboard + reopen the hub.
+// onEscape runs when the user leaves the tour with Esc, which driver.js does not
+// tell apart from its close button.
 export function startTour(
   id: TrackId,
-  opts: { openSearchModal?: () => void; onFinish?: () => void } = {},
+  opts: { openSearchModal?: () => void; onFinish?: () => void; onEscape?: () => void } = {},
 ) {
   const steps =
     id === 'dashboard'
@@ -175,7 +177,12 @@ export function startTour(
       confetti({ particleCount: 120, spread: 75, origin: { y: 0.7 } });
       opts.onFinish?.();
     },
+    onDestroyed: () => window.removeEventListener('keydown', onKey),
   });
 
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && d.isActive()) opts.onEscape?.();
+  };
+  window.addEventListener('keydown', onKey);
   d.drive();
 }

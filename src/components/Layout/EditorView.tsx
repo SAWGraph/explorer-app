@@ -68,6 +68,9 @@ export function EditorView() {
             navigate('/');
             openTour();
           },
+          // The edit tour runs on a blank new analysis, so walking out of it
+          // returns to the dashboard rather than leaving an empty map.
+          ...(pendingTour === 'edit' && { onEscape: () => navigate('/') }),
         });
         setPendingTour(null);
       } else if (++tries > 50) {
