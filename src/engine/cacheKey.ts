@@ -21,7 +21,13 @@ const DATA_VERSION = '2026-09';
 // Label maps exist to render chips in the editor. Verified not to reach any
 // query template (`grep -rn "Labels" src/engine/` finds nothing), so a user
 // re-picking the same county with different label text must not miss the cache.
-const DISPLAY_ONLY = new Set(['countyLabels', 'substanceLabels', 'industryLabels']);
+const DISPLAY_ONLY = new Set([
+  'countyLabels',
+  'substanceLabels',
+  'materialTypeLabels',
+  'industryLabels',
+  'wellCategoryLabels',
+]);
 
 // Filter arrays are sets — order is a UI artefact of the click sequence.
 const UNORDERED_ARRAYS = new Set([

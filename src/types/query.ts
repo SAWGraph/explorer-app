@@ -60,6 +60,7 @@ export interface WellFilters {
   // Encoded category tokens: `${field}||${iri1} ${iri2} ...`
   // where field is 'ilPurpose' | 'meType' | 'meUse'. See wellClassifications.ts.
   wellCategories?: string[];
+  wellCategoryLabels?: Record<string, string>; // token → display label
 }
 
 // Canonical aquifer-type kinds ('surficial' | 'bedrock'), each mapped to the
