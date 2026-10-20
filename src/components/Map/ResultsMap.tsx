@@ -30,6 +30,12 @@ const LAYER_COMPONENTS: Record<string, ComponentType<{ features: MapFeature[] }>
   regionBoundaries: RegionBoundaryLayer,
 };
 
+// Tablets, phones and short windows: the open panels (~280px wide each, the
+// basemap grid 263px tall) would cover too much of the map, so they start
+// closed there. Read once when the map loads, never on resize, so a panel the
+// user opened is not snapped shut by a rotation.
+const COMPACT_SCREEN = '(max-width: 1024px), (max-height: 600px)';
+
 const LAYER_PANE_CONFIG: Record<string, { name: string; zIndex: number }> = {
   regionBoundaries: { name: 'regionPane', zIndex: 350 },
   streams: { name: 'streamsPane', zIndex: 380 },
@@ -38,6 +44,7 @@ const LAYER_PANE_CONFIG: Record<string, { name: string; zIndex: number }> = {
 export function ResultsMap({ layers }: ResultsMapProps) {
   const [visibility, setVisibility] = useState(getDefaultVisibility);
   const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
+  const [panelsOpen] = useState(() => !window.matchMedia(COMPACT_SCREEN).matches);
 
   const hasData =
     layers.samples.length > 0 ||
@@ -112,10 +119,11 @@ export function ResultsMap({ layers }: ResultsMapProps) {
           visibility={visibility}
           onToggle={handleToggle}
           layers={layers}
+          defaultOpen={panelsOpen}
         />
       )}
 
-      <BasemapSelector current={basemapKey} onChange={setBasemapKey} />
+      <BasemapSelector current={basemapKey} onChange={setBasemapKey} defaultOpen={panelsOpen} />
       <MeasureControl />
     </MapContainer>
   );

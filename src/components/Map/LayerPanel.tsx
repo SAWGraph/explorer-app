@@ -9,9 +9,10 @@ interface LayerPanelProps {
   visibility: Record<string, boolean>;
   onToggle: (key: string) => void;
   layers: MapLayerData;
+  defaultOpen: boolean;
 }
 
-export function LayerPanel({ visibility, onToggle, layers }: LayerPanelProps) {
+export function LayerPanel({ visibility, onToggle, layers, defaultOpen }: LayerPanelProps) {
   const map = useMap();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
@@ -47,9 +48,9 @@ export function LayerPanel({ visibility, onToggle, layers }: LayerPanelProps) {
   if (!ready || !containerRef.current || visibleEntries.length === 0) return null;
 
   return createPortal(
-    // Native disclosure: open by default, only the header toggles it, so
-    // clicks on the checkboxes below can never close the panel.
-    <details open>
+    // Native disclosure: only the header toggles it, so clicks on the
+    // checkboxes below can never close the panel.
+    <details open={defaultOpen}>
       <summary className="custom-layer-panel__toggle">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 2L2 7l10 5 10-5-10-5z" />

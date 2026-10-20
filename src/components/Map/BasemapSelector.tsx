@@ -7,9 +7,10 @@ import { BASEMAPS, type BasemapOption } from './basemaps';
 interface BasemapSelectorProps {
   current: string;
   onChange: (key: string) => void;
+  defaultOpen: boolean;
 }
 
-export function BasemapSelector({ current, onChange }: BasemapSelectorProps) {
+export function BasemapSelector({ current, onChange, defaultOpen }: BasemapSelectorProps) {
   const map = useMap();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
@@ -41,9 +42,9 @@ export function BasemapSelector({ current, onChange }: BasemapSelectorProps) {
   if (!ready || !containerRef.current) return null;
 
   return createPortal(
-    // Native disclosure: open by default, only the header toggles it, so
-    // picking a basemap below can never close the panel.
-    <details open>
+    // Native disclosure: only the header toggles it, so picking a basemap
+    // below can never close the panel.
+    <details open={defaultOpen}>
       <summary className="basemap-selector__toggle">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="3" y="3" width="18" height="18" rx="2" />
