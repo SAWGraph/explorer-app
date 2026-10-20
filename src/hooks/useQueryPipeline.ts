@@ -11,35 +11,44 @@ export function useQueryPipeline() {
     isRunning,
     stepProgress,
     pipelineResult,
-    setIsRunning,
+    startRun,
+    endRun,
     addStepProgress,
     clearProgress,
     setPipelineResult,
     setResultProvenance,
   } = useQueryStore();
 
-  const runPipeline = useCallback(async (options: { skipCache?: boolean } = {}) => {
-    clearProgress();
-    setIsRunning(true);
+  // Resolves to null when the run is cancelled: the previous result stays on
+  // the map, untouched, and there is nothing new to show.
+  const runPipeline = useCallback(async (
+    options: { skipCache?: boolean } = {},
+  ): Promise<PipelineResult | null> => {
+    const signal = startRun();
 
     try {
       // A cached answer to this exact question skips the pipeline entirely.
       // Only trusted writers populate the cache (the publisher and the
       // warm-cache script), and a miss or any error falls through to running
       // locally, so this can only make a run faster.
-      const cached = options.skipCache ? null : await fetchCachedResult(question);
+      const cached = options.skipCache ? null : await fetchCachedResult(question, signal);
+      signal.throwIfAborted();
       if (cached) {
         setPipelineResult(cached.result);
         setResultProvenance({ computedAt: cached.computedAt, partial: cached.partial });
         return cached.result;
       }
-      setResultProvenance(null);
 
       const steps = planPipeline(question);
-      const result = await executePipeline(steps, question, addStepProgress);
+      const result = await executePipeline(steps, question, addStepProgress, signal);
       setPipelineResult(result);
+      setResultProvenance(null);
       return result;
     } catch (err) {
+      if (signal.aborted) {
+        clearProgress();
+        return null;
+      }
       const result: PipelineResult = {
         status: 'error',
         failedAtStep: -1,
@@ -49,12 +58,13 @@ export function useQueryPipeline() {
       setPipelineResult(result);
       return result;
     } finally {
-      setIsRunning(false);
+      endRun();
     }
   }, [
     question,
     clearProgress,
-    setIsRunning,
+    startRun,
+    endRun,
     addStepProgress,
     setPipelineResult,
     setResultProvenance,

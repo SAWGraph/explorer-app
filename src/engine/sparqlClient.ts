@@ -18,6 +18,10 @@ export interface SparqlOptions {
   // Cache the result for the lifetime of the page. Only for queries whose answer
   // cannot change within a session — region boundaries, entity-set probes.
   cache?: boolean;
+  // Aborts the request when the user cancels the run. A cancelled request
+  // rejects with the abort reason, never as a SparqlError, so the executor
+  // cannot mistake it for a query to split or a slice that failed.
+  signal?: AbortSignal;
 }
 
 // ponytail: a plain Map, not an LRU. Entries are per-session and few (one per
@@ -35,7 +39,7 @@ export async function executeSparql(
     if (hit) return hit;
   }
 
-  const rows = await requestWithRetry(endpoint, query, 0);
+  const rows = await requestWithRetry(endpoint, query, 0, options.signal);
   if (options.cache) responseCache.set(cacheKey, rows);
   return rows;
 }
@@ -44,6 +48,7 @@ async function requestWithRetry(
   endpoint: EndpointKey,
   query: string,
   attempt: number,
+  cancel: AbortSignal | undefined,
 ): Promise<SparqlRow[]> {
   let response: Response;
   const abort = new AbortController();
@@ -56,9 +61,10 @@ async function requestWithRetry(
         'Accept': 'application/sparql-results+json',
       },
       body: query,
-      signal: abort.signal,
+      signal: cancel ? AbortSignal.any([cancel, abort.signal]) : abort.signal,
     });
   } catch (err) {
+    cancel?.throwIfAborted();
     // Report a stall as a timeout, not a network fault: it means the same thing
     // (too much work) and, unlike a network fault, it tells the executor that
     // splitting the query is worth trying. No retry — a stalled endpoint will
@@ -73,11 +79,12 @@ async function requestWithRetry(
 
   if (!response.ok) {
     const text = await response.text().catch(() => '');
+    cancel?.throwIfAborted();
     const kind = classifySparqlFailure(response.status, text);
     // The engine caches the sub-results a failed attempt computed, so one retry
     // starts warm — measured 26.5s cold vs 1.5s warm on the same query.
     if (isRetryable(kind) && attempt < 1) {
-      return requestWithRetry(endpoint, query, attempt + 1);
+      return requestWithRetry(endpoint, query, attempt + 1, cancel);
     }
     throw new SparqlError(kind, response.status, extractSparqlDetail(text));
   }

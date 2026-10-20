@@ -101,6 +101,7 @@ async function runStep(
   context: PipelineContext,
   report: (chunksDone: number, chunksTotal: number) => void,
   record: (sent: Omit<SentQuery, 'step' | 'description' | 'endpoint'>) => void,
+  signal: AbortSignal | undefined,
 ): Promise<StepOutcome> {
   const startedAt = Date.now();
   const queue: (Scope | undefined)[] = step.initialScopes?.(context) ?? [undefined];
@@ -112,6 +113,7 @@ async function runStep(
   let done = 0;
 
   while (queue.length > 0) {
+    signal?.throwIfAborted();
     const scope = queue.shift()!;
 
     // Out of budget. Record the rest as skipped (not failed) and keep what we
@@ -137,7 +139,7 @@ async function runStep(
     }
 
     try {
-      const result = await executeSparql(step.endpoint, query, { cache: step.cache });
+      const result = await executeSparql(step.endpoint, query, { cache: step.cache, signal });
       record({ scope: scope?.label, query });
       // Slices can overlap — the same river reach is reached from several
       // anchors — so merge as a set. Whole-row identity is the right key: for
@@ -151,6 +153,8 @@ async function runStep(
       }
       done++;
     } catch (err) {
+      // A cancelled run is not a failed slice: stop, record nothing.
+      signal?.throwIfAborted();
       const error = err instanceof Error ? err : new Error(String(err));
       lastError = error;
       record({ scope: scope?.label, query, error: error.message });
@@ -176,6 +180,9 @@ export async function executePipeline(
   steps: PipelineStep[],
   question: AnalysisQuestion,
   onProgress: (progress: StepProgress) => void,
+  // Cancels the run. It then rejects with the abort reason instead of
+  // resolving, so a cancelled run never produces a result to show.
+  signal?: AbortSignal,
 ): Promise<PipelineResult> {
   const context: PipelineContext = {
     question,
@@ -202,8 +209,10 @@ export async function executePipeline(
           }
         },
         (sent) => queries.push({ step: i, description: step.description, endpoint: step.endpoint, ...sent }),
+        signal,
       );
     } catch (err) {
+      signal?.throwIfAborted();
       onProgress({ ...base, status: 'failed' });
       return {
         status: 'error',

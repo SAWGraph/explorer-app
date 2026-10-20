@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
 import { blankAnalysisQuestion } from '../../constants/blankAnalysis';
 import { useQueryStore } from '../../store/queryStore';
@@ -16,11 +16,16 @@ import {
 export function EditorView() {
   const { queryId } = useParams<{ queryId: string }>();
   const navigate = useNavigate();
+  const { state } = useLocation();
 
   useEffect(() => {
     if (!queryId) return;
 
-    const { loadQuestion, openEditModal } = useQueryStore.getState();
+    const { loadQuestion, openEditModal, activeQueryId } = useQueryStore.getState();
+
+    // A first save renames the URL of the analysis already on screen (see
+    // AnalysisQuestionBar). Loading it again would rerun it and clear the map.
+    if ((state as { keepLoaded?: boolean } | null)?.keepLoaded && activeQueryId === queryId) return;
 
     if (queryId === 'new') {
       loadQuestion('new', blankAnalysisQuestion(), 'New analysis', {
@@ -48,7 +53,7 @@ export function EditorView() {
     }
 
     loadQuestion(queryId, prebuilt.question, prebuilt.title);
-  }, [queryId, navigate]);
+  }, [queryId, navigate, state]);
 
   // A tour handed off from the dashboard hub runs here once its anchor mounts.
   const pendingTour = useQueryStore((s) => s.pendingTour);
@@ -68,6 +73,9 @@ export function EditorView() {
             navigate('/');
             openTour();
           },
+          // The edit tour runs on a blank new analysis, so walking out of it
+          // returns to the dashboard rather than leaving an empty map.
+          ...(pendingTour === 'edit' && { onEscape: () => navigate('/') }),
         });
         setPendingTour(null);
       } else if (++tries > 50) {
