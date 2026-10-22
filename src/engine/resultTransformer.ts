@@ -92,10 +92,16 @@ export function transformFacilitiesToFeatures(rows: SparqlRow[]): MapFeature[] {
 }
 
 export function transformWaterBodiesToFeatures(rows: SparqlRow[]): MapFeature[] {
+  // Deduplicate by water body URI. Results cached before the hydrate query
+  // stopped projecting ?s2cell carry one row per S2 cell the water body
+  // touches (Graham Lake: 90). Each copy became a feature with the same React
+  // key, which left polygons from earlier runs on the map.
+  const seen = new Set<string>();
   const features: MapFeature[] = [];
 
   for (const row of rows) {
-    if (!row.wbWKT) continue;
+    if (!row.wbWKT || seen.has(row.waterBody)) continue;
+    seen.add(row.waterBody);
     const wkt = row.wbWKT;
     const props = {
       type: 'waterBody',

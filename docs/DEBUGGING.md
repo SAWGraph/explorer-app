@@ -777,3 +777,45 @@ transitively, so `?ic fio:subcodeOf? ?sel` is an exact rewrite of
 `FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`. Measured: 13s with
 the FILTER, query-planning timeout with the path. The FILTER is the fast form
 here; do not "optimise" it.
+
+---
+
+## 2026-10-21: Water bodies drawn once per S2 cell, old polygons left on the map (FIXED)
+
+**Reported by David.** Seven questions about wells and surface water bodies in
+Hancock County, Maine, run one after another from Customize. The seventh asked
+exactly what the first did, yet its map looked different.
+
+**Symptom.** The seventh map showed lakes the first did not. The data was not
+the cause: both runs returned the same rows (2264 wells, 1272 water body rows),
+and the cache served the right answer.
+
+**Root cause.** `buildWaterBodiesByIri` (`src/engine/templates/hydrate.ts`)
+projected `?s2cell` in `SELECT DISTINCT`. A water body touches many S2 cells, so
+the query returned one row per (water body, cell), each repeating the full
+polygon: 1272 rows for 234 water bodies, Graham Lake 90 times. Nothing read the
+column. `transformWaterBodiesToFeatures` kept every row, so `WaterBodyLayer`
+rendered many children with the same React key. With duplicate keys React
+cannot match old children to new ones and leaves some mounted, and the layer is
+not remounted between runs, so polygons from earlier runs stayed on the map.
+
+Measured by rendering the real layer with David's sequence of results:
+
+| Step | Water bodies in the answer | Polygons on the map | Distinct on the map |
+|---|---|---|---|
+| Question 1, fresh map | 234 | 1272 | 234 |
+| after questions 4, 5 and 6 | 371 | 5143 | 375 |
+| question 7 (same as 1) | 234 | 6044 | 332 |
+
+The same duplication inflated the legend ("Surface Water Bodies (1272)" for 234),
+stacked the 30% fills until large lakes looked solid, and sent 19.2MB of polygon
+WKT where 0.8MB is unique.
+
+**Fix.** Both ends. The query matches `?s2cell` but no longer projects it (234
+rows, same 234 water bodies, live on hydrologykg). The transformer dedupes by
+water body IRI, which also covers results already stored in the cache with the
+old row shape. Regression test: `tests/waterBodyLayer.test.tsx`.
+
+**Lesson.** A variable in `SELECT DISTINCT` that no consumer reads is not free:
+it multiplies rows by its fan-out. Wells project `?s2cell` too, but a point sits
+in one cell, so it does not multiply there.
