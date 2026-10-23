@@ -1,6 +1,8 @@
 // Well classification (Approach B): each state classified by its own native field.
 // Illinois by purpose; Maine by both construction type and use.
 
+import type { WellFilters } from '../types/query';
+
 export type WellField = 'ilPurpose' | 'meType' | 'meUse';
 
 export interface WellClassification {
@@ -14,11 +16,50 @@ export interface WellClassification {
 
 export const WELL_STATE_FIPS = { IL: '17', ME: '23' } as const;
 
+export const WELLS_TYPE_DISABLED_REASON =
+  'Wells data only exist for Illinois, Maine. Try changing the state to Illinois or Maine';
+export const WELLS_STATE_DISABLED_REASON = 'Wells data only exist for Illinois, Maine';
+
+// No state chosen counts as covered: the wells query then spans both states.
+export function stateHasWells(stateCode?: string): boolean {
+  return !stateCode || stateCode === WELL_STATE_FIPS.IL || stateCode === WELL_STATE_FIPS.ME;
+}
+
 export const WELL_GROUP_LABEL: Record<WellField, string> = {
   ilPurpose: 'Illinois · Purpose',
   meType: 'Maine · Type',
   meUse: 'Maine · Use',
 };
+
+// Used once a state is chosen, when the state name in the header is redundant.
+export const WELL_GROUP_SHORT_LABEL: Record<WellField, string> = {
+  ilPurpose: 'Purpose',
+  meType: 'Type',
+  meUse: 'Use',
+};
+
+const WELL_FIELD_STATE: Record<WellField, 'IL' | 'ME'> = {
+  ilPurpose: 'IL',
+  meType: 'ME',
+  meUse: 'ME',
+};
+
+// Drops picks that belong to the other well state, so a state switch can't
+// leave hidden categories in the query. With no IL/ME state, every pick stays.
+export function keepWellPicksForState(
+  filters: WellFilters | undefined,
+  stateCode?: string,
+): WellFilters | undefined {
+  const state =
+    stateCode === WELL_STATE_FIPS.IL ? 'IL' : stateCode === WELL_STATE_FIPS.ME ? 'ME' : undefined;
+  if (!state || !filters?.wellCategories) return filters;
+  const kept = filters.wellCategories.filter((t) => WELL_FIELD_STATE[parseWellToken(t).field] === state);
+  const labels = filters.wellCategoryLabels ?? {};
+  return {
+    wellCategories: kept,
+    wellCategoryLabels: Object.fromEntries(kept.filter((t) => t in labels).map((t) => [t, labels[t]])),
+  };
+}
 
 // A well category token bundles the field with one or more IRIs (a collapsed
 // Illinois option carries active + plugged IRIs). `||` and spaces never occur
