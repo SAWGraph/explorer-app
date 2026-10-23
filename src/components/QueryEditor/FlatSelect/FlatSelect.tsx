@@ -6,6 +6,7 @@ export interface FlatSelectOption {
   label: string;
   disabled?: boolean;
   group?: string;
+  title?: string; // hover text, e.g. why the option is disabled
 }
 
 interface FlatSelectProps {
@@ -314,6 +315,7 @@ export function FlatSelect({
                       <div
                         key={option.value}
                         className={`hs-flat-option${isSelected ? ' hs-flat-option--selected' : ''}${isDisabled ? ' hs-flat-option--disabled' : ''}`}
+                        title={option.title}
                         onClick={() => handleToggleOption(option.value, isDisabled)}
                       >
                         {isMulti && (

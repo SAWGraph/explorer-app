@@ -1,7 +1,7 @@
 import type { WellFilters as WellFiltersType } from '../../types/query';
 import { FlatSelect } from './FlatSelect/FlatSelect';
 import { useWellClassifications } from '../../hooks/useDiscoveryQueries';
-import { WELL_STATE_FIPS } from '../../constants/wellClassifications';
+import { WELL_GROUP_SHORT_LABEL, WELL_STATE_FIPS } from '../../constants/wellClassifications';
 
 interface WellFiltersProps {
   value?: WellFiltersType;
@@ -28,7 +28,7 @@ export function WellFilters({ value, onChange, stateCode }: WellFiltersProps) {
   const options = visible.map((c) => ({
     value: c.key,
     label: withCount(c.label, c.count),
-    group: c.group,
+    group: visible === classifications ? c.group : WELL_GROUP_SHORT_LABEL[c.field],
   }));
 
   return (
