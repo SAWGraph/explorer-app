@@ -47,9 +47,13 @@ export function buildWaterBodiesByIri(
   }
   const vals = waterBodyIris.map(wrapUri).join(' ');
 
+  // ?s2cell is matched, not projected. Projecting it returned one row per cell
+  // the water body touches, each repeating the full polygon: 1272 rows and
+  // 19.2MB of WKT for 234 water bodies (Hancock County, ME), where 0.8MB is
+  // unique. Nothing reads the column.
   return `
     ${PREFIXES}
-    SELECT DISTINCT ?waterBody ?wbWKT ?wbName ?ftype ?comid ?reachcode ?fcode ?s2cell WHERE {
+    SELECT DISTINCT ?waterBody ?wbWKT ?wbName ?ftype ?comid ?reachcode ?fcode WHERE {
       VALUES ?waterBody { ${vals} }
       ?s2cell spatial:connectedTo ?waterBody ;
               rdf:type kwg-ont:S2Cell_Level13 .
