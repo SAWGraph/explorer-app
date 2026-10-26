@@ -6,7 +6,7 @@ export interface FlatSelectOption {
   label: string;
   disabled?: boolean;
   group?: string;
-  title?: string; // hover text, e.g. why the option is disabled
+  hint?: string; // grey second line under the label, e.g. why the option is disabled
 }
 
 interface FlatSelectProps {
@@ -185,7 +185,11 @@ export function FlatSelect({
     ? {
         position: 'fixed',
         left: position.left,
-        width: position.width,
+        // A narrow trigger (Type) lets the menu grow to fit its labels; a wide
+        // one keeps the menu at exactly its own width.
+        // ponytail: fixed 280px ceiling, measure labels if a narrow menu needs more.
+        minWidth: position.width,
+        maxWidth: Math.max(position.width, 280),
         zIndex: 1100,
         ...(position.direction === 'down'
           ? { top: position.top }
@@ -315,7 +319,6 @@ export function FlatSelect({
                       <div
                         key={option.value}
                         className={`hs-flat-option${isSelected ? ' hs-flat-option--selected' : ''}${isDisabled ? ' hs-flat-option--disabled' : ''}`}
-                        title={option.title}
                         onClick={() => handleToggleOption(option.value, isDisabled)}
                       >
                         {isMulti && (
@@ -328,7 +331,10 @@ export function FlatSelect({
                             onClick={(e) => e.stopPropagation()}
                           />
                         )}
-                        <span>{option.label}</span>
+                        <span>
+                          {option.label}
+                          {option.hint && <span className="hs-flat-option-hint">{option.hint}</span>}
+                        </span>
                       </div>
                     );
                   })()

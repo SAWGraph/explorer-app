@@ -1080,9 +1080,16 @@
   background: var(--color-primary-100);
 }
 
+/* Grey text instead of opacity, so a hint under the label stays readable */
 .hs-flat-option--disabled {
-  opacity: 0.4;
+  color: var(--color-gray-400);
   cursor: not-allowed;
+}
+
+.hs-flat-option-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-gray-600);
 }
 
 .hs-flat-option--disabled:hover {
@@ -1814,6 +1821,16 @@
 
 .defined-term:focus-visible {
   text-decoration-color: var(--color-primary-600);
+}
+
+.defined-term-icon {
+  display: block;
+  color: var(--color-primary-400);
+}
+
+.defined-term:hover .defined-term-icon,
+.defined-term:focus-visible .defined-term-icon {
+  color: var(--color-primary-600);
 }
 
 .defined-term-tooltip {

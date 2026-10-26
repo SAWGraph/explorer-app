@@ -2,7 +2,8 @@
 //
 // Well data only exists for Illinois and Maine, so the query editor keeps
 // Wells and the state in step: each dropdown greys out what the other rules
-// out, and a state switch drops well classifications from the other state.
+// out, the reason is visible without waiting on a hover, and a state switch
+// drops well classifications from the other state.
 //
 //   npm test
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -15,8 +16,7 @@ vi.mock('../src/hooks/useDiscoveryQueries', () => {
 
 import { EntityBlock } from '../src/components/QueryEditor/EntityBlock';
 import {
-  WELLS_STATE_DISABLED_REASON,
-  WELLS_TYPE_DISABLED_REASON,
+  WELLS_UNAVAILABLE_HINT,
   WELL_STATE_FIPS,
   encodeWellToken,
 } from '../src/constants/wellClassifications';
@@ -33,7 +33,7 @@ function renderBlock(block: EntityBlockType) {
   const { container } = render(<EntityBlock label="A" value={block} onChange={onChange} />);
   const open = (selector: string) => fireEvent.click(container.querySelector(`${selector} .hs-control`)!);
   const option = (label: string) => screen.getByText(label).closest('.hs-flat-option')!;
-  return { onChange, open, option };
+  return { onChange, open, option, container };
 }
 
 describe('wells and state gating', () => {
@@ -41,14 +41,24 @@ describe('wells and state gating', () => {
     const { open, option } = renderBlock({ type: 'samples', region: { stateCode: VT } });
     open('.entity-type-selector');
     expect(option('Wells').classList).toContain('hs-flat-option--disabled');
-    expect(option('Wells').getAttribute('title')).toBe(WELLS_TYPE_DISABLED_REASON);
+    expect(option('Wells').textContent).toBe(`Wells${WELLS_UNAVAILABLE_HINT}`);
+  });
+
+  it('shows the wells coverage note from an icon next to Type', () => {
+    const { container } = renderBlock({ type: 'wells' });
+    fireEvent.pointerEnter(container.querySelector('.entity-type-selector .defined-term')!);
+    expect(screen.getByRole('tooltip').textContent).toContain('only for Illinois and Maine');
+  });
+
+  it('shows no coverage icon for other types', () => {
+    const { container } = renderBlock({ type: 'samples' });
+    expect(container.querySelector('.entity-type-selector .defined-term')).toBeNull();
   });
 
   it('greys out states without well data when Wells is the type', () => {
     const { open, option } = renderBlock({ type: 'wells', region: { stateCode: WELL_STATE_FIPS.ME } });
     open('.region-field');
     expect(option('Vermont (VT)').classList).toContain('hs-flat-option--disabled');
-    expect(option('Vermont (VT)').getAttribute('title')).toBe(WELLS_STATE_DISABLED_REASON);
     expect(option('Illinois (IL)').classList).not.toContain('hs-flat-option--disabled');
   });
 

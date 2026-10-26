@@ -1,6 +1,6 @@
 import type { EntityType, RegionFilter } from '../../types/query';
 import { ALL_US_STATES, AVAILABLE_STATE_FIPS } from '../../constants/regions';
-import { WELLS_STATE_DISABLED_REASON, stateHasWells } from '../../constants/wellClassifications';
+import { stateHasWells } from '../../constants/wellClassifications';
 import { useCounties } from '../../hooks/useDiscoveryQueries';
 import { FlatSelect } from './FlatSelect/FlatSelect';
 
@@ -13,15 +13,12 @@ interface RegionSelectorProps {
 export function RegionSelector({ value, onChange, entityType }: RegionSelectorProps) {
   const { data: counties = [], isLoading: countiesLoading } = useCounties(value?.stateCode);
 
-  const stateOptions = ALL_US_STATES.map((s) => {
-    const noWells = entityType === 'wells' && !stateHasWells(s.fips);
-    return {
-      value: s.fips,
-      label: `${s.name} (${s.abbreviation})`,
-      disabled: !AVAILABLE_STATE_FIPS.has(s.fips) || noWells,
-      title: noWells ? WELLS_STATE_DISABLED_REASON : undefined,
-    };
-  });
+  // The info icon next to Type explains why Wells greys out the other states.
+  const stateOptions = ALL_US_STATES.map((s) => ({
+    value: s.fips,
+    label: `${s.name} (${s.abbreviation})`,
+    disabled: !AVAILABLE_STATE_FIPS.has(s.fips) || (entityType === 'wells' && !stateHasWells(s.fips)),
+  }));
 
   const countyOptions = counties.map((c) => ({
     value: c.code,

@@ -16,9 +16,8 @@ export interface WellClassification {
 
 export const WELL_STATE_FIPS = { IL: '17', ME: '23' } as const;
 
-export const WELLS_TYPE_DISABLED_REASON =
-  'Wells data only exist for Illinois, Maine. Try changing the state to Illinois or Maine';
-export const WELLS_STATE_DISABLED_REASON = 'Wells data only exist for Illinois, Maine';
+// Shown under the greyed Wells option in the Type menu.
+export const WELLS_UNAVAILABLE_HINT = 'Illinois and Maine only';
 
 // No state chosen counts as covered: the wells query then spans both states.
 export function stateHasWells(stateCode?: string): boolean {

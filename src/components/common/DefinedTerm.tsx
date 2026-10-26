@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-export type GlossaryTerm = 'analysisQuestion' | 'feature' | 'observation';
+export type GlossaryTerm = 'analysisQuestion' | 'feature' | 'observation' | 'wells';
 
 interface GlossaryEntry {
   label: string;
@@ -23,6 +23,11 @@ const GLOSSARY: Record<GlossaryTerm, GlossaryEntry> = {
     label: 'Observation',
     definition:
       'A measurement taken at a specific place and time, like a PFAS sample result. It tells you what was found there, not just what is there.',
+  },
+  wells: {
+    label: 'Wells',
+    definition:
+      'Well data exists only for Illinois and Maine right now. Other states are greyed out in the State list.',
   },
 };
 
