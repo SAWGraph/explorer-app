@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { InfoTip, type GlossaryTerm } from '../../common/DefinedTerm';
 
 export interface FlatSelectOption {
   value: string;
   label: string;
   disabled?: boolean;
   group?: string;
-  info?: GlossaryTerm; // info icon after the label, e.g. why the option is disabled
+  info?: React.ReactNode; // after the label, e.g. an InfoTip saying why the option is disabled
 }
 
 interface FlatSelectProps {
@@ -333,7 +332,7 @@ export function FlatSelect({
                           />
                         )}
                         <span>{option.label}</span>
-                        {option.info && <InfoTip term={option.info} />}
+                        {option.info}
                       </div>
                     );
                   })()

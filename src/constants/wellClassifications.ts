@@ -16,10 +16,16 @@ export interface WellClassification {
 
 export const WELL_STATE_FIPS = { IL: '17', ME: '23' } as const;
 
+// 'IL' or 'ME' for a state with well data, otherwise undefined.
+export function wellStateOf(stateCode?: string): WellClassification['state'] | undefined {
+  return (Object.keys(WELL_STATE_FIPS) as WellClassification['state'][]).find(
+    (s) => WELL_STATE_FIPS[s] === stateCode,
+  );
+}
 
 // No state chosen counts as covered: the wells query then spans both states.
 export function stateHasWells(stateCode?: string): boolean {
-  return !stateCode || stateCode === WELL_STATE_FIPS.IL || stateCode === WELL_STATE_FIPS.ME;
+  return !stateCode || !!wellStateOf(stateCode);
 }
 
 export const WELL_GROUP_LABEL: Record<WellField, string> = {
@@ -47,8 +53,7 @@ export function keepWellPicksForState(
   filters: WellFilters | undefined,
   stateCode?: string,
 ): WellFilters | undefined {
-  const state =
-    stateCode === WELL_STATE_FIPS.IL ? 'IL' : stateCode === WELL_STATE_FIPS.ME ? 'ME' : undefined;
+  const state = wellStateOf(stateCode);
   if (!state || !filters?.wellCategories) return filters;
   const kept = filters.wellCategories.filter((t) => WELL_FIELD_STATE[parseWellToken(t).field] === state);
   const labels = filters.wellCategoryLabels ?? {};

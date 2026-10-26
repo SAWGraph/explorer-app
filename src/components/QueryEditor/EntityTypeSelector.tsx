@@ -19,11 +19,11 @@ const ENTITY_TYPES: { value: EntityType; label: string }[] = [
 ];
 
 export function EntityTypeSelector({ value, onChange, stateCode }: EntityTypeSelectorProps) {
-  const options = stateHasWells(stateCode)
-    ? ENTITY_TYPES
-    : ENTITY_TYPES.map((t) =>
-        t.value === 'wells' ? { ...t, disabled: true, info: 'wells' as const } : t,
-      );
+  const options = ENTITY_TYPES.map((t) =>
+    t.value === 'wells' && !stateHasWells(stateCode)
+      ? { ...t, disabled: true, info: <InfoTip term="wells" /> }
+      : t,
+  );
 
   return (
     <div className="entity-type-selector">
