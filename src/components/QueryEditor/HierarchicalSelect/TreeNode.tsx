@@ -36,14 +36,14 @@ export function TreeNode({
     }
   }, [checkState]);
 
-  const isDisabled = isAncestorSelected;
+  const isDisabled = isAncestorSelected || !!node.disabled;
   const isThisOrAncestorSelected =
     isAncestorSelected ||
     (checkState === 'checked' &&
       getAllDescendantCodes(node).every((c) => allSelectedCodes.has(c)));
 
   const count = counts?.get(node.code);
-  const dimmed = counts !== undefined && (!count || count === 0);
+  const dimmed = node.disabled || (counts !== undefined && (!count || count === 0));
 
   return (
     <>
@@ -71,7 +71,8 @@ export function TreeNode({
             ref={checkboxRef}
             type="checkbox"
             className="hs-tree-checkbox"
-            checked={checkState === 'checked'}
+            // A disabled node is never selected, even under a ticked parent.
+            checked={!node.disabled && checkState === 'checked'}
             disabled={isDisabled}
             onChange={() => onToggleSelect(node.code)}
           />
