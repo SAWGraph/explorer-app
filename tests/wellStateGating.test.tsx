@@ -46,7 +46,7 @@ describe('wells and state gating', () => {
   it('shows the wells coverage note from an icon next to Type', () => {
     const { container } = renderBlock({ type: 'wells' });
     fireEvent.pointerEnter(container.querySelector('.entity-type-selector .defined-term')!);
-    expect(screen.getByRole('tooltip').textContent).toContain(WELLS_NOTE);
+    expect(screen.getByRole('tooltip').textContent).toBe(WELLS_NOTE);
   });
 
   it('shows no coverage icon for other types', () => {

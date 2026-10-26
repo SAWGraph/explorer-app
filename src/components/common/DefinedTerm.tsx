@@ -32,10 +32,10 @@ const GLOSSARY: Record<GlossaryTerm, GlossaryEntry> = {
 
 const TOOLTIP_GAP = 10;
 
-// An info icon that opens the glossary tooltip for `term`.
+// An info icon that opens the glossary tooltip for `term`, without the heading.
 export function InfoTip({ term }: { term: GlossaryTerm }) {
   return (
-    <DefinedTerm term={term}>
+    <DefinedTerm term={term} showLabel={false}>
       <svg className='defined-term-icon' width='16' height='16' viewBox='0 0 20 20' role='img' aria-label={`About ${GLOSSARY[term].label}`}>
         <circle cx='10' cy='10' r='8.5' fill='none' stroke='currentColor' strokeWidth='1.5' />
         <path d='M10 9v5M10 6.2v.1' stroke='currentColor' strokeWidth='1.8' strokeLinecap='round' />
@@ -47,9 +47,10 @@ export function InfoTip({ term }: { term: GlossaryTerm }) {
 interface DefinedTermProps {
   term: GlossaryTerm;
   children: React.ReactNode;
+  showLabel?: boolean;
 }
 
-export function DefinedTerm({ term, children }: DefinedTermProps) {
+export function DefinedTerm({ term, children, showLabel = true }: DefinedTermProps) {
   const tooltipId = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
@@ -104,7 +105,7 @@ export function DefinedTerm({ term, children }: DefinedTermProps) {
             className='defined-term-tooltip'
             style={{ top: coords.top, left: coords.left }}
           >
-            <strong className='defined-term-tooltip-label'>{entry.label}</strong>
+            {showLabel && <strong className='defined-term-tooltip-label'>{entry.label}</strong>}
             <span className='defined-term-tooltip-body'>{entry.definition}</span>
           </span>,
           document.body
