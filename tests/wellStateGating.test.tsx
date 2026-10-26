@@ -2,7 +2,7 @@
 //
 // Well data only exists for Illinois and Maine, so the query editor keeps
 // Wells and the state in step: each dropdown greys out what the other rules
-// out, the reason is visible without waiting on a hover, and a state switch
+// out, an info icon explains why without a hover delay, and a state switch
 // drops well classifications from the other state.
 //
 //   npm test
@@ -15,14 +15,11 @@ vi.mock('../src/hooks/useDiscoveryQueries', () => {
 });
 
 import { EntityBlock } from '../src/components/QueryEditor/EntityBlock';
-import {
-  WELLS_UNAVAILABLE_HINT,
-  WELL_STATE_FIPS,
-  encodeWellToken,
-} from '../src/constants/wellClassifications';
+import { WELL_STATE_FIPS, encodeWellToken } from '../src/constants/wellClassifications';
 import type { EntityBlock as EntityBlockType } from '../src/types/query';
 
 const VT = '50';
+const WELLS_NOTE = 'Wells data only exist for Maine & Illinois.';
 const IL_WATER = encodeWellToken('ilPurpose', ['il#water']);
 const ME_BEDROCK = encodeWellToken('meType', ['me#bedrock']);
 
@@ -40,14 +37,16 @@ describe('wells and state gating', () => {
   it('greys out Wells in the type dropdown for a state without well data', () => {
     const { open, option } = renderBlock({ type: 'samples', region: { stateCode: VT } });
     open('.entity-type-selector');
-    expect(option('Wells').classList).toContain('hs-flat-option--disabled');
-    expect(option('Wells').textContent).toBe(`Wells${WELLS_UNAVAILABLE_HINT}`);
+    const wells = option('Wells');
+    expect(wells.classList).toContain('hs-flat-option--disabled');
+    fireEvent.pointerEnter(wells.querySelector('.defined-term')!);
+    expect(screen.getByRole('tooltip').textContent).toContain(WELLS_NOTE);
   });
 
   it('shows the wells coverage note from an icon next to Type', () => {
     const { container } = renderBlock({ type: 'wells' });
     fireEvent.pointerEnter(container.querySelector('.entity-type-selector .defined-term')!);
-    expect(screen.getByRole('tooltip').textContent).toContain('only for Illinois and Maine');
+    expect(screen.getByRole('tooltip').textContent).toContain(WELLS_NOTE);
   });
 
   it('shows no coverage icon for other types', () => {

@@ -1,7 +1,7 @@
 import type { EntityType } from '../../types/query';
 import { FlatSelect } from './FlatSelect/FlatSelect';
-import { WELLS_UNAVAILABLE_HINT, stateHasWells } from '../../constants/wellClassifications';
-import { DefinedTerm } from '../common/DefinedTerm';
+import { stateHasWells } from '../../constants/wellClassifications';
+import { InfoTip } from '../common/DefinedTerm';
 
 interface EntityTypeSelectorProps {
   value: EntityType;
@@ -22,7 +22,7 @@ export function EntityTypeSelector({ value, onChange, stateCode }: EntityTypeSel
   const options = stateHasWells(stateCode)
     ? ENTITY_TYPES
     : ENTITY_TYPES.map((t) =>
-        t.value === 'wells' ? { ...t, disabled: true, hint: WELLS_UNAVAILABLE_HINT } : t,
+        t.value === 'wells' ? { ...t, disabled: true, info: 'wells' as const } : t,
       );
 
   return (
@@ -39,14 +39,7 @@ export function EntityTypeSelector({ value, onChange, stateCode }: EntityTypeSel
         searchable={false}
         placeholder="Select type..."
       />
-      {value === 'wells' && (
-        <DefinedTerm term="wells">
-          <svg className="defined-term-icon" width="16" height="16" viewBox="0 0 20 20" role="img" aria-label="About wells data">
-            <circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M10 9v5M10 6.2v.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </DefinedTerm>
-      )}
+      {value === 'wells' && <InfoTip term="wells" />}
     </div>
   );
 }

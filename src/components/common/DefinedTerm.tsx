@@ -26,12 +26,23 @@ const GLOSSARY: Record<GlossaryTerm, GlossaryEntry> = {
   },
   wells: {
     label: 'Wells',
-    definition:
-      'Well data exists only for Illinois and Maine right now. Other states are greyed out in the State list.',
+    definition: 'Wells data only exist for Maine & Illinois.',
   },
 };
 
 const TOOLTIP_GAP = 10;
+
+// An info icon that opens the glossary tooltip for `term`.
+export function InfoTip({ term }: { term: GlossaryTerm }) {
+  return (
+    <DefinedTerm term={term}>
+      <svg className='defined-term-icon' width='16' height='16' viewBox='0 0 20 20' role='img' aria-label={`About ${GLOSSARY[term].label}`}>
+        <circle cx='10' cy='10' r='8.5' fill='none' stroke='currentColor' strokeWidth='1.5' />
+        <path d='M10 9v5M10 6.2v.1' stroke='currentColor' strokeWidth='1.8' strokeLinecap='round' />
+      </svg>
+    </DefinedTerm>
+  );
+}
 
 interface DefinedTermProps {
   term: GlossaryTerm;

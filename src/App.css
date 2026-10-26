@@ -1080,16 +1080,10 @@
   background: var(--color-primary-100);
 }
 
-/* Grey text instead of opacity, so a hint under the label stays readable */
+/* Grey text instead of opacity, so an info icon on the option keeps its color */
 .hs-flat-option--disabled {
   color: var(--color-gray-400);
   cursor: not-allowed;
-}
-
-.hs-flat-option-hint {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--color-gray-600);
 }
 
 .hs-flat-option--disabled:hover {
