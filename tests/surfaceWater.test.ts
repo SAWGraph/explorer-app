@@ -41,13 +41,6 @@ describe('fromSurfaceWaterCodes', () => {
       ftypes: ['LakePond'],
     });
   });
-
-  it('never lets a greyed-out option through', () => {
-    expect(fromSurfaceWaterCodes(['LakePond', 'Inundation Area', 'Estuary'], 'waterBodies')).toEqual({
-      type: 'waterBodies',
-      ftypes: ['LakePond'],
-    });
-  });
 });
 
 describe('saved blocks round-trip', () => {

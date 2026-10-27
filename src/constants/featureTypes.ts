@@ -23,10 +23,7 @@ export const STREAM_FTYPES: FtypeOption[] = [
 
 // Feature Type tree for the Surface Water entry. One menu entry, two engine
 // types: the parent that is ticked decides whether the block is waterBodies
-// (hyf:HY_WaterBody) or streams (hyf:HY_FlowPath). `unavailable` lists the
-// NHDPlus FTYPEs with no records in hydrologykg (Inundation Area has one, stored
-// with a space). They are shown greyed out and never reach a query, so they are
-// kept out of the lists above, which the question text reads.
+// (hyf:HY_WaterBody) or streams (hyf:HY_FlowPath).
 export type SurfaceWaterType = 'waterBodies' | 'streams';
 
 export const SURFACE_WATER_GROUPS: {
@@ -34,21 +31,18 @@ export const SURFACE_WATER_GROUPS: {
   code: string;
   label: string;
   ftypes: FtypeOption[];
-  unavailable: string[];
 }[] = [
   {
     type: 'waterBodies',
     code: '__group:waterBodies',
     label: 'Surface Water Bodies',
     ftypes: WATER_BODY_FTYPES,
-    unavailable: ['Inundation Area', 'Estuary', 'Ice Mass', 'Playa'],
   },
   {
     type: 'streams',
     code: '__group:streams',
     label: 'Streams and Flowlines',
     ftypes: STREAM_FTYPES,
-    unavailable: ['Drainageway', 'Underground Conduit'],
   },
 ];
 

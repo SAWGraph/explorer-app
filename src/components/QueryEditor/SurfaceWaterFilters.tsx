@@ -18,12 +18,6 @@ interface SurfaceWaterFiltersProps {
 const ITEMS: TreeItem[] = SURFACE_WATER_GROUPS.flatMap((g) => [
   { code: g.code, label: g.label },
   ...g.ftypes.map((f) => ({ code: f.value, label: f.label, parent: g.code })),
-  ...g.unavailable.map((label) => ({
-    code: label,
-    label: `${label} (not available yet)`,
-    parent: g.code,
-    disabled: true,
-  })),
 ]);
 
 const PARENTS = SURFACE_WATER_GROUPS.map((g) => g.code);

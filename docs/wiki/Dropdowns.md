@@ -64,9 +64,9 @@ with two parents, Surface Water Bodies (Lake or Pond, Swamp or Marsh, Reservoir)
 and Flowlines (Stream or River, Artificial Path, Canal or Ditch, Connector, Pipeline). Only one
 parent can hold ticks at a time, and that parent sets the block's type. It starts with Surface
 Water Bodies ticked; unticking everything shows an empty tree, and applying it empty runs
-Surface Water Bodies. A whole parent is stored as no filter, so it sends the same query as an unfiltered block. NHDPlus FTYPEs with no
-records in the graph (Inundation Area, Estuary, Ice Mass, Playa, Drainageway, Underground
-Conduit) are listed greyed out with a "(not available yet)" tag and can never be ticked.
+Surface Water Bodies. A whole parent is stored as no filter, so it sends the same query as an unfiltered block. NHDPlus
+FTYPEs that are rare or absent in the source files (Inundation Area, Estuary, Ice Mass, Playa,
+Drainageway, Underground Conduit) are left out (#70).
 [`SurfaceWaterFilters.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SurfaceWaterFilters.tsx),
 [`constants/featureTypes.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/featureTypes.ts)
 

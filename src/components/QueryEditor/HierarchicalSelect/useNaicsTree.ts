@@ -6,15 +6,12 @@ export interface TreeItem {
   code: string;
   label: string;
   parent?: string;
-  // Listed but never tickable.
-  disabled?: boolean;
 }
 
 export interface NaicsTreeNode {
   code: string;
   label: string;
   children: NaicsTreeNode[];
-  disabled?: boolean;
 }
 
 export function buildTree(items: TreeItem[]): {
@@ -40,7 +37,6 @@ export function buildTree(items: TreeItem[]): {
       code: ind.code,
       label: ind.label,
       children: [],
-      disabled: ind.disabled,
     };
     nodeMap.set(ind.code, node);
 
@@ -142,7 +138,7 @@ export function filterTree(
       .filter((c): c is NaicsTreeNode => c !== null);
     if (!selfMatch && keptChildren.length === 0) return null;
     if (keptChildren.length > 0) expand.add(node.code);
-    return { code: node.code, label: node.label, children: keptChildren, disabled: node.disabled };
+    return { code: node.code, label: node.label, children: keptChildren };
   }
 
   const out = roots.map(visit).filter((n): n is NaicsTreeNode => n !== null);
