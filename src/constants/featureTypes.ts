@@ -47,10 +47,12 @@ export const SURFACE_WATER_GROUPS: {
 ];
 
 // A whole parent is stored as no filter, so the query matches an unfiltered
-// block exactly. Derived back into the parent code for display.
+// block exactly. Derived back into the parent code for display, as is a block
+// saved with every child listed, so its parent shows ticked, not partial.
 export function toSurfaceWaterCodes(type: SurfaceWaterType, ftypes: string[] = []): string[] {
-  if (ftypes.length) return ftypes;
-  return [SURFACE_WATER_GROUPS.find((g) => g.type === type)!.code];
+  const group = SURFACE_WATER_GROUPS.find((g) => g.type === type)!;
+  if (ftypes.length && !group.ftypes.every((f) => ftypes.includes(f.value))) return ftypes;
+  return [group.code];
 }
 
 // One parent at a time: when codes from both parents arrive, the one that is

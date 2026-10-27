@@ -43,6 +43,12 @@ describe('fromSurfaceWaterCodes', () => {
   });
 });
 
+describe('toSurfaceWaterCodes', () => {
+  it('shows a block saved with every child as the ticked parent', () => {
+    expect(toSurfaceWaterCodes('waterBodies', ['LakePond', 'SwampMarsh', 'Reservoir'])).toEqual([WB]);
+  });
+});
+
 describe('saved blocks round-trip', () => {
   const cases = [
     { type: 'waterBodies', ftypes: [], codes: [WB] },

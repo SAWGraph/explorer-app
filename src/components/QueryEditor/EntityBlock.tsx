@@ -54,7 +54,7 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
               region: value.region,
               // A whole parent is no filter at all, matching a saved unfiltered
               // block, so the editor does not report a change that is none.
-              ...(ftypes.length &&
+              ...(ftypes.length > 0 &&
                 (type === 'streams' ? { streamFilters: { ftypes } } : { waterBodyFilters: { ftypes } })),
             })
           }

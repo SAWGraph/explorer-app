@@ -27,6 +27,8 @@ export function SurfaceWaterFilters({ type, ftypes = [], onChange }: SurfaceWate
   // while the block already holds the default (Surface Water Bodies, any type).
   // Display only: the editor remounts after a run, showing the default it used.
   const [cleared, setCleared] = useState(false);
+  // A block replaced from outside while empty shows what it now holds.
+  const showEmpty = cleared && type === 'waterBodies' && !ftypes.length;
 
   return (
     <div className="surface-water-filters">
@@ -34,7 +36,7 @@ export function SurfaceWaterFilters({ type, ftypes = [], onChange }: SurfaceWate
         <label>Feature Type:</label>
         <HierarchicalSelect
           items={ITEMS}
-          selectedCodes={cleared ? [] : toSurfaceWaterCodes(type, ftypes)}
+          selectedCodes={showEmpty ? [] : toSurfaceWaterCodes(type, ftypes)}
           onChange={(codes) => {
             setCleared(codes.length === 0);
             const next = fromSurfaceWaterCodes(codes, type);
