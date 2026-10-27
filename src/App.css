@@ -1080,8 +1080,9 @@
   background: var(--color-primary-100);
 }
 
+/* Grey text instead of opacity, so an info icon on the option keeps its color */
 .hs-flat-option--disabled {
-  opacity: 0.4;
+  color: var(--color-gray-400);
   cursor: not-allowed;
 }
 
@@ -1814,6 +1815,16 @@
 
 .defined-term:focus-visible {
   text-decoration-color: var(--color-primary-600);
+}
+
+.defined-term-icon {
+  display: block;
+  color: var(--color-primary-400);
+}
+
+.defined-term:hover .defined-term-icon,
+.defined-term:focus-visible .defined-term-icon {
+  color: var(--color-primary-600);
 }
 
 .defined-term-tooltip {

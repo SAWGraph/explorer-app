@@ -6,6 +6,7 @@ export interface FlatSelectOption {
   label: string;
   disabled?: boolean;
   group?: string;
+  info?: React.ReactNode; // after the label, e.g. an InfoTip saying why the option is disabled
 }
 
 interface FlatSelectProps {
@@ -184,7 +185,11 @@ export function FlatSelect({
     ? {
         position: 'fixed',
         left: position.left,
-        width: position.width,
+        // A narrow trigger (Type) lets the menu grow to fit its labels; a wide
+        // one keeps the menu at exactly its own width.
+        // ponytail: fixed 280px ceiling, measure labels if a narrow menu needs more.
+        minWidth: position.width,
+        maxWidth: Math.max(position.width, 280),
         zIndex: 1100,
         ...(position.direction === 'down'
           ? { top: position.top }
@@ -327,6 +332,7 @@ export function FlatSelect({
                           />
                         )}
                         <span>{option.label}</span>
+                        {option.info}
                       </div>
                     );
                   })()

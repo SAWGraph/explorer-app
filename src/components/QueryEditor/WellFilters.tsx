@@ -1,7 +1,7 @@
 import type { WellFilters as WellFiltersType } from '../../types/query';
 import { FlatSelect } from './FlatSelect/FlatSelect';
 import { useWellClassifications } from '../../hooks/useDiscoveryQueries';
-import { WELL_STATE_FIPS } from '../../constants/wellClassifications';
+import { WELL_GROUP_SHORT_LABEL, wellStateOf } from '../../constants/wellClassifications';
 
 interface WellFiltersProps {
   value?: WellFiltersType;
@@ -18,17 +18,13 @@ export function WellFilters({ value, onChange, stateCode }: WellFiltersProps) {
 
   // A chosen region state limits the visible groups to that state; with no
   // state chosen every group shows and each pick self-scopes to its state.
-  const visible =
-    stateCode === WELL_STATE_FIPS.IL
-      ? classifications.filter((c) => c.state === 'IL')
-      : stateCode === WELL_STATE_FIPS.ME
-        ? classifications.filter((c) => c.state === 'ME')
-        : classifications;
+  const state = wellStateOf(stateCode);
+  const visible = state ? classifications.filter((c) => c.state === state) : classifications;
 
   const options = visible.map((c) => ({
     value: c.key,
     label: withCount(c.label, c.count),
-    group: c.group,
+    group: state ? WELL_GROUP_SHORT_LABEL[c.field] : c.group,
   }));
 
   return (

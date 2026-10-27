@@ -7,6 +7,7 @@ import { WellFilters } from './WellFilters';
 import { AquiferFilters } from './AquiferFilters';
 import { StreamFilters } from './StreamFilters';
 import { RegionSelector } from './RegionSelector';
+import { keepWellPicksForState } from '../../constants/wellClassifications';
 import { useState } from 'react';
 
 interface EntityBlockProps {
@@ -42,7 +43,11 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
         <span className="block-label">{label}</span>
       </div>
 
-      <EntityTypeSelector value={value.type} onChange={handleTypeChange} />
+      <EntityTypeSelector
+        value={value.type}
+        onChange={handleTypeChange}
+        stateCode={value.region?.stateCode}
+      />
 
       {showFilters && (
         <>
@@ -91,7 +96,14 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
       {showRegion && (
         <RegionSelector
           value={value.region}
-          onChange={(r) => onChange({ ...value, region: r })}
+          onChange={(r) =>
+            onChange({
+              ...value,
+              region: r,
+              wellFilters: keepWellPicksForState(value.wellFilters, r.stateCode),
+            })
+          }
+          entityType={value.type}
         />
       )}
 
