@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import type { NaicsTreeNode } from './useNaicsTree';
-import { getCheckState, getAllDescendantCodes } from './useNaicsTree';
+import { getCheckState } from './useNaicsTree';
 
 interface TreeNodeProps {
   node: NaicsTreeNode;
@@ -36,11 +36,7 @@ export function TreeNode({
     }
   }, [checkState]);
 
-  const isDisabled = isAncestorSelected;
-  const isThisOrAncestorSelected =
-    isAncestorSelected ||
-    (checkState === 'checked' &&
-      getAllDescendantCodes(node).every((c) => allSelectedCodes.has(c)));
+  const isThisOrAncestorSelected = isAncestorSelected || checkState === 'checked';
 
   const count = counts?.get(node.code);
   const dimmed = counts !== undefined && (!count || count === 0);
@@ -72,7 +68,7 @@ export function TreeNode({
             type="checkbox"
             className="hs-tree-checkbox"
             checked={checkState === 'checked'}
-            disabled={isDisabled}
+            disabled={isAncestorSelected}
             onChange={() => onToggleSelect(node.code)}
           />
           <span>
