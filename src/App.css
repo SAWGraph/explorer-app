@@ -389,12 +389,10 @@
   color: var(--color-gray-700);
 }
 
-.entity-type-selector select {
-  flex: 1;
-  padding: 0.35rem var(--space-sm);
-  border: 1px solid var(--color-gray-300);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-base);
+/* The menu takes the trigger's width; this keeps "Ground Water (Aquifers)" on
+   one line instead of wrapping inside a menu as narrow as "Wells". */
+.entity-type-selector .hs-container {
+  min-width: 15rem;
 }
 
 /* Filters */

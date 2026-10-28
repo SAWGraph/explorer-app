@@ -2,10 +2,9 @@ import type { EntityBlock as EntityBlockType } from '../../types/query';
 import { EntityTypeSelector } from './EntityTypeSelector';
 import { SampleFilters } from './SampleFilters';
 import { FacilityFilters } from './FacilityFilters';
-import { WaterBodyFilters } from './WaterBodyFilters';
 import { WellFilters } from './WellFilters';
 import { AquiferFilters } from './AquiferFilters';
-import { StreamFilters } from './StreamFilters';
+import { SurfaceWaterFilters } from './SurfaceWaterFilters';
 import { RegionSelector } from './RegionSelector';
 import { keepWellPicksForState } from '../../constants/wellClassifications';
 import { useState } from 'react';
@@ -23,10 +22,8 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
       value.sampleFilters?.substances?.length ||
       value.sampleFilters?.materialTypes?.length ||
       value.facilityFilters?.industryCodes?.length ||
-      value.waterBodyFilters?.ftypes?.length ||
       value.wellFilters?.wellCategories?.length ||
-      value.aquiferFilters?.aquiferTypes?.length ||
-      value.streamFilters?.ftypes?.length
+      value.aquiferFilters?.aquiferTypes?.length
     )
   );
 
@@ -36,6 +33,8 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
       region: value.region,
     });
   };
+
+  const surfaceWaterType = value.type === 'waterBodies' || value.type === 'streams' ? value.type : null;
 
   return (
     <div className="entity-block block-card">
@@ -48,6 +47,24 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
         onChange={handleTypeChange}
         stateCode={value.region?.stateCode}
       />
+
+      {/* Not behind "+ Add Filters": Feature Type decides what gets queried. */}
+      {surfaceWaterType && (
+        <SurfaceWaterFilters
+          type={surfaceWaterType}
+          ftypes={(surfaceWaterType === 'streams' ? value.streamFilters : value.waterBodyFilters)?.ftypes}
+          onChange={(type, ftypes) =>
+            onChange({
+              type,
+              region: value.region,
+              // A whole parent is no filter at all, matching a saved unfiltered
+              // block, so the editor does not report a change that is none.
+              ...(ftypes.length > 0 &&
+                (type === 'streams' ? { streamFilters: { ftypes } } : { waterBodyFilters: { ftypes } })),
+            })
+          }
+        />
+      )}
 
       {showFilters && (
         <>
@@ -63,18 +80,6 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
               value={value.facilityFilters}
               onChange={(f) => onChange({ ...value, facilityFilters: f })}
               region={value.region}
-            />
-          )}
-          {value.type === 'waterBodies' && (
-            <WaterBodyFilters
-              value={value.waterBodyFilters}
-              onChange={(f) => onChange({ ...value, waterBodyFilters: f })}
-            />
-          )}
-          {value.type === 'streams' && (
-            <StreamFilters
-              value={value.streamFilters}
-              onChange={(f) => onChange({ ...value, streamFilters: f })}
             />
           )}
           {value.type === 'wells' && (
@@ -108,7 +113,7 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
       )}
 
       <div className="block-actions">
-        {!showFilters && (
+        {!showFilters && !surfaceWaterType && (
           <button className="btn-link" onClick={() => setShowFilters(true)}>
             + Add Filters
           </button>

@@ -13,6 +13,8 @@ interface HierarchicalSelectProps {
   // Set when the code is a URI rather than something a reader recognises, so it
   // is kept out of labels, chips and the search.
   labelOnly?: boolean;
+  selectAll?: boolean;
+  initiallyExpanded?: string[];
 }
 
 interface DropdownPosition {
@@ -29,9 +31,11 @@ export function HierarchicalSelect({
   placeholder = 'Any industry...',
   counts,
   labelOnly,
+  selectAll = true,
+  initiallyExpanded = [],
 }: HierarchicalSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => new Set(initiallyExpanded));
   const [resizeTick, setResizeTick] = useState(0);
   const [query, setQuery] = useState('');
 
@@ -313,7 +317,7 @@ export function HierarchicalSelect({
               <div className="hs-empty">No matches</div>
             ) : (
               <>
-                {(() => {
+                {selectAll && (() => {
                   const allChecked = visibleRoots.every((n) => userSelections.has(n.code));
                   return (
                     <div
