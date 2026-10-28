@@ -36,11 +36,6 @@ const LAYER_COMPONENTS: Record<string, ComponentType<{ features: MapFeature[] }>
 // user opened is not snapped shut by a rotation.
 const COMPACT_SCREEN = '(max-width: 1024px), (max-height: 600px)';
 
-const LAYER_PANE_CONFIG: Record<string, { name: string; zIndex: number }> = {
-  regionBoundaries: { name: 'regionPane', zIndex: 350 },
-  streams: { name: 'streamsPane', zIndex: 380 },
-};
-
 export function ResultsMap({ layers }: ResultsMapProps) {
   const [visibility, setVisibility] = useState(getDefaultVisibility);
   const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
@@ -84,12 +79,17 @@ export function ResultsMap({ layers }: ResultsMapProps) {
 
       <MapCenterController layers={layers} />
 
-      <Pane name="aquiferPane" style={{ zIndex: 340 }}>
-        <AquiferBoundaryLayer
-          visible={!!visibility.aquiferBoundaries}
-          matchedIris={layers.matchedAquiferIris}
-        />
-      </Pane>
+      {/* Aquifers, counties and streams draw below the other data (overlayPane
+          is 400). Each layer names its pane with a pane prop: wrapping it in
+          <Pane> would hand the pane to its popups too, under the data (#86). */}
+      <Pane name="aquiferPane" style={{ zIndex: 340 }} />
+      <Pane name="regionPane" style={{ zIndex: 350 }} />
+      <Pane name="streamsPane" style={{ zIndex: 380 }} />
+
+      <AquiferBoundaryLayer
+        visible={!!visibility.aquiferBoundaries}
+        matchedIris={layers.matchedAquiferIris}
+      />
 
       {LAYER_REGISTRY.map(({ key }) => {
         // Registry keys are all feature layers; matchedAquiferIris (string[]) is
@@ -97,14 +97,6 @@ export function ResultsMap({ layers }: ResultsMapProps) {
         const features = (layers[key as keyof MapLayerData] ?? []) as MapFeature[];
         const Component = LAYER_COMPONENTS[key];
         if (!visibility[key] || !features.length || !Component) return null;
-        const pane = LAYER_PANE_CONFIG[key];
-        if (pane) {
-          return (
-            <Pane key={key} name={pane.name} style={{ zIndex: pane.zIndex }}>
-              <Component features={features} />
-            </Pane>
-          );
-        }
         return <Component key={key} features={features} />;
       })}
 

@@ -17,6 +17,7 @@ export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
           <Polygon
             key={f.id}
             positions={f.geometry.coordinates as LatLngExpression[][]}
+            pane="regionPane"
             bubblingMouseEvents
             pathOptions={{
               color: REGION.border,

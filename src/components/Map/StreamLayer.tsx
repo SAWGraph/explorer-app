@@ -17,6 +17,7 @@ export function StreamLayer({ features }: StreamLayerProps) {
           <Polyline
             key={f.id}
             positions={f.geometry.coordinates as LatLngExpression[]}
+            pane="streamsPane"
             pathOptions={{ color: WATER_COLORS.flowline, weight: 2, opacity: 0.7 }}
           >
             <Popup maxWidth={500}>
