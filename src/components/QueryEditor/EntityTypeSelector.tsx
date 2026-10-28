@@ -1,9 +1,12 @@
 import type { EntityType } from '../../types/query';
 import { FlatSelect, type FlatSelectOption } from './FlatSelect/FlatSelect';
+import { stateHasWells } from '../../constants/wellClassifications';
+import { InfoTip } from '../common/DefinedTerm';
 
 interface EntityTypeSelectorProps {
   value: EntityType;
   onChange: (type: EntityType) => void;
+  stateCode?: string;
 }
 
 // Surface Water is one entry for two engine types. Its value is waterBodies,
@@ -18,13 +21,18 @@ const ENTITY_TYPES: FlatSelectOption[] = [
   { value: '__soon:model', label: 'Coming soon', group: 'Model Output', disabled: true },
 ];
 
-export function EntityTypeSelector({ value, onChange }: EntityTypeSelectorProps) {
+export function EntityTypeSelector({ value, onChange, stateCode }: EntityTypeSelectorProps) {
   const shown = value === 'streams' ? 'waterBodies' : value;
+  const options = ENTITY_TYPES.map((t) =>
+    t.value === 'wells' && !stateHasWells(stateCode)
+      ? { ...t, disabled: true, info: <InfoTip term="wells" /> }
+      : t,
+  );
   return (
     <div className="entity-type-selector">
       <label>Type:</label>
       <FlatSelect
-        options={ENTITY_TYPES}
+        options={options}
         selectedValues={[shown]}
         onChange={(vals) => {
           // Re-picking the current entry would reset its filters, and turn a
@@ -36,6 +44,7 @@ export function EntityTypeSelector({ value, onChange }: EntityTypeSelectorProps)
         searchable={false}
         placeholder="Select type..."
       />
+      {value === 'wells' && <InfoTip term="wells" />}
     </div>
   );
 }

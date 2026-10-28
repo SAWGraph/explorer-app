@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-export type GlossaryTerm = 'analysisQuestion' | 'feature' | 'observation';
+export type GlossaryTerm = 'analysisQuestion' | 'feature' | 'observation' | 'wells';
 
 interface GlossaryEntry {
   label: string;
@@ -24,16 +24,33 @@ const GLOSSARY: Record<GlossaryTerm, GlossaryEntry> = {
     definition:
       'A measurement taken at a specific place and time, like a PFAS sample result. It tells you what was found there, not just what is there.',
   },
+  wells: {
+    label: 'Wells',
+    definition: 'Wells data only exist for Maine & Illinois.',
+  },
 };
 
 const TOOLTIP_GAP = 10;
 
+// An info icon that opens the glossary tooltip for `term`, without the heading.
+export function InfoTip({ term }: { term: GlossaryTerm }) {
+  return (
+    <DefinedTerm term={term} showLabel={false}>
+      <svg className='defined-term-icon' width='16' height='16' viewBox='0 0 20 20' role='img' aria-label={`About ${GLOSSARY[term].label}`}>
+        <circle cx='10' cy='10' r='8.5' fill='none' stroke='currentColor' strokeWidth='1.5' />
+        <path d='M10 9v5M10 6.2v.1' stroke='currentColor' strokeWidth='1.8' strokeLinecap='round' />
+      </svg>
+    </DefinedTerm>
+  );
+}
+
 interface DefinedTermProps {
   term: GlossaryTerm;
   children: React.ReactNode;
+  showLabel?: boolean;
 }
 
-export function DefinedTerm({ term, children }: DefinedTermProps) {
+export function DefinedTerm({ term, children, showLabel = true }: DefinedTermProps) {
   const tooltipId = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
@@ -88,7 +105,7 @@ export function DefinedTerm({ term, children }: DefinedTermProps) {
             className='defined-term-tooltip'
             style={{ top: coords.top, left: coords.left }}
           >
-            <strong className='defined-term-tooltip-label'>{entry.label}</strong>
+            {showLabel && <strong className='defined-term-tooltip-label'>{entry.label}</strong>}
             <span className='defined-term-tooltip-body'>{entry.definition}</span>
           </span>,
           document.body
