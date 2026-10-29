@@ -39,7 +39,8 @@ npm run test:ui   # only ui/tests/, in jsdom
 ```
 
 These render real components with the network mocked: the edit modal flows,
-the sample popup size, the water body layer, and the wells state gating.
+the sample popup size, popups and tooltips opening above the map data, the
+water body layer, and the wells state gating.
 
 ## Further reading
 
