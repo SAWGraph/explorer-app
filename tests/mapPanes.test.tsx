@@ -150,10 +150,34 @@ it('stacks the panes in a fixed order, bottom to top', () => {
   expect(zs).toEqual([...new Set(zs)].sort((a, b) => a - b));
 });
 
+const onlyCounties: MapLayerData = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [] };
+
 it('does the same for county outlines on a result with no data layers', async () => {
-  renderMap({ ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [] });
+  renderMap(onlyCounties);
   await waitForFeatures(1);
   expect(panes()).toEqual({ county: { shape: 'region', popup: 'popup', tooltip: 'tooltip' } });
+});
+
+// A result with only county outlines drew them from a branch of its own, so
+// ticking Region Boundaries drew a second copy and unticking it could never
+// hide the first (#88).
+it('draws county outlines once on a result with no data layers, and the box shows and hides them', async () => {
+  renderMap(onlyCounties);
+  const box = (await screen.findByText(/Region Boundaries/)).closest('label')!.querySelector('input')!;
+  const counties = () => {
+    let n = 0;
+    map.eachLayer((layer) => {
+      if (layer instanceof L.Polygon) n++;
+    });
+    return n;
+  };
+  await waitFor(() => expect(counties()).toBe(1));
+  expect(box.checked).toBe(true);
+
+  fireEvent.click(box);
+  await waitFor(() => expect(counties()).toBe(0));
+  fireEvent.click(box);
+  await waitFor(() => expect(counties()).toBe(1));
 });
 
 it('draws aquifers in aquiferPane, under streams and counties, and leaves nothing above them when turned off', async () => {

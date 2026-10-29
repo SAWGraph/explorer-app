@@ -58,7 +58,8 @@ export function MapPanes() {
 }
 
 export function ResultsMap({ layers }: ResultsMapProps) {
-  const [visibility, setVisibility] = useState(getDefaultVisibility);
+  // What the user ticked or unticked; every other layer follows its default.
+  const [choices, setChoices] = useState<Record<string, boolean>>({});
   const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
   const [panelsOpen] = useState(() => !window.matchMedia(COMPACT_SCREEN).matches);
 
@@ -69,8 +70,16 @@ export function ResultsMap({ layers }: ResultsMapProps) {
     layers.wells.length > 0 ||
     layers.streams.length > 0;
 
+  // County outlines are off by default, but on a result with no data layers
+  // they are all there is to show, so there they start ticked (#88).
+  const visibility: Record<string, boolean> = {
+    ...getDefaultVisibility(),
+    ...(hasData ? {} : { regionBoundaries: true }),
+    ...choices,
+  };
+
   const handleToggle = (key: string) => {
-    setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+    setChoices((prev) => ({ ...prev, [key]: !visibility[key] }));
   };
 
   const basemap = BASEMAPS.find((b) => b.key === basemapKey)!;
@@ -115,11 +124,6 @@ export function ResultsMap({ layers }: ResultsMapProps) {
         if (!visibility[key] || !features.length || !Component) return null;
         return <Component key={key} features={features} />;
       })}
-
-      {/* Standalone region boundaries when no data layers exist (always visible, no panel) */}
-      {!hasData && layers.regionBoundaries.length > 0 && (
-        <RegionBoundaryLayer features={layers.regionBoundaries} />
-      )}
 
       {/* Panel shows when there's query data OR a static overlay (aquifers) to toggle */}
       {(hasData || LAYER_REGISTRY.some((e) => e.static)) && (
