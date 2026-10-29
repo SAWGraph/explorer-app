@@ -13,6 +13,7 @@ import { StreamLayer } from './StreamLayer';
 import { RegionBoundaryLayer } from './RegionBoundaryLayer';
 import { AquiferBoundaryLayer } from './AquiferBoundaryLayer';
 import { MapCenterController } from './MapCenterController';
+import { panelPadding } from './panelPadding';
 import { LayerPanel } from './LayerPanel';
 import { BasemapSelector } from './BasemapSelector';
 import { MeasureControl } from './MeasureControl';
@@ -72,15 +73,16 @@ export function MapPanes({ answer }: { answer?: EntityType }) {
   );
 }
 
-// Room Leaflet needs around a popup's content inside the map: the content
-// margins, the tip, the offset from its anchor and the 5px pan padding.
-const POPUP_CHROME = { x: 60, y: 90 };
+// Room Leaflet needs around a popup's content, besides the pan padding: the
+// content margins, the tip and the offset from its anchor.
+const POPUP_CHROME = { x: 50, y: 80 };
 const ownPopupSize = new WeakMap<Popup, { maxWidth?: number; maxHeight?: number }>();
 
 // Leaflet sizes a popup from its own maxWidth and maxHeight, never from the
-// map, so on a phone or a short window popups ran off the map, close button
-// included (#88). Cap both to the map as each popup opens; Leaflet then
-// scrolls what is taller and pans the popup into view.
+// map, and pans it only 5px clear of the edges. So on a phone popups ran off
+// the map, and anywhere they opened under the banner or an open panel, close
+// button included (#88). As each popup opens, pad it clear of those and cap
+// its size to the space left; Leaflet scrolls what is taller and pans it in.
 function FitPopupsToMap() {
   const map = useMap();
 
@@ -101,8 +103,11 @@ function FitPopupsToMap() {
       ownPopupSize.set(popup, { maxWidth: popup.options.maxWidth, maxHeight: popup.options.maxHeight ?? undefined });
     }
     const own = ownPopupSize.get(popup)!;
-    popup.options.maxWidth = Math.min(own.maxWidth ?? 300, x - POPUP_CHROME.x);
-    popup.options.maxHeight = Math.min(own.maxHeight ?? Infinity, y - POPUP_CHROME.y);
+    const { topLeft, bottomRight } = panelPadding(map, 5);
+    popup.options.autoPanPaddingTopLeft = topLeft;
+    popup.options.autoPanPaddingBottomRight = bottomRight;
+    popup.options.maxWidth = Math.min(own.maxWidth ?? 300, x - topLeft.x - bottomRight.x - POPUP_CHROME.x);
+    popup.options.maxHeight = Math.min(own.maxHeight ?? Infinity, y - topLeft.y - bottomRight.y - POPUP_CHROME.y);
     popup.update();
   });
   return null;

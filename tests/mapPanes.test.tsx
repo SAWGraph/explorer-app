@@ -219,6 +219,50 @@ it('caps every popup to the size of the map it opens in', async () => {
   expect(desktop.sample).toEqual([500, 756]);
 });
 
+// Popups opened under Map Layers or the saved results banner, close button
+// included, and fitted results could land under the open panels (#88).
+it('keeps popups and fitted results clear of the open panels, and only while open', async () => {
+  const rect = (x: number, y: number, width: number, height: number) =>
+    ({ x, y, width, height, left: x, top: y, right: x + width, bottom: y + height }) as DOMRect;
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    if (this.classList.contains('leaflet-container')) return rect(0, 0, 1396, 846);
+    if (this.matches('.custom-layer-panel > details[open]')) return rect(1136, 10, 250, 160);
+    return rect(0, 0, 0, 0);
+  });
+  const fitBounds = vi.spyOn(L.Map.prototype, 'fitBounds').mockImplementation(function (this: L.Map) {
+    return this;
+  });
+  const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [] };
+  const { rerender } = renderMap(empty);
+  await screen.findByText(/Aquifers/);
+  vi.spyOn(map, 'getSize').mockImplementation(() => L.point(1396, 846));
+  rerender(
+    <QueryClientProvider client={new QueryClient()}>
+      <ResultsMap layers={everyLayer} />
+    </QueryClientProvider>,
+  );
+  await waitForFeatures(7);
+
+  // Map Layers spans x 1136 to 1386 of a 1396px map: 1396 - 1136 + 8.
+  const fitOptions = fitBounds.mock.calls[fitBounds.mock.calls.length - 1][1]!;
+  expect([fitOptions.paddingBottomRight, fitOptions.paddingTopLeft]).toEqual([L.point(268, 50), L.point(50, 50)]);
+
+  let facility: L.Marker | undefined;
+  map.eachLayer((layer) => {
+    if (layer instanceof L.Marker && layer.getTooltip()?.getElement()?.textContent === 'facility') facility = layer;
+  });
+  const paddingWhenOpened = () => {
+    facility!.openPopup();
+    const padding = facility!.getPopup()!.options.autoPanPaddingBottomRight;
+    facility!.closePopup();
+    return padding;
+  };
+  expect(paddingWhenOpened()).toEqual(L.point(268, 5));
+
+  document.querySelector<HTMLDetailsElement>('.custom-layer-panel > details')!.open = false;
+  expect(paddingWhenOpened()).toEqual(L.point(5, 5));
+});
+
 // Leaflet caches the map's size and re-reads it only on a window resize. On a
 // phone the map shrank from 622px to 392px as the question text laid out, and
 // popups were capped and panned for the old size, running off the bottom (#88).

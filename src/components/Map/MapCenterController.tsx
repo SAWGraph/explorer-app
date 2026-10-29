@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 import type { MapLayerData } from '../../hooks/useMapLayers';
 import L from 'leaflet';
+import { panelPadding } from './panelPadding';
 
 interface MapCenterControllerProps {
   layers: MapLayerData;
@@ -80,8 +81,12 @@ export function MapCenterController({ layers }: MapCenterControllerProps) {
       return;
     }
 
+    // Fit inside the part of the map the banner and open panels leave
+    // visible, so no result lands under them (#88).
+    const { topLeft, bottomRight } = panelPadding(map, 50);
     map.fitBounds(bounds, {
-      padding: [50, 50],
+      paddingTopLeft: topLeft,
+      paddingBottomRight: bottomRight,
       maxZoom: 15,
       animate: true,
       duration: 0.5,
