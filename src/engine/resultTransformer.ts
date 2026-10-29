@@ -1,9 +1,8 @@
 import type { SparqlRow } from '../types/sparql';
-import type { MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from '../types/map';
-import type { LatLngExpression } from 'leaflet';
+import type { LatLon, MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from '../types/map';
 import { substanceLabel } from '../constants/substances';
 
-function parseWKTPoint(wkt: string): LatLngExpression | null {
+function parseWKTPoint(wkt: string): LatLon | null {
   const match = wkt.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
   if (!match) return null;
   const lon = parseFloat(match[1]);
@@ -11,30 +10,30 @@ function parseWKTPoint(wkt: string): LatLngExpression | null {
   return [lat, lon];
 }
 
-function parseWKTLineString(wkt: string): LatLngExpression[] | null {
+function parseWKTLineString(wkt: string): LatLon[] | null {
   const match = wkt.match(/LINESTRING\s*\((.+)\)/i);
   if (!match) return null;
   return match[1].split(',').map((pair) => {
     const [lon, lat] = pair.trim().split(/\s+/).map(Number);
-    return [lat, lon] as LatLngExpression;
+    return [lat, lon];
   });
 }
 
-function parseRing(ringStr: string): LatLngExpression[] {
+function parseRing(ringStr: string): LatLon[] {
   return ringStr.split(',').map((pair) => {
     const [lon, lat] = pair.trim().split(/\s+/).map(Number);
-    return [lat, lon] as LatLngExpression;
+    return [lat, lon];
   });
 }
 
-function parseWKTPolygon(wkt: string): LatLngExpression[][] | null {
+function parseWKTPolygon(wkt: string): LatLon[][] | null {
   // Anchor with (?<!MULTI) to avoid matching MULTIPOLYGON
   const match = wkt.match(/(?<!MULTI)POLYGON\s*\(\s*\((.+)\)\s*\)/i);
   if (!match) return null;
   return match[1].split(/\)\s*,\s*\(/).map(parseRing);
 }
 
-function parseWKTMultiPolygon(wkt: string): LatLngExpression[][][] | null {
+function parseWKTMultiPolygon(wkt: string): LatLon[][][] | null {
   const match = wkt.match(/MULTIPOLYGON\s*\(\s*\(\s*\((.+)\)\s*\)\s*\)/i);
   if (!match) return null;
   return match[1].split(/\)\s*\)\s*,\s*\(\s*\(/).map((polygon) =>

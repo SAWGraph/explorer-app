@@ -1,4 +1,6 @@
-import type { LatLngExpression } from 'leaflet';
+// [lat, lon]. A plain pair keeps the engine free of the map library; Leaflet
+// accepts it wherever it takes a LatLngExpression.
+export type LatLon = [number, number];
 
 export interface MapLayer {
   id: string;
@@ -44,15 +46,15 @@ export interface SamplePointDetail {
 
 export interface PointGeometry {
   type: 'Point';
-  coordinates: LatLngExpression;
+  coordinates: LatLon;
 }
 
 export interface LineGeometry {
   type: 'LineString';
-  coordinates: LatLngExpression[];
+  coordinates: LatLon[];
 }
 
 export interface PolygonGeometry {
   type: 'Polygon';
-  coordinates: LatLngExpression[][];
+  coordinates: LatLon[][];
 }
