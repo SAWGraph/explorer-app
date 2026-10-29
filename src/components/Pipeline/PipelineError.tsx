@@ -1,4 +1,4 @@
-import type { PipelineResult } from '../../engine/executor';
+import type { PipelineResult } from '../../../engine/executor';
 
 interface PipelineErrorProps {
   result: PipelineResult | null;

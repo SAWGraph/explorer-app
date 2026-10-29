@@ -1,6 +1,6 @@
-import type { SparqlRow } from '../types/sparql';
-import type { LatLon, MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from '../types/map';
-import { substanceLabel } from '../constants/substances';
+import type { SparqlRow } from './types/sparql';
+import type { LatLon, MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from './types/map';
+import { substanceLabel } from './constants/substances';
 
 function parseWKTPoint(wkt: string): LatLon | null {
   const match = wkt.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);

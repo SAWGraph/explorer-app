@@ -5,11 +5,11 @@ import type {
   SpatialRelationship,
   RegionFilter,
   SampleFilters,
-} from '../types/query';
-import { ALL_US_STATES } from '../constants/regions';
-import { NAICS_SECTOR_SHORT } from '../constants/naics';
-import { FALLBACK_MATERIAL_TYPES } from '../constants/materialTypes';
-import { STREAM_FTYPES, WATER_BODY_FTYPES, type FtypeOption } from '../constants/featureTypes';
+} from './types/query';
+import { ALL_US_STATES } from './constants/regions';
+import { NAICS_SECTOR_SHORT } from './constants/naics';
+import { FALLBACK_MATERIAL_TYPES } from './constants/materialTypes';
+import { STREAM_FTYPES, WATER_BODY_FTYPES, type FtypeOption } from './constants/featureTypes';
 
 export interface QuestionTotals {
   counties?: Record<string, number>; // state FIPS → county count

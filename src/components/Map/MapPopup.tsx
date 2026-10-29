@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 import { Popup as LeafletPopup } from 'leaflet';
-import type { MapFeature, SamplePointDetail, SampleRecord } from '../../types/map';
+import type { MapFeature, SamplePointDetail, SampleRecord } from '../../../engine/types/map';
 import { useSampleDetails } from '../../hooks/useSampleDetails';
 import { useQueryStore } from '../../store/queryStore';
 

@@ -19,9 +19,9 @@
 import { execSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
-import { planPipeline } from '../src/engine/planner';
-import { executePipeline } from '../src/engine/executor';
+import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
+import { planPipeline } from '../engine/planner';
+import { executePipeline } from '../engine/executor';
 
 // The keys useMapLayers renders (wire.ts RENDERED_KEYS). Counting anything else
 // would flag drift in intermediate bookkeeping the user never sees.

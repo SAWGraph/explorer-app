@@ -12,9 +12,9 @@
 //
 // No network: planPipeline only builds query strings.
 import assert from 'node:assert/strict';
-import { planPipeline } from '../src/engine/planner';
-import { entityTypeLabel } from '../src/utils/questionGenerator';
-import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../src/types/query';
+import { planPipeline } from '../engine/planner';
+import { entityTypeLabel } from '../engine/questionGenerator';
+import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../engine/types/query';
 
 const ENTITY_TYPES: EntityType[] = [
   'samples',

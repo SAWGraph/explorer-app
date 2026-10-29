@@ -1,4 +1,4 @@
-import type { AnalysisQuestion, EntityBlock } from '../types/query';
+import type { AnalysisQuestion, EntityBlock } from './types/query';
 
 // Detects filter combinations that consistently overwhelm the backend
 // (statewide + broad industries + no substance filter), producing a 502

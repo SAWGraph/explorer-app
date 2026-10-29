@@ -16,12 +16,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { PipelineResult } from '../src/engine/executor';
+import type { PipelineResult } from '../engine/executor';
 
 const engine = vi.hoisted(() => ({ executePipeline: vi.fn() }));
 
-vi.mock('../src/engine/executor', async (orig) => ({
-  ...(await orig<typeof import('../src/engine/executor')>()),
+vi.mock('../engine/executor', async (orig) => ({
+  ...(await orig<typeof import('../engine/executor')>()),
   executePipeline: engine.executePipeline,
 }));
 vi.mock('../src/api/resultCacheClient', () => ({
@@ -47,10 +47,10 @@ vi.mock('canvas-confetti', () => ({ default: () => undefined }));
 import { useQueryStore } from '../src/store/queryStore';
 import { EditorView } from '../src/components/Layout/EditorView';
 import { PublishedView } from '../src/components/Layout/PublishedView';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
+import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
 import { blankAnalysisQuestion } from '../src/constants/blankAnalysis';
 import { savedQuestionsRepo } from '../src/storage/savedQuestionsStore';
-import type { AnalysisQuestion, EntityBlock } from '../src/types/query';
+import type { AnalysisQuestion, EntityBlock } from '../engine/types/query';
 
 const PREBUILT = PREBUILT_QUERIES[0];
 const API = 'http://api.test';

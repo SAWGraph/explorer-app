@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LayerGroup, CircleMarker, Popup, Tooltip } from 'react-leaflet';
-import type { MapFeature } from '../../types/map';
+import type { MapFeature } from '../../../engine/types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
 import { SAMPLE_DEFAULT, SAMPLE_STROKE_DEFAULT, getSampleRadius } from './mapColors';

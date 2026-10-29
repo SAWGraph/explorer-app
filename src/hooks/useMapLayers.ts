@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { PipelineResult } from '../engine/executor';
-import type { MapFeature } from '../types/map';
+import type { PipelineResult } from '../../engine/executor';
+import type { MapFeature } from '../../engine/types/map';
 import {
   transformSamplesToFeatures,
   transformFacilitiesToFeatures,
@@ -8,7 +8,7 @@ import {
   transformWellsToFeatures,
   transformFlowlinesToFeatures,
   transformRegionBoundaries,
-} from '../engine/resultTransformer';
+} from '../../engine/resultTransformer';
 
 export interface MapLayerData {
   samples: MapFeature[];

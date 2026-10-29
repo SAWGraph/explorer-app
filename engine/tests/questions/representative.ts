@@ -15,7 +15,7 @@
 //
 // The ceiling: if a change adds a branch on a particular pair (say wells near
 // aquifers), the rotation will not cover it. Add that pair here when it does.
-import type { AnalysisQuestion } from '../../src/types/query';
+import type { AnalysisQuestion } from '../../types/query';
 
 export interface NamedQuestion {
   name: string;

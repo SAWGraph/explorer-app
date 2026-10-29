@@ -10,11 +10,11 @@
 //
 // This is a trusted writer — it runs the real pipeline and uploads what it got,
 // so nothing untrusted ever reaches another user's map.
-import { planPipeline } from '../src/engine/planner';
-import { executePipeline } from '../src/engine/executor';
-import { cacheKey } from '../src/engine/cacheKey';
-import { toWire } from '../src/engine/wire';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
+import { planPipeline } from '../engine/planner';
+import { executePipeline } from '../engine/executor';
+import { cacheKey } from '../engine/cacheKey';
+import { toWire } from '../engine/wire';
+import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
 
 const API_BASE = (process.env.API_BASE ?? 'http://localhost:3001').replace(/\/$/, '');
 const TOKEN = process.env.CACHE_WRITE_TOKEN;

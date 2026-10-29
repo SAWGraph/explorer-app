@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SavedQuestion } from '../../types/savedQuestion';
-import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
+import { PREBUILT_QUERIES } from '../../../engine/constants/prebuiltQueries';
 
 interface SavedQuestionRowProps {
   saved: SavedQuestion;

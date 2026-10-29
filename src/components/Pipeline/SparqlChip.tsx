@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
-import type { SentQuery } from '../../engine/executor';
+import type { SentQuery } from '../../../engine/executor';
 
 // Shows the queries behind whatever is on the map: prebuilt, edited or custom.
 // They are the exact requests the executor sent, so they always match the map.

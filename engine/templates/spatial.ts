@@ -1,4 +1,4 @@
-import { PREFIXES } from '../../constants/prefixes';
+import { PREFIXES } from '../constants/prefixes';
 
 export function buildRegionBoundaryQuery(regionCode: string): string {
   return `

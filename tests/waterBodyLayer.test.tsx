@@ -9,8 +9,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { MapContainer } from 'react-leaflet';
 import L from 'leaflet';
-import type { SparqlRow } from '../src/types/sparql';
-import { transformWaterBodiesToFeatures } from '../src/engine/resultTransformer';
+import type { SparqlRow } from '../engine/types/sparql';
+import { transformWaterBodiesToFeatures } from '../engine/resultTransformer';
 import { WaterBodyLayer } from '../src/components/Map/WaterBodyLayer';
 
 afterEach(cleanup);

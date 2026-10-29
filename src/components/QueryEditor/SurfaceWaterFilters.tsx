@@ -6,7 +6,7 @@ import {
   fromSurfaceWaterCodes,
   toSurfaceWaterCodes,
   type SurfaceWaterType,
-} from '../../constants/featureTypes';
+} from '../../../engine/constants/featureTypes';
 
 interface SurfaceWaterFiltersProps {
   type: SurfaceWaterType;

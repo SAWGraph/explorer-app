@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
-import { adviceForOversizedQuestion } from '../../engine/sparqlErrors';
+import { adviceForOversizedQuestion } from '../../../engine/sparqlErrors';
 
 // Shown when some slices of a split query failed but the rest returned data.
 // Silently showing an incomplete map would be worse than saying so.

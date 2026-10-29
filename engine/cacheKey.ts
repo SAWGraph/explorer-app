@@ -1,4 +1,4 @@
-import type { AnalysisQuestion } from '../types/query';
+import type { AnalysisQuestion } from './types/query';
 
 // Two questions that produce the same SPARQL must produce the same cache key,
 // and a question that produces different SPARQL must not. Raw JSON.stringify

@@ -1,4 +1,4 @@
-import type { SparqlRow } from '../types/sparql';
+import type { SparqlRow } from './types/sparql';
 import type { PartialFailure, PipelineSuccess, SentQuery } from './executor';
 
 // The shape a cached result takes over the wire and in Postgres.

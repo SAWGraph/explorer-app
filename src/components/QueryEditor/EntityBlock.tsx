@@ -1,4 +1,4 @@
-import type { EntityBlock as EntityBlockType } from '../../types/query';
+import type { EntityBlock as EntityBlockType } from '../../../engine/types/query';
 import { EntityTypeSelector } from './EntityTypeSelector';
 import { SampleFilters } from './SampleFilters';
 import { FacilityFilters } from './FacilityFilters';
@@ -6,7 +6,7 @@ import { WellFilters } from './WellFilters';
 import { AquiferFilters } from './AquiferFilters';
 import { SurfaceWaterFilters } from './SurfaceWaterFilters';
 import { RegionSelector } from './RegionSelector';
-import { keepWellPicksForState } from '../../constants/wellClassifications';
+import { keepWellPicksForState } from '../../../engine/constants/wellClassifications';
 import { useState } from 'react';
 
 interface EntityBlockProps {

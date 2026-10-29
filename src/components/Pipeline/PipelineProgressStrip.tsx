@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
-import { userMessageFor } from '../../engine/sparqlErrors';
+import { userMessageFor } from '../../../engine/sparqlErrors';
 
 const MESSAGES = [
   'Please wait while we prepare the data for you…',

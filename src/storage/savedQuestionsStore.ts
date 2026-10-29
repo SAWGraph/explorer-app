@@ -1,4 +1,4 @@
-import type { AnalysisQuestion } from '../types/query';
+import type { AnalysisQuestion } from '../../engine/types/query';
 import type { SavedQuestion } from '../types/savedQuestion';
 import { deepClone } from '../utils/clone';
 

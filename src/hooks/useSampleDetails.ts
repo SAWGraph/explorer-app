@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { executeSparql } from '../engine/sparqlClient';
-import { buildSampleDetailsByIri } from '../engine/templates/hydrate';
-import { buildSamplePointDetail } from '../engine/resultTransformer';
-import type { SamplePointDetail } from '../types/map';
-import type { SampleFilters } from '../types/query';
+import { executeSparql } from '../../engine/sparqlClient';
+import { buildSampleDetailsByIri } from '../../engine/templates/hydrate';
+import { buildSamplePointDetail } from '../../engine/resultTransformer';
+import type { SamplePointDetail } from '../../engine/types/map';
+import type { SampleFilters } from '../../engine/types/query';
 
 // Loads the observation table for a single sample point, when its popup opens.
 //

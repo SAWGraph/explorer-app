@@ -1,5 +1,5 @@
-import { PREFIXES } from '../../constants/prefixes';
-import type { SampleFilters } from '../../types/query';
+import { PREFIXES } from '../constants/prefixes';
+import type { SampleFilters } from '../types/query';
 import { wrapUri, buildSampleFilterClauses, resultValueClauses, needsUnitJoin } from './samples';
 
 function spValues(spIris: string[]): string {

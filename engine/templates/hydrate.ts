@@ -1,9 +1,9 @@
-import { PREFIXES } from '../../constants/prefixes';
+import { PREFIXES } from '../constants/prefixes';
 import type {
   FacilityFilters,
   StreamFilters,
   WaterBodyFilters,
-} from '../../types/query';
+} from '../types/query';
 import { wrapUri } from './samples';
 import { buildIndustryValues } from './facilities';
 

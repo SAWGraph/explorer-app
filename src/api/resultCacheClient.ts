@@ -1,7 +1,7 @@
-import type { PipelineSuccess } from '../engine/executor';
-import { cacheKey } from '../engine/cacheKey';
-import { fromWire, isWireResult, toWire, type WireResult } from '../engine/wire';
-import type { AnalysisQuestion } from '../types/query';
+import type { PipelineSuccess } from '../../engine/executor';
+import { cacheKey } from '../../engine/cacheKey';
+import { fromWire, isWireResult, toWire, type WireResult } from '../../engine/wire';
+import type { AnalysisQuestion } from '../../engine/types/query';
 
 function getApiBase(): string {
   const base = import.meta.env.VITE_API_BASE_URL;

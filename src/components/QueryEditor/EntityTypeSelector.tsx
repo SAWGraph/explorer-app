@@ -1,6 +1,6 @@
-import type { EntityType } from '../../types/query';
+import type { EntityType } from '../../../engine/types/query';
 import { FlatSelect, type FlatSelectOption } from './FlatSelect/FlatSelect';
-import { stateHasWells } from '../../constants/wellClassifications';
+import { stateHasWells } from '../../../engine/constants/wellClassifications';
 import { InfoTip } from '../common/DefinedTerm';
 
 interface EntityTypeSelectorProps {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fromWire, isWireResult, toWire } from './wire';
-import type { PipelineSuccess } from './executor';
+import { fromWire, isWireResult, toWire } from '../wire';
+import type { PipelineSuccess } from '../executor';
 
 describe('wire', () => {
   it('keeps the SPARQL that produced a result through the cache round trip', () => {

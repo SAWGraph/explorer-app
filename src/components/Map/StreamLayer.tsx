@@ -1,5 +1,5 @@
 import { LayerGroup, Polyline, Popup, Tooltip } from 'react-leaflet';
-import type { MapFeature } from '../../types/map';
+import type { MapFeature } from '../../../engine/types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
 import { WATER_COLORS } from './mapColors';

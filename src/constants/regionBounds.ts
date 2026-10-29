@@ -1,4 +1,4 @@
-import type { AnalysisQuestion, RegionFilter } from '../types/query';
+import type { AnalysisQuestion, RegionFilter } from '../../engine/types/query';
 
 /** [west, south, east, north] in WGS84 degrees. */
 export type Bbox = [number, number, number, number];

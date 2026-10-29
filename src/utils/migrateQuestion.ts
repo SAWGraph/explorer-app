@@ -1,4 +1,4 @@
-import type { AnalysisQuestion } from '../types/query';
+import type { AnalysisQuestion } from '../../engine/types/query';
 
 // The August 2026 reload split the sawgraph namespaces in two directions:
 // instance data moved to v2/<source>-data#, while controlled vocabulary came

@@ -1,4 +1,4 @@
-import type { StepProgress } from '../../engine/executor';
+import type { StepProgress } from '../../../engine/executor';
 
 interface PipelineTimelineProps {
   steps: StepProgress[];

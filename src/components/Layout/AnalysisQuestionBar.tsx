@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryStore } from '../../store/queryStore';
-import { generateQuestion } from '../../utils/questionGenerator';
+import { generateQuestion } from '../../../engine/questionGenerator';
 import { useQuestionTotals } from '../../hooks/useQuestionTotals';
 import { ExportDropdown } from './ExportDropdown';
 import { SaveQuestionModal } from '../QueryEditor/SaveQuestionModal';
@@ -22,7 +22,7 @@ import {
 import { deepEqual } from '../../utils/clone';
 import { publishEditTokens } from '../../storage/publishEditTokens';
 import { savePublishedResult } from '../../api/resultCacheClient';
-import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
+import { PREBUILT_QUERIES } from '../../../engine/constants/prebuiltQueries';
 
 const PUBLISHED_ID_PREFIX = 'published:';
 

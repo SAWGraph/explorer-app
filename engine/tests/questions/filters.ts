@@ -6,7 +6,7 @@
 //
 // The ceiling: this list is written by hand. A new filter or relationship
 // option added to the editor is not covered until a line is added here.
-import type { EntityBlock, EntityType, SpatialRelationship } from '../../src/types/query';
+import type { EntityBlock, EntityType, SpatialRelationship } from '../../types/query';
 
 export interface BlockFilterCase {
   name: string;

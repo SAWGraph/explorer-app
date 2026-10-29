@@ -1,4 +1,4 @@
-import type { AnalysisQuestion, EntityBlock } from '../types/query';
+import type { AnalysisQuestion, EntityBlock } from './types/query';
 
 // QLever reports several very different problems through a small set of HTTP
 // statuses, and the most important one is actively misleading: a query that

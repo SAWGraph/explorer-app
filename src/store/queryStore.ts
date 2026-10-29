@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from '../types/query';
-import type { StepProgress, PipelineResult, PipelineError } from '../engine/executor';
+import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from '../../engine/types/query';
+import type { StepProgress, PipelineResult, PipelineError } from '../../engine/executor';
 import { deepClone } from '../utils/clone';
 import { migrateQuestion } from '../utils/migrateQuestion';
 

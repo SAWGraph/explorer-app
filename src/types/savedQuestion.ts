@@ -1,4 +1,4 @@
-import type { AnalysisQuestion } from './query';
+import type { AnalysisQuestion } from '../../engine/types/query';
 
 export interface SavedQuestion {
   id: string;

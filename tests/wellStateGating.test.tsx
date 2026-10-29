@@ -15,8 +15,8 @@ vi.mock('../src/hooks/useDiscoveryQueries', () => {
 });
 
 import { EntityBlock } from '../src/components/QueryEditor/EntityBlock';
-import { WELL_STATE_FIPS, encodeWellToken } from '../src/constants/wellClassifications';
-import type { EntityBlock as EntityBlockType } from '../src/types/query';
+import { WELL_STATE_FIPS, encodeWellToken } from '../engine/constants/wellClassifications';
+import type { EntityBlock as EntityBlockType } from '../engine/types/query';
 
 const VT = '50';
 const WELLS_NOTE = 'Wells data only exist for Maine & Illinois.';

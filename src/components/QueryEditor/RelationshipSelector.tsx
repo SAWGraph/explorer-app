@@ -1,4 +1,4 @@
-import type { SpatialRelationship } from '../../types/query';
+import type { SpatialRelationship } from '../../../engine/types/query';
 import { FlatSelect } from './FlatSelect/FlatSelect';
 
 interface RelationshipSelectorProps {

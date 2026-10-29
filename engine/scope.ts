@@ -1,5 +1,5 @@
-import type { EntityBlock } from '../types/query';
-import type { EndpointKey } from '../constants/endpoints';
+import type { EntityBlock } from './types/query';
+import type { EndpointKey } from './constants/endpoints';
 import { executeSparql } from './sparqlClient';
 import { blockIsFiltered, buildEntityProbeQuery } from './templates/fusedQueries';
 import { buildDiscoverCountiesQuery } from './templates/regions';

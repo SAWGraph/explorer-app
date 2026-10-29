@@ -1,4 +1,4 @@
-import type { AquiferFilters as AquiferFiltersType } from '../../types/query';
+import type { AquiferFilters as AquiferFiltersType } from '../../../engine/types/query';
 import { FlatSelect } from './FlatSelect/FlatSelect';
 
 interface AquiferFiltersProps {

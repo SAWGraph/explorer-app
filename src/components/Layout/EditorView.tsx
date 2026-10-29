@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
+import { PREBUILT_QUERIES } from '../../../engine/constants/prebuiltQueries';
 import { blankAnalysisQuestion } from '../../constants/blankAnalysis';
 import { useQueryStore } from '../../store/queryStore';
 import { startTour } from '../../tours/tours';

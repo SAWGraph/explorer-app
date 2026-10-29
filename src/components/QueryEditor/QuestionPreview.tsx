@@ -1,5 +1,5 @@
-import type { AnalysisQuestion } from '../../types/query';
-import { generateQuestion } from '../../utils/questionGenerator';
+import type { AnalysisQuestion } from '../../../engine/types/query';
+import { generateQuestion } from '../../../engine/questionGenerator';
 import { useQuestionTotals } from '../../hooks/useQuestionTotals';
 
 interface QuestionPreviewProps {

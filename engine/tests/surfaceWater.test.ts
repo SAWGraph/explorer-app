@@ -3,7 +3,7 @@
 // and back. If they drift, a user can tick lakes and get streams, or a whole
 // parent starts sending a VALUES filter that today's unfiltered query does not.
 import { describe, expect, it } from 'vitest';
-import { fromSurfaceWaterCodes, toSurfaceWaterCodes } from '../src/constants/featureTypes';
+import { fromSurfaceWaterCodes, toSurfaceWaterCodes } from '../constants/featureTypes';
 
 const WB = '__group:waterBodies';
 const ST = '__group:streams';

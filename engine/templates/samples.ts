@@ -1,4 +1,4 @@
-import type { SampleFilters } from '../../types/query';
+import type { SampleFilters } from '../types/query';
 
 export function wrapUri(uri: string): string {
   if (uri.startsWith('http://') || uri.startsWith('https://')) return `<${uri}>`;

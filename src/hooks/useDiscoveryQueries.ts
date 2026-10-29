@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { executeSparql } from '../engine/sparqlClient';
-import type { SparqlRow } from '../types/sparql';
+import { executeSparql } from '../../engine/sparqlClient';
+import type { SparqlRow } from '../../engine/types/sparql';
 import {
   buildDiscoverIndustriesQuery,
   buildDiscoverSubstancesQuery,
@@ -10,17 +10,17 @@ import {
   buildDiscoverIllinoisPurposesQuery,
   buildDiscoverMaineTypesQuery,
   buildDiscoverMaineUsesQuery,
-} from '../engine/templates/regions';
-import { FALLBACK_NAICS, type NaicsIndustry } from '../constants/naics';
-import { FALLBACK_SUBSTANCES, resolveRetired, type Substance } from '../constants/substances';
-import { FALLBACK_MATERIAL_TYPES, MATERIAL_GROUP_BY_PRIO, type MaterialType } from '../constants/materialTypes';
+} from '../../engine/templates/regions';
+import { FALLBACK_NAICS, type NaicsIndustry } from '../../engine/constants/naics';
+import { FALLBACK_SUBSTANCES, resolveRetired, type Substance } from '../../engine/constants/substances';
+import { FALLBACK_MATERIAL_TYPES, MATERIAL_GROUP_BY_PRIO, type MaterialType } from '../../engine/constants/materialTypes';
 import {
   FALLBACK_WELL_CLASSIFICATIONS,
   WELL_GROUP_LABEL,
   encodeWellToken,
   type WellClassification,
   type WellField,
-} from '../constants/wellClassifications';
+} from '../../engine/constants/wellClassifications';
 
 export function useIndustries() {
   return useQuery<NaicsIndustry[]>({

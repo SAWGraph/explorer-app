@@ -1,5 +1,5 @@
-import type { AnalysisQuestion } from '../types/query';
-import type { QuestionTotals } from '../utils/questionGenerator';
+import type { AnalysisQuestion } from '../../engine/types/query';
+import type { QuestionTotals } from '../../engine/questionGenerator';
 import {
   useIndustries,
   useSubstances,

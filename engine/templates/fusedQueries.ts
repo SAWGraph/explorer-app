@@ -1,4 +1,4 @@
-import { PREFIXES } from '../../constants/prefixes';
+import { PREFIXES } from '../constants/prefixes';
 import type {
   EntityBlock,
   FacilityFilters,
@@ -6,7 +6,7 @@ import type {
   AquiferFilters,
   StreamFilters,
   SpatialRelationship,
-} from '../../types/query';
+} from '../types/query';
 import { wrapUri, buildSampleFilterClauses, resultValueClauses, needsUnitJoin } from './samples';
 import { buildIndustryValues } from './facilities';
 import { AQUIFER_TYPE_VALUES } from './aquifers';

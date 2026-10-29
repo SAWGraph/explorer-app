@@ -1,7 +1,7 @@
-import type { AnalysisQuestion, EntityBlock } from '../types/query';
-import type { EndpointKey } from '../constants/endpoints';
-import type { SparqlRow } from '../types/sparql';
-import { entityTypeLabel } from '../utils/questionGenerator';
+import type { AnalysisQuestion, EntityBlock } from './types/query';
+import type { EndpointKey } from './constants/endpoints';
+import type { SparqlRow } from './types/sparql';
+import { entityTypeLabel } from './questionGenerator';
 import {
   buildFusedNearQuery,
   buildFusedHydrologyQuery,

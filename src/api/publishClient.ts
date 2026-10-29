@@ -1,4 +1,4 @@
-import type { AnalysisQuestion } from '../types/query';
+import type { AnalysisQuestion } from '../../engine/types/query';
 
 export interface PublishWorkflowInput {
   author: string;

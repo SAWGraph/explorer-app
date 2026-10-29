@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { PrebuiltQuery } from '../../constants/prebuiltQueries';
+import type { PrebuiltQuery } from '../../../engine/constants/prebuiltQueries';
 import { getTagColor } from '../../utils/tagColor';
 import { questionThumbnailUrl } from '../../constants/regionBounds';
 

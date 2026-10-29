@@ -5,7 +5,7 @@ import { fetchPublishedResult } from '../../api/resultCacheClient';
 import { AnalysisQuestionBar } from './AnalysisQuestionBar';
 import { MainContent } from './MainContent';
 import { EditModal } from '../QueryEditor/EditModal';
-import type { AnalysisQuestion } from '../../types/query';
+import type { AnalysisQuestion } from '../../../engine/types/query';
 
 interface PublishedWorkflow {
   id: string;

@@ -1,7 +1,7 @@
-import type { WellFilters as WellFiltersType } from '../../types/query';
+import type { WellFilters as WellFiltersType } from '../../../engine/types/query';
 import { FlatSelect } from './FlatSelect/FlatSelect';
 import { useWellClassifications } from '../../hooks/useDiscoveryQueries';
-import { WELL_GROUP_SHORT_LABEL, wellStateOf } from '../../constants/wellClassifications';
+import { WELL_GROUP_SHORT_LABEL, wellStateOf } from '../../../engine/constants/wellClassifications';
 
 interface WellFiltersProps {
   value?: WellFiltersType;

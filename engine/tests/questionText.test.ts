@@ -6,9 +6,9 @@
 //   npm test             # verify
 //   npx vitest run -u    # re-record the wording snapshot after an intended change
 import { describe, expect, it } from 'vitest';
-import { generateQuestion, type QuestionTotals } from '../src/utils/questionGenerator';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
-import type { AnalysisQuestion, EntityBlock, EntityType } from '../src/types/query';
+import { generateQuestion, type QuestionTotals } from '../questionGenerator';
+import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
+import type { AnalysisQuestion, EntityBlock, EntityType } from '../types/query';
 import { REPRESENTATIVE } from './questions/representative';
 import { CRITICAL } from './questions/critical';
 import {

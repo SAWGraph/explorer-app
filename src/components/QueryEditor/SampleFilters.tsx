@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { SampleFilters as SampleFiltersType, RegionFilter } from '../../types/query';
+import type { SampleFilters as SampleFiltersType, RegionFilter } from '../../../engine/types/query';
 import {
   useSubstances,
   useMaterialTypes,

@@ -1,5 +1,5 @@
-import { ENDPOINTS, type EndpointKey } from '../constants/endpoints';
-import type { SparqlResultSet, SparqlRow } from '../types/sparql';
+import { ENDPOINTS, type EndpointKey } from './constants/endpoints';
+import type { SparqlResultSet, SparqlRow } from './types/sparql';
 import {
   SparqlError,
   classifySparqlFailure,

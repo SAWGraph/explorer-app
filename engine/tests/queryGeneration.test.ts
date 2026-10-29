@@ -9,9 +9,9 @@
 // No network: the pipeline steps only build query strings.
 import { createHash } from 'node:crypto';
 import { expect, it } from 'vitest';
-import { planPipeline, type PipelineContext } from '../src/engine/planner';
-import { PREFIXES } from '../src/constants/prefixes';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
+import { planPipeline, type PipelineContext } from '../planner';
+import { PREFIXES } from '../constants/prefixes';
+import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
 import { REPRESENTATIVE, type NamedQuestion } from './questions/representative';
 import { CRITICAL } from './questions/critical';
 

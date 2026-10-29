@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PREBUILT_QUERIES, type PrebuiltQuery } from '../../constants/prebuiltQueries';
+import { PREBUILT_QUERIES, type PrebuiltQuery } from '../../../engine/constants/prebuiltQueries';
 import { PrebuiltQueryCard } from './PrebuiltQueryCard';
 import { CommunityAnalysisCard } from './CommunityAnalysisCard';
 import { usePublishedWorkflowsList } from '../../hooks/usePublishWorkflow';

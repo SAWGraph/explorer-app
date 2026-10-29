@@ -9,9 +9,9 @@
 // that keys on the label instead of the URI merges two substances that happen
 // to share a name; grouping that forgets to append merges away real results.
 import assert from 'node:assert/strict';
-import { substanceLabel, resolveRetired } from '../src/constants/substances';
-import { buildSamplePointDetail } from '../src/engine/resultTransformer';
-import type { SparqlRow } from '../src/types/sparql';
+import { substanceLabel, resolveRetired } from '../engine/constants/substances';
+import { buildSamplePointDetail } from '../engine/resultTransformer';
+import type { SparqlRow } from '../engine/types/sparql';
 
 let checks = 0;
 function check(name: string, fn: () => void) {

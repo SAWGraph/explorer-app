@@ -1,7 +1,7 @@
 import { useState, type ComponentType } from 'react';
 import { MapContainer, TileLayer, Pane } from 'react-leaflet';
 import type { MapLayerData } from '../../hooks/useMapLayers';
-import type { MapFeature } from '../../types/map';
+import type { MapFeature } from '../../../engine/types/map';
 import { SampleLayer } from './SampleLayer';
 import { FacilityLayer } from './FacilityLayer';
 import { WaterBodyLayer } from './WaterBodyLayer';

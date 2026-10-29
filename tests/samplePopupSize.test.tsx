@@ -8,12 +8,12 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MapContainer } from 'react-leaflet';
 import L from 'leaflet';
-import type { SparqlRow } from '../src/types/sparql';
-import type { MapFeature } from '../src/types/map';
+import type { SparqlRow } from '../engine/types/sparql';
+import type { MapFeature } from '../engine/types/map';
 import { SampleLayer } from '../src/components/Map/SampleLayer';
 
 let resolveRows: (rows: SparqlRow[]) => void = () => {};
-vi.mock('../src/engine/sparqlClient', () => ({
+vi.mock('../engine/sparqlClient', () => ({
   executeSparql: () => new Promise<SparqlRow[]>((r) => { resolveRows = r; }),
 }));
 

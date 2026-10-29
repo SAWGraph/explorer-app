@@ -1,4 +1,4 @@
-import { parseWellToken } from '../../constants/wellClassifications';
+import { parseWellToken } from '../constants/wellClassifications';
 import { wrapUri } from './samples';
 
 // Default: all wells from both states.

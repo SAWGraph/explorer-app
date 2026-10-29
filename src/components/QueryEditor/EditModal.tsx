@@ -3,7 +3,7 @@ import { useQueryStore } from '../../store/queryStore';
 import { useQueryPipeline } from '../../hooks/useQueryPipeline';
 import { QueryEditorContent } from './QueryEditorContent';
 import { PipelineTimeline } from '../Pipeline/PipelineTimeline';
-import { assessQueryBreadth } from '../../engine/queryBreadth';
+import { assessQueryBreadth } from '../../../engine/queryBreadth';
 import { deepEqual } from '../../utils/clone';
 
 export function EditModal() {

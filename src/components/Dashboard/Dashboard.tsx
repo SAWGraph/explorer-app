@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PREBUILT_QUERIES } from '../../constants/prebuiltQueries';
+import { PREBUILT_QUERIES } from '../../../engine/constants/prebuiltQueries';
 import { DefinedTerm } from '../common/DefinedTerm';
 import { PrebuiltQueryCard } from './PrebuiltQueryCard';
 import { CommunityAnalysisCard } from './CommunityAnalysisCard';

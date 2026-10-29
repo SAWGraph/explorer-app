@@ -1,4 +1,4 @@
-import { PREFIXES } from '../../constants/prefixes';
+import { PREFIXES } from '../constants/prefixes';
 import { wrapUri } from './samples';
 
 // Maps the UI's canonical aquifer-type kinds to the raw source vocabulary.

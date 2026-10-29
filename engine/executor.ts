@@ -1,6 +1,6 @@
-import type { AnalysisQuestion } from '../types/query';
-import type { SparqlRow } from '../types/sparql';
-import type { EndpointKey } from '../constants/endpoints';
+import type { AnalysisQuestion } from './types/query';
+import type { SparqlRow } from './types/sparql';
+import type { EndpointKey } from './constants/endpoints';
 import type { PipelineStep, PipelineContext } from './planner';
 import type { Scope } from './scope';
 import { executeSparql } from './sparqlClient';

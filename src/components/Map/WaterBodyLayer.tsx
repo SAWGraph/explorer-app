@@ -1,5 +1,5 @@
 import { LayerGroup, Polyline, Polygon, Marker, Popup, Tooltip } from 'react-leaflet';
-import type { MapFeature } from '../../types/map';
+import type { MapFeature } from '../../../engine/types/map';
 import type { LatLngExpression } from 'leaflet';
 import { MapPopupContent } from './MapPopup';
 import { triangleIcon } from './layerStyles';

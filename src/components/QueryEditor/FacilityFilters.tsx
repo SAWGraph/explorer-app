@@ -1,5 +1,5 @@
 import { HierarchicalSelect } from './HierarchicalSelect/HierarchicalSelect';
-import type { FacilityFilters as FacilityFiltersType, RegionFilter } from '../../types/query';
+import type { FacilityFilters as FacilityFiltersType, RegionFilter } from '../../../engine/types/query';
 import { useIndustries, useIndustryCounts } from '../../hooks/useDiscoveryQueries';
 
 interface FacilityFiltersProps {
