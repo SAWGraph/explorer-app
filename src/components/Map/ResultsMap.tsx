@@ -3,6 +3,8 @@ import { MapContainer, TileLayer, Pane, useMap, useMapEvent } from 'react-leafle
 import type { Popup } from 'leaflet';
 import type { MapLayerData } from '../../hooks/useMapLayers';
 import type { MapFeature } from '../../types/map';
+import type { EntityType } from '../../types/query';
+import { useQueryStore } from '../../store/queryStore';
 import { SampleLayer } from './SampleLayer';
 import { FacilityLayer } from './FacilityLayer';
 import { WaterBodyLayer } from './WaterBodyLayer';
@@ -44,7 +46,19 @@ const COMPACT_SCREEN = '(max-width: 1024px), (max-height: 600px)';
 // 650). Each layer names its pane with a pane prop: wrapping it in <Pane>
 // would hand the pane to its popups too, under the data (#86). Render this
 // before the layers, which need their panes to exist.
-export function MapPanes() {
+export function MapPanes({ answer }: { answer?: EntityType }) {
+  const map = useMap();
+
+  // The 14px facility squares hid most samples and wells near them, and
+  // drawing those on top for every question buried the squares instead. So
+  // the question's answer (block A) draws above the squares (#88). Set here,
+  // not on <Pane>, which applies its style once; the question can change
+  // under a mounted map.
+  useEffect(() => {
+    map.getPane('samplesPane')!.style.zIndex = answer === 'samples' ? '610' : '410';
+    map.getPane('wellsPane')!.style.zIndex = answer === 'wells' ? '620' : '420';
+  }, [map, answer]);
+
   return (
     <>
       <Pane name="aquiferPane" style={{ zIndex: 340 }} />
@@ -98,6 +112,7 @@ export function ResultsMap({ layers }: ResultsMapProps) {
   // What the user ticked or unticked; every other layer follows its default.
   const [choices, setChoices] = useState<Record<string, boolean>>({});
   const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
+  const answer = useQueryStore((s) => s.question.blockA.type);
   const [panelsOpen] = useState(() => !window.matchMedia(COMPACT_SCREEN).matches);
 
   const hasData =
@@ -147,7 +162,7 @@ export function ResultsMap({ layers }: ResultsMapProps) {
       <MapCenterController layers={layers} />
       <FitPopupsToMap />
 
-      <MapPanes />
+      <MapPanes answer={answer} />
 
       <AquiferBoundaryLayer
         visible={!!visibility.aquiferBoundaries}
