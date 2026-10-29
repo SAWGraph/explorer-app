@@ -76,6 +76,9 @@ export function MapPanes({ answer }: { answer?: EntityType }) {
 // Room Leaflet needs around a popup's content, besides the pan padding: the
 // content margins, the tip and the offset from its anchor.
 const POPUP_CHROME = { x: 50, y: 80 };
+// Never cap a popup below this, however small the map: a negative cap is
+// dropped by the browser, and Leaflet would still mark the popup scrolled.
+const POPUP_MIN = { width: 150, height: 100 };
 const ownPopupSize = new WeakMap<Popup, { maxWidth?: number; maxHeight?: number }>();
 
 // Leaflet sizes a popup from its own maxWidth and maxHeight, never from the
@@ -91,7 +94,7 @@ function FitPopupsToMap() {
   // 392px on a phone). Popups were then capped and panned for a map that
   // wasn't there and ran off its bottom (#88).
   useEffect(() => {
-    const observer = new ResizeObserver(() => map.invalidateSize());
+    const observer = new ResizeObserver(() => map.invalidateSize({ debounceMoveend: true }));
     observer.observe(map.getContainer());
     return () => observer.disconnect();
   }, [map]);
@@ -106,8 +109,14 @@ function FitPopupsToMap() {
     const { topLeft, bottomRight } = panelPadding(map, 5);
     popup.options.autoPanPaddingTopLeft = topLeft;
     popup.options.autoPanPaddingBottomRight = bottomRight;
-    popup.options.maxWidth = Math.min(own.maxWidth ?? 300, x - topLeft.x - bottomRight.x - POPUP_CHROME.x);
-    popup.options.maxHeight = Math.min(own.maxHeight ?? Infinity, y - topLeft.y - bottomRight.y - POPUP_CHROME.y);
+    const roomX = Math.max(POPUP_MIN.width, x - topLeft.x - bottomRight.x - POPUP_CHROME.x);
+    const roomY = Math.max(POPUP_MIN.height, y - topLeft.y - bottomRight.y - POPUP_CHROME.y);
+    popup.options.maxWidth = Math.min(own.maxWidth ?? 300, roomX);
+    popup.options.maxHeight = Math.min(own.maxHeight ?? Infinity, roomY);
+    // Leaflet measures the content with last time's scrolled class still on,
+    // and with it the sample table drops its own scroll (App.css), so a popup
+    // that once scrolled whole would stay that way on a bigger map.
+    popup.getElement()?.querySelector('.leaflet-popup-scrolled')?.classList.remove('leaflet-popup-scrolled');
     popup.update();
   });
   return null;
@@ -117,7 +126,13 @@ export function ResultsMap({ layers }: ResultsMapProps) {
   // What the user ticked or unticked; every other layer follows its default.
   const [choices, setChoices] = useState<Record<string, boolean>>({});
   const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
-  const answer = useQueryStore((s) => s.question.blockA.type);
+  // Block A of the question behind the result on screen, not of the question
+  // being edited: a cancelled or still-running edit leaves the old result up.
+  // Every result is set after its question, so catch block A as it changes.
+  const blockA = useQueryStore((s) => s.question.blockA.type);
+  const [shown, setShown] = useState({ layers, answer: blockA });
+  if (shown.layers !== layers) setShown({ layers, answer: blockA });
+  const answer = shown.layers === layers ? shown.answer : blockA;
   const [panelsOpen] = useState(() => !window.matchMedia(COMPACT_SCREEN).matches);
 
   const hasData =

@@ -173,15 +173,29 @@ it('stacks the panes in a fixed order, bottom to top', () => {
 // and follows the question when it changes under a mounted map (#88).
 it("draws the question's answer above the facility squares", () => {
   askFor('facilities');
-  renderMap(everyLayer);
+  const { rerender } = renderMap(everyLayer);
   expect(zOf('samplesPane')).toBeLessThan(zOf('markerPane'));
   expect(zOf('wellsPane')).toBeLessThan(zOf('markerPane'));
 
+  // A new result for a samples question.
+  const showResult = () =>
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResultsMap layers={{ ...everyLayer }} />
+      </QueryClientProvider>,
+    );
   act(() => askFor('samples'));
+  showResult();
   expect(zOf('samplesPane')).toBeGreaterThan(zOf('markerPane'));
   expect(zOf('wellsPane')).toBeLessThan(zOf('markerPane'));
 
+  // Editing block A without a new result (a run cancelled or still going)
+  // leaves the samples on screen, so they stay on top.
+  act(() => askFor('facilities'));
+  expect(zOf('samplesPane')).toBeGreaterThan(zOf('markerPane'));
+
   act(() => askFor('wells'));
+  showResult();
   expect(zOf('wellsPane')).toBeGreaterThan(zOf('markerPane'));
   expect(zOf('samplesPane')).toBeLessThan(zOf('markerPane'));
   expect(zOf('wellsPane')).toBeLessThan(zOf('measurePane'));
@@ -217,6 +231,9 @@ it('caps every popup to the size of the map it opens in', async () => {
   const desktop = capsAt(1396, 846);
   expect(desktop.facility).toEqual([600, 756]);
   expect(desktop.sample).toEqual([500, 756]);
+
+  // A map too small for the room a popup needs: never a negative or tiny cap.
+  expect(capsAt(180, 120).facility).toEqual([150, 100]);
 });
 
 // Popups opened under Map Layers or the saved results banner, close button
@@ -263,6 +280,40 @@ it('keeps popups and fitted results clear of the open panels, and only while ope
   expect(paddingWhenOpened()).toEqual(L.point(5, 5));
 });
 
+// On a phone an open Map Layers (about 280px) left popups 47px wide, or less,
+// and handed fitBounds a negative size (#88).
+it('reserves nothing for an open panel that would leave too little of the map', async () => {
+  const rect = (x: number, y: number, width: number, height: number) =>
+    ({ x, y, width, height, left: x, top: y, right: x + width, bottom: y + height }) as DOMRect;
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    if (this.classList.contains('leaflet-container')) return rect(0, 0, 390, 392);
+    if (this.matches('.custom-layer-panel > details[open]')) return rect(100, 10, 280, 300);
+    return rect(0, 0, 0, 0);
+  });
+  const fitBounds = vi.spyOn(L.Map.prototype, 'fitBounds').mockImplementation(function (this: L.Map) {
+    return this;
+  });
+  const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [] };
+  const { rerender } = renderMap(empty);
+  await screen.findByText(/Aquifers/);
+  vi.spyOn(map, 'getSize').mockImplementation(() => L.point(390, 392));
+  rerender(
+    <QueryClientProvider client={new QueryClient()}>
+      <ResultsMap layers={everyLayer} />
+    </QueryClientProvider>,
+  );
+  await waitForFeatures(7);
+
+  expect(fitBounds.mock.calls[fitBounds.mock.calls.length - 1][1]!.paddingBottomRight).toEqual(L.point(50, 50));
+  let facility: L.Marker | undefined;
+  map.eachLayer((layer) => {
+    if (layer instanceof L.Marker && layer.getTooltip()?.getElement()?.textContent === 'facility') facility = layer;
+  });
+  facility!.openPopup();
+  expect(facility!.getPopup()!.options.maxWidth).toBe(330);
+  facility!.closePopup();
+});
+
 // Leaflet caches the map's size and re-reads it only on a window resize. On a
 // phone the map shrank from 622px to 392px as the question text laid out, and
 // popups were capped and panned for the old size, running off the bottom (#88).
@@ -270,7 +321,7 @@ it('re-reads the map size whenever its container resizes', () => {
   renderMap(everyLayer);
   const invalidateSize = vi.spyOn(map, 'invalidateSize');
   resizeCallbacks[resizeCallbacks.length - 1]();
-  expect(invalidateSize).toHaveBeenCalled();
+  expect(invalidateSize).toHaveBeenCalledWith({ debounceMoveend: true });
 });
 
 const onlyCounties: MapLayerData = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [] };
