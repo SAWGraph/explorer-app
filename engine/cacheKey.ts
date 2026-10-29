@@ -19,7 +19,7 @@ const WIRE_VERSION = 'w2'; // w2: results carry the SPARQL that produced them
 const DATA_VERSION = '2026-09';
 
 // Label maps exist to render chips in the editor. Verified not to reach any
-// query template (`grep -rn "Labels" src/engine/` finds nothing), so a user
+// query template (`grep -rn "Labels" engine/` finds nothing), so a user
 // re-picking the same county with different label text must not miss the cache.
 const DISPLAY_ONLY = new Set([
   'countyLabels',

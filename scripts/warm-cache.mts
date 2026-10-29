@@ -4,7 +4,7 @@
 //     npx tsx scripts/warm-cache.mts
 //
 // Run this by hand after a knowledge-graph reload (and bump DATA_VERSION in
-// src/engine/cacheKey.ts first, which makes every existing entry unreachable).
+// engine/cacheKey.ts first, which makes every existing entry unreachable).
 // Deliberately not a cron job: there is no scheduler in this service, and the
 // thing a nightly run would guard against is a TTL we control.
 //

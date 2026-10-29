@@ -1,4 +1,4 @@
-// Self-check for the result-cache key (src/engine/cacheKey.ts).
+// Self-check for the result-cache key (engine/cacheKey.ts).
 //
 //   npx tsx scripts/check-cache-key.mts
 //

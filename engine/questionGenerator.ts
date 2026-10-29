@@ -71,7 +71,7 @@ const ftypeLabels = (values: string[], options: FtypeOption[]): string[] =>
   values.map((v) => options.find((o) => o.value === v)?.label ?? v);
 
 // The plural noun for an entity type, with no filters applied. Shared with the
-// pipeline step labels (src/engine/planner.ts) so the progress strip says
+// pipeline step labels (engine/planner.ts) so the progress strip says
 // "surface water bodies" rather than the raw camelCase type name, and so the
 // two places cannot drift into two different vocabularies.
 export function entityTypeLabel(type: EntityType): string {

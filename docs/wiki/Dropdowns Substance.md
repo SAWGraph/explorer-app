@@ -161,7 +161,7 @@ the Analysis Question sentence can say "PFOA" instead of a DSSTox URI.
 
 The whole priority order, `skos:altLabel`, then `rdfs:label`, then the source parameter's
 name with `***retired***` resolved, then the DTXSID, lives in `substanceLabel()` in
-`src/constants/substances.ts`. The map popup's sample table uses the same function.
+`engine/constants/substances.ts`. The map popup's sample table uses the same function.
 
 It did not always. The dropdown had the source parameter step and the popup did not, so the
 same substance read as "10-H-Perfluorodecanoic acid" in the dropdown and as a bare

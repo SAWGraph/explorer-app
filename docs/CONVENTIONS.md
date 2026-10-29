@@ -19,25 +19,25 @@ Standards and patterns to follow (and avoid) in this codebase.
 
 ## SPARQL Templates
 
-- All SPARQL prefixes are centralized in `src/constants/prefixes.ts` — import `PREFIXES` constant, never inline prefixes in template strings
-- Each entity type has its own template file in `src/engine/templates/`
+- All SPARQL prefixes are centralized in `engine/constants/prefixes.ts` — import `PREFIXES` constant, never inline prefixes in template strings
+- Each entity type has its own template file in `engine/templates/`
 - Template functions return raw SPARQL strings — no query builder library
 - Build `VALUES` clauses with helper functions (`s2CellsToValuesString`, `buildIndustryValues`) to avoid string injection
-- Changing a discovery query (`src/engine/templates/regions.ts`) means updating its page in `docs/wiki/` in the same PR — run the query against the live endpoint first and document what it actually returns
+- Changing a discovery query (`engine/templates/regions.ts`) means updating its page in `docs/wiki/` in the same PR — run the query against the live endpoint first and document what it actually returns
 
 ---
 
 ## State
 
-- Global state (question, pipeline results, UI mode) lives in Zustand: `src/store/queryStore.ts`
-- Async data for dropdowns (substances, materials, industries) uses React Query: `src/hooks/useDiscoveryQueries.ts`
+- Global state (question, pipeline results, UI mode) lives in Zustand: `ui/store/queryStore.ts`
+- Async data for dropdowns (substances, materials, industries) uses React Query: `ui/hooks/useDiscoveryQueries.ts`
 - Don't put dropdown/discovery data in Zustand — it's async/cached, belongs in React Query
 
 ---
 
 ## Region Data
 
-- US states with data coverage live in `src/constants/regions.ts` — limited to 13 states (AL, AZ, AR, IL, IN, KS, ME, MA, MN, NH, OH, SC, VT)
+- US states with data coverage live in `engine/constants/regions.ts` — limited to 13 states (AL, AZ, AR, IL, IN, KS, ME, MA, MN, NH, OH, SC, VT)
 - Region codes are numeric FIPS codes (e.g. `'23'` for Maine, `'01'` for Alabama), not state abbreviations
 
 ---

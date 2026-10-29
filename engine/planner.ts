@@ -26,7 +26,7 @@ import {
 } from './scope';
 
 // Reads the way the user chose it: these are the three labels in
-// RELATIONSHIP_TYPES (src/components/QueryEditor/RelationshipSelector.tsx).
+// RELATIONSHIP_TYPES (ui/components/QueryEditor/RelationshipSelector.tsx).
 // 'within' is in the type union but is never offered and never planned for.
 const RELATIONSHIP_PREPOSITION: Record<AnalysisQuestion['relationship']['type'], string> = {
   near: 'near',

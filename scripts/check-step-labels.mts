@@ -1,4 +1,4 @@
-// Self-check for the user-facing pipeline step labels (src/engine/planner.ts).
+// Self-check for the user-facing pipeline step labels (engine/planner.ts).
 //
 //   npx tsx scripts/check-step-labels.mts
 //

@@ -183,7 +183,7 @@ export function buildEntityProbeQuery(
 ): string {
   const entityVar = entityIriVar(block, 'P');
   // `false`, like the IRI-finding queries: the probe lists entity IRIs, and the
-  // list it returns becomes the chunk membership (src/engine/scope.ts). A
+  // list it returns becomes the chunk membership (engine/scope.ts). A
   // narrowing join here removes entities from every slice, so the probe has to
   // see exactly what discovery sees.
   const bind = bindEntityInCell(block, '?s2probe', 'P', false);
@@ -239,7 +239,7 @@ function neighborPath(hops: number, fromVar: string, toVar: string): string {
 interface FusedBodyOpts extends FusedBaseOpts {
   mode: 'near' | 'downstream' | 'upstream';
   hops?: number;
-  // Chunk pins (src/engine/scope.ts). Restricting one side to a known slice of
+  // Chunk pins (engine/scope.ts). Restricting one side to a known slice of
   // IRIs is what makes a too-large query fit inside the engine's 30s budget.
   anchorIris?: string[];
   targetIris?: string[];

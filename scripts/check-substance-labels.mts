@@ -1,5 +1,5 @@
 // Self-check for the substance naming rule and for the popup's per-substance
-// grouping (src/constants/substances.ts, src/engine/resultTransformer.ts).
+// grouping (engine/constants/substances.ts, engine/resultTransformer.ts).
 //
 //   npx tsx scripts/check-substance-labels.mts
 //

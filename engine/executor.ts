@@ -269,7 +269,7 @@ export async function executePipeline(
     }
 
     // Hydrate results are aliased into the legacy keys that useMapLayers
-    // (src/hooks/useMapLayers.ts:38-42) consumes unchanged.
+    // (ui/hooks/useMapLayers.ts:38-42) consumes unchanged.
     if (step.type === 'HYDRATE_TARGET_BY_IRI') {
       context.results['FIND_TARGET_ENTITIES'] = results;
     }

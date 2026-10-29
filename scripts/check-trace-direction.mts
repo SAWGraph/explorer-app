@@ -1,5 +1,5 @@
 // Self-check for the direction of every hydrology trace the planner can build
-// (src/engine/planner.ts, src/engine/templates/fusedQueries.ts).
+// (engine/planner.ts, engine/templates/fusedQueries.ts).
 //
 //   npx tsx scripts/check-trace-direction.mts
 //

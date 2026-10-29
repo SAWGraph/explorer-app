@@ -89,11 +89,11 @@ repo and live endpoints on 2026-09-11.
       full `AnalysisQuestion`, vocabulary IRIs included. Anything saved before
       the reload still pins the dead `v1/<source>-data#` form and silently
       returns an empty map — the same failure mode as A4, but persisted where a
-      code fix could not reach it. Added `src/utils/migrateQuestion.ts`,
+      code fix could not reach it. Added `ui/utils/migrateQuestion.ts`,
       applied in `queryStore.loadQuestion`, which every load path funnels
       through. Rewrites on read, so no DB migration.
 
-      *Files:* `src/utils/migrateQuestion.ts`, `src/store/queryStore.ts`
+      *Files:* `ui/utils/migrateQuestion.ts`, `ui/store/queryStore.ts`
 
 - [ ] **C2a — Noticed while auditing, unrelated to the reload.** 10,014 WQP
       sample points use geoconnex slash URIs (`https://geoconnex.us/iow/wqp/…`)
@@ -104,7 +104,7 @@ repo and live endpoints on 2026-09-11.
 - [ ] **C3 — Non-detect handling.** Open question, and the one with real
       consequences: ~90,881 results hang on it.
       We currently use `coso:NonDetectQuantityValue`
-      (`src/engine/templates/samples.ts:24`). Katrina's example filters on
+      (`engine/templates/samples.ts:24`). Katrina's example filters on
       `coso:NonQuantifiedQuantityValue`. Live counts: 723,410 vs 814,291.
       **Action: ask Katrina which one "non-detect" means in the new model, and
       whether the two are meant to nest.**

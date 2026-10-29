@@ -1,4 +1,4 @@
-// One entry per control in the question editor, for tests/questionText.test.ts.
+// One entry per control in the question editor, for engine/tests/questionText.test.ts.
 //
 // Every filter here narrows the SPARQL, so the Analysis Question sentence has
 // to say so, on whichever block it is set. Block A and Block C render through
