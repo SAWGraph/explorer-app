@@ -19,7 +19,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
 import { planPipeline } from '../engine/planner';
 import { executePipeline } from '../engine/executor';
-import { questionThumbnailUrl, boundsForQuestion } from '../src/constants/regionBounds';
+import { questionThumbnailUrl, boundsForQuestion } from '../ui/constants/regionBounds';
 
 const W = 440;
 const H = 300;

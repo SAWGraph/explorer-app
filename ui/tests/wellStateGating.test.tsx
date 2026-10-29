@@ -9,14 +9,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
-vi.mock('../src/hooks/useDiscoveryQueries', () => {
+vi.mock('../hooks/useDiscoveryQueries', () => {
   const none = () => ({ data: [], isLoading: false, isError: false, error: null });
   return { useCounties: none, useWellClassifications: none };
 });
 
-import { EntityBlock } from '../src/components/QueryEditor/EntityBlock';
-import { WELL_STATE_FIPS, encodeWellToken } from '../engine/constants/wellClassifications';
-import type { EntityBlock as EntityBlockType } from '../engine/types/query';
+import { EntityBlock } from '../components/QueryEditor/EntityBlock';
+import { WELL_STATE_FIPS, encodeWellToken } from '../../engine/constants/wellClassifications';
+import type { EntityBlock as EntityBlockType } from '../../engine/types/query';
 
 const VT = '50';
 const WELLS_NOTE = 'Wells data only exist for Maine & Illinois.';

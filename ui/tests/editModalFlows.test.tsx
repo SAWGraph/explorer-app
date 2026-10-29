@@ -16,21 +16,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { PipelineResult } from '../engine/executor';
+import type { PipelineResult } from '../../engine/executor';
 
 const engine = vi.hoisted(() => ({ executePipeline: vi.fn() }));
 
-vi.mock('../engine/executor', async (orig) => ({
-  ...(await orig<typeof import('../engine/executor')>()),
+vi.mock('../../engine/executor', async (orig) => ({
+  ...(await orig<typeof import('../../engine/executor')>()),
   executePipeline: engine.executePipeline,
 }));
-vi.mock('../src/api/resultCacheClient', () => ({
+vi.mock('../api/resultCacheClient', () => ({
   cacheDisabled: () => true,
   fetchCachedResult: async () => null,
   fetchPublishedResult: async () => null,
   savePublishedResult: async () => undefined,
 }));
-vi.mock('../src/hooks/useDiscoveryQueries', () => {
+vi.mock('../hooks/useDiscoveryQueries', () => {
   const none = () => ({ data: [], isLoading: false, isError: false, error: null });
   return {
     useIndustries: none,
@@ -41,16 +41,16 @@ vi.mock('../src/hooks/useDiscoveryQueries', () => {
     useWellClassifications: none,
   };
 });
-vi.mock('../src/components/Map/ResultsMap', () => ({ ResultsMap: () => <div data-testid="map" /> }));
+vi.mock('../components/Map/ResultsMap', () => ({ ResultsMap: () => <div data-testid="map" /> }));
 vi.mock('canvas-confetti', () => ({ default: () => undefined }));
 
-import { useQueryStore } from '../src/store/queryStore';
-import { EditorView } from '../src/components/Layout/EditorView';
-import { PublishedView } from '../src/components/Layout/PublishedView';
-import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
-import { blankAnalysisQuestion } from '../src/constants/blankAnalysis';
-import { savedQuestionsRepo } from '../src/storage/savedQuestionsStore';
-import type { AnalysisQuestion, EntityBlock } from '../engine/types/query';
+import { useQueryStore } from '../store/queryStore';
+import { EditorView } from '../components/Layout/EditorView';
+import { PublishedView } from '../components/Layout/PublishedView';
+import { PREBUILT_QUERIES } from '../../engine/constants/prebuiltQueries';
+import { blankAnalysisQuestion } from '../constants/blankAnalysis';
+import { savedQuestionsRepo } from '../storage/savedQuestionsStore';
+import type { AnalysisQuestion, EntityBlock } from '../../engine/types/query';
 
 const PREBUILT = PREBUILT_QUERIES[0];
 const API = 'http://api.test';

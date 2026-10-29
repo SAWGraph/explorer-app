@@ -6,7 +6,7 @@ import { useQueryStore } from '../../store/queryStore';
 import { startTour } from '../../tours/tours';
 import { AnalysisQuestionBar } from './AnalysisQuestionBar';
 import { MainContent } from './MainContent';
-import { EditModal } from '../../components/QueryEditor/EditModal';
+import { EditModal } from '../QueryEditor/EditModal';
 import { savedQuestionsRepo } from '../../storage/savedQuestionsStore';
 import {
   isSavedQuestionId,
