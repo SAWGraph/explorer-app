@@ -1178,6 +1178,13 @@
   overflow-y: auto;
 }
 
+/* On a short map the whole popup scrolls (Leaflet adds this class), so the
+   table drops its own scroll: never a scroll inside a scroll (#88). */
+.leaflet-popup-scrolled .sample-popup-samples {
+  max-height: none;
+  overflow-y: visible;
+}
+
 .sample-section {
   border-top: 1px solid var(--color-gray-200);
   padding: 0.5rem 0;

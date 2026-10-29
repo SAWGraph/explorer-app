@@ -20,6 +20,15 @@ import { LAYER_REGISTRY } from '../src/components/Map/layerStyles';
 
 vi.mock('../src/engine/sparqlClient', () => ({ executeSparql: () => new Promise(() => {}) }));
 window.matchMedia = (() => ({ matches: false })) as unknown as typeof window.matchMedia;
+// jsdom has no ResizeObserver; keep each callback so a test can fire it.
+const resizeCallbacks: (() => void)[] = [];
+window.ResizeObserver = class {
+  constructor(callback: () => void) {
+    resizeCallbacks.push(callback);
+  }
+  observe() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver;
 
 // ResultsMap owns its MapContainer, so catch each map as Leaflet creates it.
 let map: L.Map;
@@ -148,6 +157,48 @@ it('stacks the panes in a fixed order, bottom to top', () => {
   const bottomToTop = ['aquiferPane', 'regionPane', 'waterAreasPane', 'streamsPane', 'overlayPane', 'samplesPane', 'wellsPane', 'markerPane', 'measurePane', 'tooltipPane', 'popupPane'];
   const zs = bottomToTop.map(z);
   expect(zs).toEqual([...new Set(zs)].sort((a, b) => a - b));
+});
+
+// Leaflet sizes a popup from its own maxWidth and maxHeight, never from the
+// map, so on a phone popups ran off the map, close button included. Sample
+// popups also had a 400px outer scroll around their own table scroll (#88).
+it('caps every popup to the size of the map it opens in', async () => {
+  renderMap(everyLayer);
+  await waitForFeatures(7);
+  const capsAt = (width: number, height: number) => {
+    // A fresh point each call, as Leaflet's own getSize() returns: callers mutate it.
+    vi.spyOn(map, 'getSize').mockImplementation(() => L.point(width, height));
+    const out: Record<string, [number | undefined, number | undefined]> = {};
+    map.eachLayer((layer) => {
+      const popup = layer.getPopup();
+      const tooltip = layer.getTooltip();
+      if (!popup || !tooltip) return;
+      layer.openPopup();
+      out[tooltip.getElement()!.textContent!] = [popup.options.maxWidth, popup.options.maxHeight ?? undefined];
+      layer.closePopup();
+    });
+    return out;
+  };
+
+  const phone = capsAt(390, 392);
+  expect(phone.facility).toEqual([330, 302]);
+  expect(phone.sample).toEqual([330, 302]);
+  expect(phone.stream).toEqual([330, 302]);
+
+  // A wide map keeps each popup's own width, and the height cap follows the map.
+  const desktop = capsAt(1396, 846);
+  expect(desktop.facility).toEqual([600, 756]);
+  expect(desktop.sample).toEqual([500, 756]);
+});
+
+// Leaflet caches the map's size and re-reads it only on a window resize. On a
+// phone the map shrank from 622px to 392px as the question text laid out, and
+// popups were capped and panned for the old size, running off the bottom (#88).
+it('re-reads the map size whenever its container resizes', () => {
+  renderMap(everyLayer);
+  const invalidateSize = vi.spyOn(map, 'invalidateSize');
+  resizeCallbacks[resizeCallbacks.length - 1]();
+  expect(invalidateSize).toHaveBeenCalled();
 });
 
 const onlyCounties: MapLayerData = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [] };

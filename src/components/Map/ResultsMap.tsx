@@ -1,5 +1,6 @@
-import { useState, type ComponentType } from 'react';
-import { MapContainer, TileLayer, Pane } from 'react-leaflet';
+import { useEffect, useState, type ComponentType } from 'react';
+import { MapContainer, TileLayer, Pane, useMap, useMapEvent } from 'react-leaflet';
+import type { Popup } from 'leaflet';
 import type { MapLayerData } from '../../hooks/useMapLayers';
 import type { MapFeature } from '../../types/map';
 import { SampleLayer } from './SampleLayer';
@@ -57,6 +58,42 @@ export function MapPanes() {
   );
 }
 
+// Room Leaflet needs around a popup's content inside the map: the content
+// margins, the tip, the offset from its anchor and the 5px pan padding.
+const POPUP_CHROME = { x: 60, y: 90 };
+const ownPopupSize = new WeakMap<Popup, { maxWidth?: number; maxHeight?: number }>();
+
+// Leaflet sizes a popup from its own maxWidth and maxHeight, never from the
+// map, so on a phone or a short window popups ran off the map, close button
+// included (#88). Cap both to the map as each popup opens; Leaflet then
+// scrolls what is taller and pans the popup into view.
+function FitPopupsToMap() {
+  const map = useMap();
+
+  // Leaflet caches the map's size and re-reads it only on a window resize, but
+  // the map also shrinks when the question text above it lays out (622px to
+  // 392px on a phone). Popups were then capped and panned for a map that
+  // wasn't there and ran off its bottom (#88).
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+
+  useMapEvent('popupopen', ({ popup }) => {
+    const { x, y } = map.getSize();
+    if (!x || !y) return; // a map that isn't laid out has nothing to fit
+    if (!ownPopupSize.has(popup)) {
+      ownPopupSize.set(popup, { maxWidth: popup.options.maxWidth, maxHeight: popup.options.maxHeight ?? undefined });
+    }
+    const own = ownPopupSize.get(popup)!;
+    popup.options.maxWidth = Math.min(own.maxWidth ?? 300, x - POPUP_CHROME.x);
+    popup.options.maxHeight = Math.min(own.maxHeight ?? Infinity, y - POPUP_CHROME.y);
+    popup.update();
+  });
+  return null;
+}
+
 export function ResultsMap({ layers }: ResultsMapProps) {
   // What the user ticked or unticked; every other layer follows its default.
   const [choices, setChoices] = useState<Record<string, boolean>>({});
@@ -108,6 +145,7 @@ export function ResultsMap({ layers }: ResultsMapProps) {
       )}
 
       <MapCenterController layers={layers} />
+      <FitPopupsToMap />
 
       <MapPanes />
 

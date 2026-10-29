@@ -33,7 +33,9 @@ export function SampleLayer({ features }: SampleLayerProps) {
             popupclose: () => setOpenId((id) => (id === f.id ? null : id)),
           }}
         >
-          <Popup maxWidth={500} maxHeight={400}>
+          {/* No maxHeight: the sample table scrolls on its own, and ResultsMap
+              caps every popup to the map (#88). */}
+          <Popup maxWidth={500}>
             <MapPopupContent feature={f} isOpen={openId === f.id} />
           </Popup>
           <Tooltip>
