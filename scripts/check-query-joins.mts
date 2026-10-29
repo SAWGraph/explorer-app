@@ -16,10 +16,10 @@
 //
 // No network: these only build query strings.
 import assert from 'node:assert/strict';
-import { planPipeline } from '../src/engine/planner';
-import { buildFusedHydrologyQuery, buildFusedNearQuery } from '../src/engine/templates/fusedQueries';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
-import type { AnalysisQuestion, EntityBlock, EntityType, SampleFilters } from '../src/types/query';
+import { planPipeline } from '../engine/planner';
+import { buildFusedHydrologyQuery, buildFusedNearQuery } from '../engine/templates/fusedQueries';
+import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
+import type { AnalysisQuestion, EntityBlock, EntityType, SampleFilters } from '../engine/types/query';
 
 const ENTITY_TYPES: EntityType[] = [
   'samples',

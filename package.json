@@ -18,7 +18,9 @@
     "check-query-joins": "tsx scripts/check-query-joins.mts",
     "query-matrix": "tsx scripts/query-matrix.mts",
     "health-check": "tsx scripts/health-check.mts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:engine": "vitest run --dir engine",
+    "test:ui": "vitest run --dir ui"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",

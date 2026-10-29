@@ -4,17 +4,17 @@
 //     npx tsx scripts/warm-cache.mts
 //
 // Run this by hand after a knowledge-graph reload (and bump DATA_VERSION in
-// src/engine/cacheKey.ts first, which makes every existing entry unreachable).
+// engine/cacheKey.ts first, which makes every existing entry unreachable).
 // Deliberately not a cron job: there is no scheduler in this service, and the
 // thing a nightly run would guard against is a TTL we control.
 //
 // This is a trusted writer — it runs the real pipeline and uploads what it got,
 // so nothing untrusted ever reaches another user's map.
-import { planPipeline } from '../src/engine/planner';
-import { executePipeline } from '../src/engine/executor';
-import { cacheKey } from '../src/engine/cacheKey';
-import { toWire } from '../src/engine/wire';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
+import { planPipeline } from '../engine/planner';
+import { executePipeline } from '../engine/executor';
+import { cacheKey } from '../engine/cacheKey';
+import { toWire } from '../engine/wire';
+import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
 
 const API_BASE = (process.env.API_BASE ?? 'http://localhost:3001').replace(/\/$/, '');
 const TOKEN = process.env.CACHE_WRITE_TOKEN;

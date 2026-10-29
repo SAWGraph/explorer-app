@@ -1,4 +1,4 @@
-// Self-check for the result-cache key (src/engine/cacheKey.ts).
+// Self-check for the result-cache key (engine/cacheKey.ts).
 //
 //   npx tsx scripts/check-cache-key.mts
 //
@@ -7,9 +7,9 @@
 // too-loose means two different questions share an answer and the map shows data
 // for a question nobody asked. Hence a runnable check rather than a comment.
 import assert from 'node:assert/strict';
-import { cacheKey } from '../src/engine/cacheKey';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
-import type { AnalysisQuestion } from '../src/types/query';
+import { cacheKey } from '../engine/cacheKey';
+import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
+import type { AnalysisQuestion } from '../engine/types/query';
 
 const q = (over: Record<string, unknown> = {}): AnalysisQuestion =>
   ({

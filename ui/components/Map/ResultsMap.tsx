@@ -1,0 +1,122 @@
+import { useState, type ComponentType } from 'react';
+import { MapContainer, TileLayer, Pane } from 'react-leaflet';
+import type { MapLayerData } from '../../hooks/useMapLayers';
+import type { MapFeature } from '../../../engine/types/map';
+import { SampleLayer } from './SampleLayer';
+import { FacilityLayer } from './FacilityLayer';
+import { WaterBodyLayer } from './WaterBodyLayer';
+import { WellLayer } from './WellLayer';
+import { StreamLayer } from './StreamLayer';
+import { RegionBoundaryLayer } from './RegionBoundaryLayer';
+import { AquiferBoundaryLayer } from './AquiferBoundaryLayer';
+import { MapCenterController } from './MapCenterController';
+import { LayerPanel } from './LayerPanel';
+import { BasemapSelector } from './BasemapSelector';
+import { MeasureControl } from './MeasureControl';
+import { LAYER_REGISTRY, getDefaultVisibility } from './layerStyles';
+import { BASEMAPS, DEFAULT_BASEMAP } from './basemaps';
+import 'leaflet/dist/leaflet.css';
+
+interface ResultsMapProps {
+  layers: MapLayerData;
+}
+
+const LAYER_COMPONENTS: Record<string, ComponentType<{ features: MapFeature[] }>> = {
+  samples: SampleLayer,
+  facilities: FacilityLayer,
+  waterBodies: WaterBodyLayer,
+  wells: WellLayer,
+  streams: StreamLayer,
+  regionBoundaries: RegionBoundaryLayer,
+};
+
+// Tablets, phones and short windows: the open panels (~280px wide each, the
+// basemap grid 263px tall) would cover too much of the map, so they start
+// closed there. Read once when the map loads, never on resize, so a panel the
+// user opened is not snapped shut by a rotation.
+const COMPACT_SCREEN = '(max-width: 1024px), (max-height: 600px)';
+
+export function ResultsMap({ layers }: ResultsMapProps) {
+  const [visibility, setVisibility] = useState(getDefaultVisibility);
+  const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
+  const [panelsOpen] = useState(() => !window.matchMedia(COMPACT_SCREEN).matches);
+
+  const hasData =
+    layers.samples.length > 0 ||
+    layers.facilities.length > 0 ||
+    layers.waterBodies.length > 0 ||
+    layers.wells.length > 0 ||
+    layers.streams.length > 0;
+
+  const handleToggle = (key: string) => {
+    setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const basemap = BASEMAPS.find((b) => b.key === basemapKey)!;
+
+  return (
+    <MapContainer
+      center={[44.0, -69.0]}
+      zoom={7}
+      style={{ height: '100%', width: '100%' }}
+    >
+      <TileLayer
+        key={basemapKey}
+        attribution={basemap.attribution}
+        url={basemap.url}
+        maxNativeZoom={basemap.maxNativeZoom}
+        maxZoom={20}
+      />
+      {basemap.overlayUrl && (
+        <TileLayer
+          key={`${basemapKey}-overlay`}
+          url={basemap.overlayUrl}
+          maxNativeZoom={basemap.maxNativeZoom}
+          maxZoom={20}
+          opacity={0.7}
+        />
+      )}
+
+      <MapCenterController layers={layers} />
+
+      {/* Aquifers, counties and streams draw below the other data (overlayPane
+          is 400). Each layer names its pane with a pane prop: wrapping it in
+          <Pane> would hand the pane to its popups too, under the data (#86). */}
+      <Pane name="aquiferPane" style={{ zIndex: 340 }} />
+      <Pane name="regionPane" style={{ zIndex: 350 }} />
+      <Pane name="streamsPane" style={{ zIndex: 380 }} />
+
+      <AquiferBoundaryLayer
+        visible={!!visibility.aquiferBoundaries}
+        matchedIris={layers.matchedAquiferIris}
+      />
+
+      {LAYER_REGISTRY.map(({ key }) => {
+        // Registry keys are all feature layers; matchedAquiferIris (string[]) is
+        // not in the registry, so this narrowing is safe.
+        const features = (layers[key as keyof MapLayerData] ?? []) as MapFeature[];
+        const Component = LAYER_COMPONENTS[key];
+        if (!visibility[key] || !features.length || !Component) return null;
+        return <Component key={key} features={features} />;
+      })}
+
+      {/* Standalone region boundaries when no data layers exist (always visible, no panel) */}
+      {!hasData && layers.regionBoundaries.length > 0 && (
+        <RegionBoundaryLayer features={layers.regionBoundaries} />
+      )}
+
+      {/* Panel shows when there's query data OR a static overlay (aquifers) to toggle */}
+      {(hasData || LAYER_REGISTRY.some((e) => e.static)) && (
+        <LayerPanel
+          visibility={visibility}
+          onToggle={handleToggle}
+          layers={layers}
+          defaultOpen={panelsOpen}
+        />
+      )}
+
+      <BasemapSelector current={basemapKey} onChange={setBasemapKey} defaultOpen={panelsOpen} />
+      <MeasureControl />
+    </MapContainer>
+  );
+}

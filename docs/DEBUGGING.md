@@ -127,10 +127,10 @@ Small states like Alabama (39 S2 cells) weren't in the arbitrary 5000 cells retu
 - Kept the explicit `filterS2ToRegionStep` as a fallback for endpoints that don't have region linkage data
 
 **Files Modified:**
-- `src/engine/templates/facilities.ts` - Added regionCode parameter and region filter clause
-- `src/engine/templates/samples.ts` - Added regionCode parameter and region filter clause
-- `src/engine/templates/waterBodies.ts` - Added regionCode parameter and region filter clause
-- `src/engine/planner.ts` - Modified getS2Step and planPipeline to pass region codes
+- `engine/templates/facilities.ts` - Added regionCode parameter and region filter clause
+- `engine/templates/samples.ts` - Added regionCode parameter and region filter clause
+- `engine/templates/waterBodies.ts` - Added regionCode parameter and region filter clause
+- `engine/planner.ts` - Modified getS2Step and planPipeline to pass region codes
 
 **Result:** Now queries for Alabama (and other small states) will work correctly. The S2 query filters to the region first, then returns those cells without arbitrary limits.
 
@@ -190,25 +190,25 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 **Symptom**: Opening the edit modal for a prebuilt query with `industryCodes: ['3253']` showed "Any industry..." placeholder instead of a chip for 3253.
 **Root cause**: `collapseSelections` assumed incoming codes were always fully expanded (parent + all descendants). When only the parent code `"3253"` was present without its child codes (`325311`, etc.), the function detected a "partial selection", recursed into children, found none selected, and returned an empty `userSelections` set.
 **Fix**: Simplified the logic — when a node's code is in `allCodes`, always add it to `userSelections` regardless of whether all descendants are also selected.
-**Files touched**: `src/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts`
+**Files touched**: `ui/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts`
 **Prevention**: When writing selection collapse/expand logic, handle the case where stored data may not match the fully expanded representation.
 
 ---
 
 ## 2026-09-08 — Substance dropdown empty: required label predicate with zero triples
 
-**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`, and `useSubstances()` in `src/hooks/useDiscoveryQueries.ts`
+**Component**: `engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`, and `useSubstances()` in `ui/hooks/useDiscoveryQueries.ts`
 **Symptom**: The Substance dropdown rendered "No options available" with a state selected, and silently showed the seven-entry `FALLBACK_SUBSTANCES` list with no state selected.
 **Root cause**: The query required `?substance dcterms:alternative ?_label`. That predicate has **zero** triples on substances, on `sawgraph` and `federation` alike. Because it was a required pattern rather than `OPTIONAL`, the whole query returned 0 rows instead of returning substances without labels. Substance names live on `rdfs:label` (896,899 triples). The likely origin of the mistake is `docs/SCHEMA.md`'s facility table, where `dcterms:alternative` is a legitimate *facility* predicate: 3,824,195 triples in fiokg, 3,742,487 of them on `fio:Facility`, 0 on `comptox:ChemicalEntity`.
 **Fix**: Switched to `rdfs:label`, then made both label patterns `OPTIONAL` and added a DTXSID fallback in the hook. Fixing only the predicate still hid 32 of 101 substances (47,642 observations, 5.0% of everything with a substance link) because the label was still required. Live counts: 0 rows → 69 → 101 unfiltered, and 0 → 69 → 79 for Maine.
-**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
+**Files touched**: `engine/templates/regions.ts`, `ui/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
 **Prevention**: A label pattern in a discovery query must be `OPTIONAL` with a URI-tail fallback. A required label does not degrade, it deletes: the row disappears along with its data, and the dropdown looks merely short rather than broken. This one mistake caused both the total outage and the 32 hidden substances. Cross-repo confirmation: `SAWGraph/streamlit-app/filters/substance.py:67` carries the identical bug and returns 0 rows live today, while `core/sparql.py:586` and `analyses/pfas_upstream/queries.py:147` in the same repo use `rdfs:label`; `analyses/aquifer_wells/queries.py:96-97` asks for both predicates but marks each `OPTIONAL`, and therefore survives.
 
 ---
 
 ## 2026-09-09 — QLever aggregate quirks while building the substance label fallback
 
-**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
+**Component**: `engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
 **Symptom**: Three separate failures while adding a fallback that borrows a substance name from the source parameter it was matched to.
 **Root cause**: All three are QLever aggregate behaviours, not SPARQL semantics.
 
@@ -217,21 +217,21 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 3. `SAMPLE()` picks arbitrarily across the 41 substances matched by more than one parameter, so labels changed between runs. `MIN()` is deterministic and, because `X` sorts before `X_A`, happens to prefer the unsuffixed base form.
 
 **Fix**: Project the borrowed name as its own column with `MIN(?_viaParam)`, require `rdfs:label` inside the OPTIONAL, and coalesce in the hook rather than in SPARQL.
-**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`
+**Files touched**: `engine/templates/regions.ts`, `ui/hooks/useDiscoveryQueries.ts`
 **Prevention**: Test aggregate expressions against **both** `sawgraph` and `federation`; they do not behave identically. And when an aggregate feeds a fallback chain, assert the expected coverage count rather than eyeballing the first few rows, since a silently unbound `SAMPLE` looks exactly like missing data.
 
 ---
 
 ## 2026-09-11 — A dead IRI returns 200 with no rows, it does not error
 
-**Component**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Component**: `engine/constants/prebuiltQueries.ts`, `engine/constants/materialTypes.ts`
 **Symptom**: The "PFHpA Groundwater Samples Downstream from Facilities in Cumberland County" card ran every pipeline step, reported success, and drew an empty map. No error anywhere.
 **Root cause**: The card's material filter pinned `http://w3id.org/sawgraph/v1/me-egad-data#sampleMaterialType.GW`, which matches zero triples. The August 2026 reload moved the two halves of the graph in opposite directions: instance data to `v2/me-egad-data#` and `v2/us-wqp-data#`, controlled vocabulary out of `-data` and into the roots `v1/me-egad#` and `v1/us-wqp#`. Material types are vocabulary, so the root form is the live one. All six `FALLBACK_MATERIAL_TYPES` entries carried the same dead namespace, and one also used `sampleMaterialType.SO` for sludge, a code that appears nowhere in the vocabulary — the real one is `.SU`.
 
 The failure mode is the point. The filter it builds is `VALUES ?matType { <dead-iri> }`, which is valid SPARQL. The endpoint answers 200 with zero rows, and nothing downstream can distinguish that from an honest "no data matches". Verified live: with the dead IRI, 0 sample points; with the root form, 65 sample points and 171 observations.
 
 **Fix**: `ef0c40b` — both files moved to `v1/me-egad#`, sludge corrected to `.SU`.
-**Files touched**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Files touched**: `engine/constants/prebuiltQueries.ts`, `engine/constants/materialTypes.ts`
 **Prevention**: Same family as the `dcterms:alternative` bug above — *a required pattern that cannot match does not degrade, it deletes*. Extend that to IRIs: a hardcoded IRI is a silent single point of failure the moment a namespace moves. When a query returns nothing, count the triples on the IRIs it names (`SELECT (COUNT(*) AS ?n) WHERE { { <iri> ?p ?o } UNION { ?s ?p2 <iri> } }`) before investigating anything else. Source of truth for the source-specific vocabularies is `SAWGraph/pfas-kg` under `datasets/*/controlledVocab/`, not `contaminoso`, which defines only the shapes.
 
 ---
@@ -275,7 +275,7 @@ and discarded it.
 
 **Fix**: ID-finding queries drop those joins unless a filter needs them, and any
 query the engine refuses is split into slices and merged
-(`src/engine/scope.ts`). 34 of the 37 failures now work, none regressed.
+(`engine/scope.ts`). 34 of the 37 failures now work, none regressed.
 
 **Three traps worth knowing**
 
@@ -297,7 +297,7 @@ query the engine refuses is split into slices and merged
 
 ## 2026-09-14 — Cached results served for the wrong question (FIXED)
 
-**Component**: `src/engine/cacheKey.ts` — `canonicalQuestion`
+**Component**: `engine/cacheKey.ts` — `canonicalQuestion`
 
 **Symptom**: none visible. That is the point of this entry. A map would render a
 complete, plausible answer that belonged to a *different* question, with no
@@ -364,8 +364,8 @@ entries cached earlier stay reachable.
 
 ## 2026-09-16 — "Upstream from" answered the mirror question (FIXED)
 
-**Component**: `src/engine/planner.ts` — `buildFusedSteps`, and
-`src/engine/templates/fusedQueries.ts` — `buildFusedWellQuery`
+**Component**: `engine/planner.ts` — `buildFusedSteps`, and
+`engine/templates/fusedQueries.ts` — `buildFusedWellQuery`
 
 **Symptom**: reported by Torsten: "the upstream query seems to be switched: I
 asked for facilities upstream of stream but seem to get stream upstream of
@@ -790,7 +790,7 @@ exactly what the first did, yet its map looked different.
 the cause: both runs returned the same rows (2264 wells, 1272 water body rows),
 and the cache served the right answer.
 
-**Root cause.** `buildWaterBodiesByIri` (`src/engine/templates/hydrate.ts`)
+**Root cause.** `buildWaterBodiesByIri` (`engine/templates/hydrate.ts`)
 projected `?s2cell` in `SELECT DISTINCT`. A water body touches many S2 cells, so
 the query returned one row per (water body, cell), each repeating the full
 polygon: 1272 rows for 234 water bodies, Graham Lake 90 times. Nothing read the
@@ -814,7 +814,7 @@ WKT where 0.8MB is unique.
 **Fix.** Both ends. The query matches `?s2cell` but no longer projects it (234
 rows, same 234 water bodies, live on hydrologykg). The transformer dedupes by
 water body IRI, which also covers results already stored in the cache with the
-old row shape. Regression test: `tests/waterBodyLayer.test.tsx`.
+old row shape. Regression test: `ui/tests/waterBodyLayer.test.tsx`.
 
 **Lesson.** A variable in `SELECT DISTINCT` that no consumer reads is not free:
 it multiplies rows by its fan-out. Wells project `?s2cell` too, but a point sits
@@ -862,7 +862,7 @@ Leaflet's own panes. Measured on localhost after the fix: both popups on top at
 15 of 15 points, the county close button works, and streams stay clickable with
 aquifers on and after turning them off (142 of 142).
 
-**Prevention.** `tests/mapPanes.test.tsx` renders `ResultsMap` with one feature
+**Prevention.** `ui/tests/mapPanes.test.tsx` renders `ResultsMap` with one feature
 of every layer type and checks the pane each shape, popup and tooltip lands in,
 and where the aquifer canvas sits. An ESLint `no-restricted-syntax` rule in
 `eslint.config.js` rejects layers nested inside `<Pane>`.
