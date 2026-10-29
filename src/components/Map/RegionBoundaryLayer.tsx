@@ -17,6 +17,7 @@ export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
           <Polygon
             key={f.id}
             positions={f.geometry.coordinates as LatLngExpression[][]}
+            pane="regionPane"
             bubblingMouseEvents
             pathOptions={{
               color: REGION.border,
@@ -29,7 +30,7 @@ export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
             <Popup maxWidth={500}>
               <MapPopupContent feature={f} />
             </Popup>
-            <Tooltip sticky pane="tooltipPane">
+            <Tooltip sticky>
               <strong>{f.properties.name || 'Region'}</strong>
             </Tooltip>
           </Polygon>
