@@ -23,7 +23,7 @@ export function WellLayer({ features }: WellLayerProps) {
             <Popup maxWidth={500}>
               <MapPopupContent feature={f} />
             </Popup>
-            <Tooltip pane="tooltipPane">
+            <Tooltip>
               <strong>{f.properties.name || 'Well'}</strong>
             </Tooltip>
           </CircleMarker>

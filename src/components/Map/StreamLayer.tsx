@@ -23,7 +23,7 @@ export function StreamLayer({ features }: StreamLayerProps) {
             <Popup maxWidth={500}>
               <MapPopupContent feature={f} />
             </Popup>
-            <Tooltip sticky pane="tooltipPane">
+            <Tooltip sticky>
               <strong>{f.properties.name || 'Stream'}</strong>
             </Tooltip>
           </Polyline>

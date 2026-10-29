@@ -35,7 +35,7 @@ export function SampleLayer({ features }: SampleLayerProps) {
           <Popup maxWidth={500} maxHeight={400}>
             <MapPopupContent feature={f} isOpen={openId === f.id} />
           </Popup>
-          <Tooltip pane="tooltipPane">
+          <Tooltip>
             <strong>{f.properties.samplePointName || 'Sample Point'}</strong>
           </Tooltip>
         </CircleMarker>
