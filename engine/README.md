@@ -7,7 +7,9 @@ Node (`scripts/`).
 
 `tests/headless.test.ts` keeps it that way. It fails if any file here imports a
 package or anything outside `engine/`, or touches `window`, `document`,
-`localStorage`, `sessionStorage`, `navigator` or `import.meta.env`. The UI may
+`localStorage`, `sessionStorage`, `navigator` or `import.meta.env`. The tests
+in `tests/` are held to the same import rule, with only `vitest` and Node
+builtins added, so a UI test that lands here by mistake fails. The UI may
 import the engine; the engine never imports the UI.
 
 ## Entry points
