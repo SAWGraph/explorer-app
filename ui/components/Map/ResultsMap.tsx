@@ -3,8 +3,6 @@ import { MapContainer, TileLayer, Pane, useMap, useMapEvent } from 'react-leafle
 import type { Popup } from 'leaflet';
 import type { MapLayerData } from '../../hooks/useMapLayers';
 import type { MapFeature } from '../../../engine/types/map';
-import type { EntityType } from '../../../engine/types/query';
-import { useQueryStore } from '../../store/queryStore';
 import { SampleLayer } from './SampleLayer';
 import { FacilityLayer } from './FacilityLayer';
 import { WaterBodyLayer } from './WaterBodyLayer';
@@ -47,19 +45,7 @@ const COMPACT_SCREEN = '(max-width: 1024px), (max-height: 600px)';
 // 650). Each layer names its pane with a pane prop: wrapping it in <Pane>
 // would hand the pane to its popups too, under the data (#86). Render this
 // before the layers, which need their panes to exist.
-export function MapPanes({ answer }: { answer?: EntityType }) {
-  const map = useMap();
-
-  // The 14px facility squares hid most samples and wells near them, and
-  // drawing those on top for every question buried the squares instead. So
-  // the question's answer (block A) draws above the squares (#88). Set here,
-  // not on <Pane>, which applies its style once; the question can change
-  // under a mounted map.
-  useEffect(() => {
-    map.getPane('samplesPane')!.style.zIndex = answer === 'samples' ? '610' : '410';
-    map.getPane('wellsPane')!.style.zIndex = answer === 'wells' ? '620' : '420';
-  }, [map, answer]);
-
+export function MapPanes() {
   return (
     <>
       <Pane name="aquiferPane" style={{ zIndex: 340 }} />
@@ -126,13 +112,6 @@ export function ResultsMap({ layers }: ResultsMapProps) {
   // What the user ticked or unticked; every other layer follows its default.
   const [choices, setChoices] = useState<Record<string, boolean>>({});
   const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
-  // Block A of the question behind the result on screen, not of the question
-  // being edited: a cancelled or still-running edit leaves the old result up.
-  // Every result is set after its question, so catch block A as it changes.
-  const blockA = useQueryStore((s) => s.question.blockA.type);
-  const [shown, setShown] = useState({ layers, answer: blockA });
-  if (shown.layers !== layers) setShown({ layers, answer: blockA });
-  const answer = shown.layers === layers ? shown.answer : blockA;
   const [panelsOpen] = useState(() => !window.matchMedia(COMPACT_SCREEN).matches);
 
   const hasData =
@@ -182,7 +161,7 @@ export function ResultsMap({ layers }: ResultsMapProps) {
       <MapCenterController layers={layers} />
       <FitPopupsToMap />
 
-      <MapPanes answer={answer} />
+      <MapPanes />
 
       <AquiferBoundaryLayer
         visible={!!visibility.aquiferBoundaries}

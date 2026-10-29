@@ -40,9 +40,8 @@ npm run test:ui   # only ui/tests/, in jsdom
 
 These render real components with the network mocked: the edit modal flows,
 the sample popup size, the map's stacking order (popups and tooltips above the
-data, a pane per layer, the question's answer above the facility squares),
-popups sized and padded to fit the map, the water body layer, and the wells
-state gating. `modalStacking.test.ts` checks dialogs sit above the map controls.
+data, a pane per layer), popups sized and padded to fit the map, the water
+body layer, and the wells state gating. `modalStacking.test.ts` checks dialogs sit above the map controls.
 
 ## Further reading
 

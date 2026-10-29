@@ -10,15 +10,13 @@
 // overlayPane above streams and counties, and swallowed their clicks even
 // after the overlay was turned off. Issue #86.
 import { afterEach, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import L from 'leaflet';
 import type { MapFeature } from '../../engine/types/map';
 import type { MapLayerData } from '../hooks/useMapLayers';
 import { ResultsMap } from '../components/Map/ResultsMap';
 import { LAYER_REGISTRY } from '../components/Map/layerStyles';
-import { useQueryStore } from '../store/queryStore';
-import type { EntityType } from '../../engine/types/query';
 
 vi.mock('../../engine/sparqlClient', () => ({ executeSparql: () => new Promise(() => {}) }));
 window.matchMedia = (() => ({ matches: false })) as unknown as typeof window.matchMedia;
@@ -152,53 +150,14 @@ it('opens every popup and tooltip above all data, and keeps each layer in its ow
 // Layers sharing a pane stack in the order they were added, so toggling one
 // off and on used to move it to the top (#88). With a pane each, this order is
 // the whole story.
-// The question's block A decides whether samples and wells draw above the
-// facility squares; with facilities as the answer they sit under them.
-const askFor = (type: EntityType) =>
-  useQueryStore.setState((s) => ({ question: { ...s.question, blockA: { ...s.question.blockA, type } } }));
 const leafletDefault: Record<string, number> = { overlayPane: 400, markerPane: 600, tooltipPane: 650, popupPane: 700 };
 const zOf = (name: string) => leafletDefault[name] ?? Number(map.getPane(name)!.style.zIndex);
 
 it('stacks the panes in a fixed order, bottom to top', () => {
-  askFor('facilities');
   renderMap(everyLayer);
   const bottomToTop = ['aquiferPane', 'regionPane', 'waterAreasPane', 'streamsPane', 'overlayPane', 'samplesPane', 'wellsPane', 'markerPane', 'measurePane', 'tooltipPane', 'popupPane'];
   const zs = bottomToTop.map(zOf);
   expect(zs).toEqual([...new Set(zs)].sort((a, b) => a - b));
-});
-
-// Facility squares (14px) hid the samples and wells near them: 45 of 60 on
-// the Penobscot and Knox samples question. Drawing those on top for every
-// question buried the squares instead, so the question's answer goes on top,
-// and follows the question when it changes under a mounted map (#88).
-it("draws the question's answer above the facility squares", () => {
-  askFor('facilities');
-  const { rerender } = renderMap(everyLayer);
-  expect(zOf('samplesPane')).toBeLessThan(zOf('markerPane'));
-  expect(zOf('wellsPane')).toBeLessThan(zOf('markerPane'));
-
-  // A new result for a samples question.
-  const showResult = () =>
-    rerender(
-      <QueryClientProvider client={new QueryClient()}>
-        <ResultsMap layers={{ ...everyLayer }} />
-      </QueryClientProvider>,
-    );
-  act(() => askFor('samples'));
-  showResult();
-  expect(zOf('samplesPane')).toBeGreaterThan(zOf('markerPane'));
-  expect(zOf('wellsPane')).toBeLessThan(zOf('markerPane'));
-
-  // Editing block A without a new result (a run cancelled or still going)
-  // leaves the samples on screen, so they stay on top.
-  act(() => askFor('facilities'));
-  expect(zOf('samplesPane')).toBeGreaterThan(zOf('markerPane'));
-
-  act(() => askFor('wells'));
-  showResult();
-  expect(zOf('wellsPane')).toBeGreaterThan(zOf('markerPane'));
-  expect(zOf('samplesPane')).toBeLessThan(zOf('markerPane'));
-  expect(zOf('wellsPane')).toBeLessThan(zOf('measurePane'));
 });
 
 // Leaflet sizes a popup from its own maxWidth and maxHeight, never from the
