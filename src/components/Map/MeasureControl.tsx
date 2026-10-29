@@ -3,7 +3,10 @@ import { createPortal } from 'react-dom';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 
+// measurePane (created in ResultsMap) sits above the facility squares, so the
+// line being measured is never hidden under the data (#88).
 const POLYLINE_STYLE: L.PolylineOptions = {
+  pane: 'measurePane',
   color: '#4f46e5',
   weight: 3,
   opacity: 0.95,
@@ -11,6 +14,7 @@ const POLYLINE_STYLE: L.PolylineOptions = {
 };
 
 const PREVIEW_STYLE: L.PolylineOptions = {
+  pane: 'measurePane',
   color: '#4f46e5',
   weight: 2,
   opacity: 0.55,
@@ -18,6 +22,7 @@ const PREVIEW_STYLE: L.PolylineOptions = {
 };
 
 const VERTEX_STYLE: L.CircleMarkerOptions = {
+  pane: 'measurePane',
   radius: 4,
   color: '#ffffff',
   weight: 2,

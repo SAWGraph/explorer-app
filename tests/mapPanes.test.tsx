@@ -127,15 +127,27 @@ it('opens every popup and tooltip above all data, and keeps each layer in its ow
 
   const top = { popup: 'popup', tooltip: 'tooltip' };
   expect(panes()).toEqual({
-    sample: { shape: 'overlay', ...top },
+    sample: { shape: 'samples', ...top },
     facility: { shape: 'marker', ...top },
     waterBodyPoint: { shape: 'marker', ...top },
     waterBodyLine: { shape: 'overlay', ...top },
-    waterBodyArea: { shape: 'overlay', ...top },
-    well: { shape: 'overlay', ...top },
+    waterBodyArea: { shape: 'waterAreas', ...top },
+    well: { shape: 'wells', ...top },
     stream: { shape: 'streams', ...top },
     county: { shape: 'region', ...top },
   });
+});
+
+// Layers sharing a pane stack in the order they were added, so toggling one
+// off and on used to move it to the top (#88). With a pane each, this order is
+// the whole story.
+it('stacks the panes in a fixed order, bottom to top', () => {
+  renderMap(everyLayer);
+  const leafletDefault: Record<string, number> = { overlayPane: 400, markerPane: 600, tooltipPane: 650, popupPane: 700 };
+  const z = (name: string) => leafletDefault[name] ?? Number(map.getPane(name)!.style.zIndex);
+  const bottomToTop = ['aquiferPane', 'regionPane', 'waterAreasPane', 'streamsPane', 'overlayPane', 'samplesPane', 'wellsPane', 'markerPane', 'measurePane', 'tooltipPane', 'popupPane'];
+  const zs = bottomToTop.map(z);
+  expect(zs).toEqual([...new Set(zs)].sort((a, b) => a - b));
 });
 
 it('does the same for county outlines on a result with no data layers', async () => {

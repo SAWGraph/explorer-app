@@ -21,6 +21,7 @@ export function SampleLayer({ features }: SampleLayerProps) {
           key={f.id}
           center={f.geometry.coordinates as LatLngExpression}
           radius={getSampleRadius(f.properties.maxConcentration)}
+          pane="samplesPane"
           pathOptions={{
             color: SAMPLE_STROKE_DEFAULT,
             fillColor: SAMPLE_DEFAULT,

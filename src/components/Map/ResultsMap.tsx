@@ -36,6 +36,27 @@ const LAYER_COMPONENTS: Record<string, ComponentType<{ features: MapFeature[] }>
 // user opened is not snapped shut by a rotation.
 const COMPACT_SCREEN = '(max-width: 1024px), (max-height: 600px)';
 
+// Every layer has its own pane, so the stacking order stays fixed whatever is
+// toggled (#88). Bottom to top: aquifers, counties, water body areas, streams,
+// water body lines (overlayPane, 400), samples, wells, facility squares and
+// water body points (markerPane, 600), measure lines (just under tooltips,
+// 650). Each layer names its pane with a pane prop: wrapping it in <Pane>
+// would hand the pane to its popups too, under the data (#86). Render this
+// before the layers, which need their panes to exist.
+export function MapPanes() {
+  return (
+    <>
+      <Pane name="aquiferPane" style={{ zIndex: 340 }} />
+      <Pane name="regionPane" style={{ zIndex: 350 }} />
+      <Pane name="waterAreasPane" style={{ zIndex: 360 }} />
+      <Pane name="streamsPane" style={{ zIndex: 380 }} />
+      <Pane name="samplesPane" style={{ zIndex: 410 }} />
+      <Pane name="wellsPane" style={{ zIndex: 420 }} />
+      <Pane name="measurePane" style={{ zIndex: 640 }} />
+    </>
+  );
+}
+
 export function ResultsMap({ layers }: ResultsMapProps) {
   const [visibility, setVisibility] = useState(getDefaultVisibility);
   const [basemapKey, setBasemapKey] = useState(DEFAULT_BASEMAP);
@@ -79,12 +100,7 @@ export function ResultsMap({ layers }: ResultsMapProps) {
 
       <MapCenterController layers={layers} />
 
-      {/* Aquifers, counties and streams draw below the other data (overlayPane
-          is 400). Each layer names its pane with a pane prop: wrapping it in
-          <Pane> would hand the pane to its popups too, under the data (#86). */}
-      <Pane name="aquiferPane" style={{ zIndex: 340 }} />
-      <Pane name="regionPane" style={{ zIndex: 350 }} />
-      <Pane name="streamsPane" style={{ zIndex: 380 }} />
+      <MapPanes />
 
       <AquiferBoundaryLayer
         visible={!!visibility.aquiferBoundaries}

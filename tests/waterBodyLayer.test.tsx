@@ -12,6 +12,7 @@ import L from 'leaflet';
 import type { SparqlRow } from '../src/types/sparql';
 import { transformWaterBodiesToFeatures } from '../src/engine/resultTransformer';
 import { WaterBodyLayer } from '../src/components/Map/WaterBodyLayer';
+import { MapPanes } from '../src/components/Map/ResultsMap';
 
 afterEach(cleanup);
 
@@ -43,6 +44,7 @@ it('a re-run shows only the new answer, with nothing left from the previous run'
   let map: L.Map | null = null;
   const Harness = ({ data }: { data: SparqlRow[] }) => (
     <MapContainer center={[44, 0.05]} zoom={9} style={{ height: 400, width: 400 }} ref={(m) => { map = m; }}>
+      <MapPanes />
       <WaterBodyLayer features={transformWaterBodiesToFeatures(data)} />
     </MapContainer>
   );
