@@ -819,3 +819,54 @@ old row shape. Regression test: `ui/tests/waterBodyLayer.test.tsx`.
 **Lesson.** A variable in `SELECT DISTINCT` that no consumer reads is not free:
 it multiplies rows by its fan-out. Wells project `?s2cell` too, but a point sits
 in one cell, so it does not multiply there.
+
+## 2026-10-28: Stream and county popups opened under the map data (FIXED)
+
+**Reported in issue #86.** On "facilities upstream from streams in Cook County",
+a county popup sat behind the county outlines and the facility squares, and a
+stream popup sat behind the streams and the facilities. The issue called it
+long standing.
+
+**Symptom.** Measured on the live site: the DuPage County popup was the topmost
+element at 0 of 15 points inside its box (county fill 11, facility squares 3, a
+stream 1), so its close button could not be clicked. The Butterfield Creek popup
+had facility squares over its text. Tooltips were fine.
+
+**Root cause.** `ResultsMap` wrapped the county and stream layers in
+react-leaflet `<Pane>` elements (`regionPane` z 350, `streamsPane` z 380) so
+their lines draw below the other data. A `<Pane>` sets the default pane for
+every child, and react-leaflet hands that default to popups and tooltips too
+(`withPane(props, context)` in `@react-leaflet/core/lib/div-overlay.js`). So
+the popups opened inside the line panes, under `overlayPane` (400) and
+`markerPane` (600), and under the pane's own SVG (z 200 from leaflet.css).
+
+It recurred. Tooltips hit the same trap when `streamsPane` arrived (9350655,
+2026-05-02). A `z-index: 1000 !important` rule on `.leaflet-tooltip` did not
+help, because it only orders tooltips within one pane. The fix was
+`pane="tooltipPane"` on every tooltip (897c7cf). Three days later the content
+moved from tooltips into new popups (184c9ac) without that prop, and the bug
+was back. Nothing recorded the trap.
+
+The aquifer overlay had the same family of bug. Its canvas renderer
+(`L.canvas()`, 0284aef) had no pane, and a renderer draws in its own pane, not
+its layers'. So the canvas sat in `overlayPane` above streams and counties and
+took their clicks, even after aquifers were turned off: 0 of 142 stream points
+could be clicked. `aquiferPane` stayed empty.
+
+**Fix.** `ResultsMap` creates the three panes with childless
+`<Pane name="..." />` elements, and each layer names its own pane:
+`pane="regionPane"` on the county `<Polygon>`, `pane="streamsPane"` on the
+stream `<Polyline>`, and `pane: 'aquiferPane'` on the canvas renderer. A `pane`
+prop on a path does not reach its children, so popups and tooltips keep
+Leaflet's own panes. Measured on localhost after the fix: both popups on top at
+15 of 15 points, the county close button works, and streams stay clickable with
+aquifers on and after turning them off (142 of 142).
+
+**Prevention.** `ui/tests/mapPanes.test.tsx` renders `ResultsMap` with one feature
+of every layer type and checks the pane each shape, popup and tooltip lands in,
+and where the aquifer canvas sits. An ESLint `no-restricted-syntax` rule in
+`eslint.config.js` rejects layers nested inside `<Pane>`.
+
+**Lesson.** A react-leaflet `<Pane>` with children sets a default for a whole
+subtree, not a setting for one layer. Name the pane on the layer itself, and
+give a custom renderer its own `pane`.

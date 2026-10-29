@@ -46,6 +46,10 @@ Standards and patterns to follow (and avoid) in this codebase.
 
 - Leaflet components that use `useMap()` must be children of `MapContainer` — use the controller component pattern for anything that needs to manipulate the map view
 - Coordinate order: WKT uses `lon lat`, Leaflet uses `[lat, lon]` — the result transformer handles this conversion. Don't flip coordinates elsewhere.
+- Draw order comes from panes only. Create a pane with a childless `<Pane name="..." />` in `ResultsMap` and name it on the layer with its `pane` prop. Never nest layers inside `<Pane>`: their popups and tooltips inherit the pane and open under the data (issue #86). ESLint rejects it.
+- A custom renderer (`L.canvas()`, `L.svg()`) draws in its own pane, not its layers', so pass it `pane`.
+- Don't set z-index on Leaflet classes in CSS. Every pane is its own stacking context, so such a rule only reorders things within one pane.
+- Panes, bottom to top: `tilePane` 200, `aquiferPane` 340, `regionPane` 350, `streamsPane` 380, `overlayPane` 400 (samples, wells, water body lines and areas, measure lines), `markerPane` 600 (facilities, water body points), `tooltipPane` 650, `popupPane` 700. `ui/tests/mapPanes.test.tsx` checks this.
 
 ---
 

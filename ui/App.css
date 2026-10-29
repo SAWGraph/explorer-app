@@ -1103,13 +1103,12 @@
   font-style: italic;
 }
 
-/* Map Tooltip — ensure tooltips in custom panes render above all layers */
+/* Map Tooltip */
 .leaflet-tooltip.leaflet-tooltip {
   max-width: 400px;
   width: max-content;
   white-space: normal;
   font-size: var(--text-sm);
-  z-index: 1000 !important;
 }
 
 .map-popup {

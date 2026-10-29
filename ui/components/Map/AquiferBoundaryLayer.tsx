@@ -14,7 +14,9 @@ import aquifersUrl from '../../assets/aquifers.geojson?url';
 let cache: FeatureCollection | null = null;
 
 // Canvas renderer: 8k+ polygons on the default SVG renderer janks the map.
-const renderer = L.canvas({ padding: 0.5 });
+// A renderer draws in its own pane, not its layers'. Without one it sits in
+// overlayPane, above streams and counties, and takes their clicks (#86).
+const renderer = L.canvas({ padding: 0.5, pane: 'aquiferPane' });
 
 interface AquiferBoundaryLayerProps {
   visible: boolean;

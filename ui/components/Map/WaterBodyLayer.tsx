@@ -23,7 +23,7 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               <Popup maxWidth={500}>
                 <MapPopupContent feature={f} />
               </Popup>
-              <Tooltip pane="tooltipPane">
+              <Tooltip>
                 <strong>{f.properties.name || 'Surface Water Body'}</strong>
               </Tooltip>
             </Marker>
@@ -39,7 +39,7 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               <Popup maxWidth={500}>
                 <MapPopupContent feature={f} />
               </Popup>
-              <Tooltip sticky pane="tooltipPane">
+              <Tooltip sticky>
                 <strong>{f.properties.name || 'Surface Water Body'}</strong>
               </Tooltip>
             </Polyline>
@@ -55,7 +55,7 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
               <Popup maxWidth={500}>
                 <MapPopupContent feature={f} />
               </Popup>
-              <Tooltip sticky pane="tooltipPane">
+              <Tooltip sticky>
                 <strong>{f.properties.name || 'Surface Water Body'}</strong>
               </Tooltip>
             </Polygon>
