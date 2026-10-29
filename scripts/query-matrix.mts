@@ -38,11 +38,11 @@
 
 import { execSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { planPipeline } from '../src/engine/planner';
-import { executePipeline } from '../src/engine/executor';
-import { ENDPOINTS } from '../src/constants/endpoints';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
-import type { AnalysisQuestion, EntityType } from '../src/types/query';
+import { planPipeline } from '../engine/planner';
+import { executePipeline } from '../engine/executor';
+import { ENDPOINTS } from '../engine/constants/endpoints';
+import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
+import type { AnalysisQuestion, EntityType } from '../engine/types/query';
 
 // 'raw' posts each step's SPARQL directly — measures the endpoint, not us, and
 // is how the pre-Phase-2 baseline was recorded. 'engine' runs the real pipeline

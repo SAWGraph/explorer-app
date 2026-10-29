@@ -22,7 +22,7 @@ Output is one GeoJSON feature per aquifer for static map rendering.
 
 Usage:
     python3 -m pip install shapely
-    python3 scripts/precompute_aquifers.py            # -> src/assets/aquifers.geojson
+    python3 scripts/precompute_aquifers.py            # -> ui/assets/aquifers.geojson
     python3 scripts/precompute_aquifers.py --self-check
 
 Re-run when aquifer data changes upstream (currently ME + IL only).
@@ -44,7 +44,7 @@ MGS = ("https://services1.arcgis.com/RbMX0mRVOFNTdLzd/ArcGIS/rest/services/"
 ISGS = ("https://maps.isgs.illinois.edu/arcgis/rest/services/ILWATER/"
         "Aquifers/MapServer")
 SIMPLIFY = 0.0005  # degrees (~50m); trims detailed polygons, keeps shape
-OUT_PATH = "src/assets/aquifers.geojson"
+OUT_PATH = "ui/assets/aquifers.geojson"
 ME_ID_RE = re.compile(r"me_mgs_data#d\.MGS-Aquifer\.(\d+)$")
 
 # ISGS ILWATER layer -> (kind, human aquifer type). Matches KG IL families 1:1.

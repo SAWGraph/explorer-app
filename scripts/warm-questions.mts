@@ -6,11 +6,11 @@
 // The file is a JSON array of { title, question }. Same trusted-writer path as
 // warm-cache.mts: the real pipeline runs here, and only the result is uploaded.
 import { readFileSync } from 'node:fs';
-import { planPipeline } from '../src/engine/planner';
-import { executePipeline } from '../src/engine/executor';
-import { cacheKey } from '../src/engine/cacheKey';
-import { toWire } from '../src/engine/wire';
-import type { AnalysisQuestion } from '../src/types/query';
+import { planPipeline } from '../engine/planner';
+import { executePipeline } from '../engine/executor';
+import { cacheKey } from '../engine/cacheKey';
+import { toWire } from '../engine/wire';
+import type { AnalysisQuestion } from '../engine/types/query';
 
 const API_BASE = (process.env.API_BASE ?? 'http://localhost:3001').replace(/\/$/, '');
 const TOKEN = process.env.CACHE_WRITE_TOKEN;

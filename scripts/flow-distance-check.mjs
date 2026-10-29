@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
 const bundle = await build({
-  entryPoints: ['src/engine/planner.ts'],
+  entryPoints: ['engine/planner.ts'],
   bundle: true,
   format: 'esm',
   platform: 'neutral',

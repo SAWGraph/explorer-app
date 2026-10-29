@@ -37,18 +37,18 @@ recorded where known.
 
 ## Part 2 — The query space
 
-A question is three choices (`src/types/query.ts`):
+A question is three choices (`engine/types/query.ts`):
 
 ```
 [ Block A: what you want to see ]  →  [ relationship ]  →  [ Block C: what it relates to ]
 ```
 
 **Block A and Block C** — 6 entity types each
-(`src/components/QueryEditor/EntityTypeSelector.tsx`):
+(`ui/components/QueryEditor/EntityTypeSelector.tsx`):
 samples, facilities, surface water bodies, wells, aquifers, **streams**.
 
 **Relationship** — 3 kinds
-(`src/components/QueryEditor/RelationshipSelector.tsx`):
+(`ui/components/QueryEditor/RelationshipSelector.tsx`):
 
 - **Near**, with 5 distances: 0, ~1, ~2, ~3, ~4 miles (S2-cell hops)
 - **Downstream of** (follows rivers), optionally bounded by **distance in km**
@@ -63,7 +63,7 @@ samples, facilities, surface water bodies, wells, aquifers, **streams**.
 That's **6 × 6 × 7 = 252 shapes** before distance bounds, filters or regions.
 On top of that:
 
-- **Region**: none, one of 13 states (`src/constants/regions.ts:8-22`), or any
+- **Region**: none, one of 13 states (`engine/constants/regions.ts:8-22`), or any
   set of counties within a state
 - **Filters per entity type**: substance, material type, concentration range,
   include/exclude non-detects (samples); NAICS industry codes at any depth
@@ -318,7 +318,7 @@ this limit is per-endpoint (it bit `hydrologykg`) rather than global.
 
 Same cause as 413 on a different endpoint — an oversized POST body from inlined
 IRI lists. Recorded in the code comment at
-`src/engine/templates/fusedQueries.ts:251`.
+`engine/templates/fusedQueries.ts:251`.
 
 ### 7. `403 Forbidden` — on `?timeout=120s`
 
@@ -341,7 +341,7 @@ client bug — but it means a very large response can fail *after* a successful
 **Baseline:** all eight surfaced as the same red card — nothing distinguished
 "this question is too big" from "the server had a bad moment, press retry".
 
-**Now:** classified in `src/engine/sparqlErrors.ts` and shown per kind. A
+**Now:** classified in `engine/sparqlErrors.ts` and shown per kind. A
 `sibling-failure` says to just run it again; a network error says to check the
 connection; a timeout or out-of-memory offers the lever that applies to the
 question being asked (see Part 8.1) rather than one fixed sentence.
@@ -699,7 +699,7 @@ What rescues it, measured on York alone:
 | 30 km, Block A = landfills | ⬜ *empty* in 3s |
 
 Two things follow, and both are now encoded in `adviceForOversizedQuestion`
-(`src/engine/sparqlErrors.ts`):
+(`engine/sparqlErrors.ts`):
 
 - **A shorter distance is the lever that works here** — and it was the one the
   old message never mentioned. It said to add a filter or region to the second

@@ -1,0 +1,41 @@
+import { LayerGroup, Polygon, Popup, Tooltip } from 'react-leaflet';
+import type { MapFeature } from '../../../engine/types/map';
+import type { LatLngExpression } from 'leaflet';
+import { MapPopupContent } from './MapPopup';
+import { REGION } from './mapColors';
+
+interface RegionBoundaryLayerProps {
+  features: MapFeature[];
+}
+
+export function RegionBoundaryLayer({ features }: RegionBoundaryLayerProps) {
+  return (
+    <LayerGroup>
+      {features.map((f) => {
+        if (f.geometry.type !== 'Polygon') return null;
+        return (
+          <Polygon
+            key={f.id}
+            positions={f.geometry.coordinates as LatLngExpression[][]}
+            pane="regionPane"
+            bubblingMouseEvents
+            pathOptions={{
+              color: REGION.border,
+              fillColor: REGION.fill,
+              fillOpacity: 0.1,
+              weight: 2,
+              dashArray: '5, 5',
+            }}
+          >
+            <Popup maxWidth={500}>
+              <MapPopupContent feature={f} />
+            </Popup>
+            <Tooltip sticky>
+              <strong>{f.properties.name || 'Region'}</strong>
+            </Tooltip>
+          </Polygon>
+        );
+      })}
+    </LayerGroup>
+  );
+}

@@ -5,7 +5,7 @@
 
 ## Problem
 
-Two independent defects in `src/engine/templates/fusedQueries.ts`, both found while
+Two independent defects in `engine/templates/fusedQueries.ts`, both found while
 running "What facilities are upstream from PFOS samples in York and Cumberland
 counties (Maine)?" (facilities block empty, samples block PFOS + ME + two counties,
 include non-detects on).
