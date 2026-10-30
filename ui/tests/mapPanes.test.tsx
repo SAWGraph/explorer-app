@@ -9,7 +9,7 @@
 // aquifer canvas had the opposite problem: it ignored aquiferPane, sat in
 // overlayPane above streams and counties, and swallowed their clicks even
 // after the overlay was turned off. Issue #86.
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import L from 'leaflet';
@@ -17,6 +17,8 @@ import type { MapFeature } from '../../engine/types/map';
 import type { MapLayerData } from '../hooks/useMapLayers';
 import { ResultsMap } from '../components/Map/ResultsMap';
 import { LAYER_REGISTRY } from '../components/Map/layerStyles';
+import { CachedResultNotice } from '../components/Pipeline/CachedResultNotice';
+import { useQueryStore } from '../store/queryStore';
 
 vi.mock('../../engine/sparqlClient', () => ({ executeSparql: () => new Promise(() => {}) }));
 window.matchMedia = (() => ({ matches: false })) as unknown as typeof window.matchMedia;
@@ -196,12 +198,22 @@ it('caps every popup to the size of the map it opens in', async () => {
 });
 
 // Popups opened under Map Layers or the saved results banner, close button
-// included, and fitted results could land under the open panels (#88).
-it('keeps popups and fitted results clear of the open panels, and only while open', async () => {
+// included, and fitted results could land under them (#88).
+it('keeps popups and fitted results clear of the banner and the open panels, the panels only while open', async () => {
+  // The real banner, as MainContent renders it: a sibling of the map.
+  useQueryStore.setState({ resultProvenance: { computedAt: null, partial: false } });
+  onTestFinished(() => useQueryStore.setState({ resultProvenance: null }));
+  const withBanner = (layers: MapLayerData) => (
+    <QueryClientProvider client={new QueryClient()}>
+      <ResultsMap layers={layers} />
+      <CachedResultNotice />
+    </QueryClientProvider>
+  );
   const rect = (x: number, y: number, width: number, height: number) =>
     ({ x, y, width, height, left: x, top: y, right: x + width, bottom: y + height }) as DOMRect;
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     if (this.classList.contains('leaflet-container')) return rect(0, 0, 1396, 846);
+    if (this.classList.contains('cached-result-notice')) return rect(300, 10, 600, 60);
     if (this.matches('.custom-layer-panel > details[open]')) return rect(1136, 10, 250, 160);
     return rect(0, 0, 0, 0);
   });
@@ -209,19 +221,16 @@ it('keeps popups and fitted results clear of the open panels, and only while ope
     return this;
   });
   const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [] };
-  const { rerender } = renderMap(empty);
+  const { rerender } = render(withBanner(empty));
   await screen.findByText(/Aquifers/);
   vi.spyOn(map, 'getSize').mockImplementation(() => L.point(1396, 846));
-  rerender(
-    <QueryClientProvider client={new QueryClient()}>
-      <ResultsMap layers={everyLayer} />
-    </QueryClientProvider>,
-  );
+  rerender(withBanner(everyLayer));
   await waitForFeatures(7);
 
-  // Map Layers spans x 1136 to 1386 of a 1396px map: 1396 - 1136 + 8.
+  // The banner ends 70px down: 70 + 8. Map Layers spans x 1136 to 1386 of a
+  // 1396px map: 1396 - 1136 + 8.
   const fitOptions = fitBounds.mock.calls[fitBounds.mock.calls.length - 1][1]!;
-  expect([fitOptions.paddingBottomRight, fitOptions.paddingTopLeft]).toEqual([L.point(268, 50), L.point(50, 50)]);
+  expect([fitOptions.paddingTopLeft, fitOptions.paddingBottomRight]).toEqual([L.point(50, 78), L.point(268, 50)]);
 
   let facility: L.Marker | undefined;
   map.eachLayer((layer) => {
@@ -229,14 +238,14 @@ it('keeps popups and fitted results clear of the open panels, and only while ope
   });
   const paddingWhenOpened = () => {
     facility!.openPopup();
-    const padding = facility!.getPopup()!.options.autoPanPaddingBottomRight;
+    const { autoPanPaddingTopLeft, autoPanPaddingBottomRight } = facility!.getPopup()!.options;
     facility!.closePopup();
-    return padding;
+    return [autoPanPaddingTopLeft, autoPanPaddingBottomRight];
   };
-  expect(paddingWhenOpened()).toEqual(L.point(268, 5));
+  expect(paddingWhenOpened()).toEqual([L.point(5, 78), L.point(268, 5)]);
 
   document.querySelector<HTMLDetailsElement>('.custom-layer-panel > details')!.open = false;
-  expect(paddingWhenOpened()).toEqual(L.point(5, 5));
+  expect(paddingWhenOpened()).toEqual([L.point(5, 78), L.point(5, 5)]);
 });
 
 // On a phone an open Map Layers (about 280px) left popups 47px wide, or less,
