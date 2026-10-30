@@ -122,7 +122,17 @@ export function ResultsMap({ layers }: ResultsMapProps) {
     layers.streams.length > 0;
 
   // County outlines are off by default, but on a result with no data layers
-  // they are all there is to show, so there they start ticked (#88).
+  // they are all there is to show, so there they start ticked (#88). Each such
+  // result starts afresh: an untick on an earlier result left an empty map.
+  const [countiesOnlyResult, setCountiesOnlyResult] = useState<MapLayerData>();
+  if (!hasData && layers.regionBoundaries.length > 0 && countiesOnlyResult !== layers) {
+    setCountiesOnlyResult(layers);
+    setChoices((prev) => {
+      const next = { ...prev };
+      delete next.regionBoundaries;
+      return next;
+    });
+  }
   const visibility: Record<string, boolean> = {
     ...getDefaultVisibility(),
     ...(hasData ? {} : { regionBoundaries: true }),

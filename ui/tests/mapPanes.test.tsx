@@ -284,6 +284,14 @@ it('re-reads the map size whenever its container resizes', () => {
 });
 
 const onlyCounties: MapLayerData = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [] };
+const regionBox = async () => (await screen.findByText(/Region Boundaries/)).closest('label')!.querySelector('input')!;
+const counties = () => {
+  let n = 0;
+  map.eachLayer((layer) => {
+    if (layer instanceof L.Polygon) n++;
+  });
+  return n;
+};
 
 it('does the same for county outlines on a result with no data layers', async () => {
   renderMap(onlyCounties);
@@ -296,14 +304,7 @@ it('does the same for county outlines on a result with no data layers', async ()
 // hide the first (#88).
 it('draws county outlines once on a result with no data layers, and the box shows and hides them', async () => {
   renderMap(onlyCounties);
-  const box = (await screen.findByText(/Region Boundaries/)).closest('label')!.querySelector('input')!;
-  const counties = () => {
-    let n = 0;
-    map.eachLayer((layer) => {
-      if (layer instanceof L.Polygon) n++;
-    });
-    return n;
-  };
+  const box = await regionBox();
   await waitFor(() => expect(counties()).toBe(1));
   expect(box.checked).toBe(true);
 
@@ -311,6 +312,25 @@ it('draws county outlines once on a result with no data layers, and the box show
   await waitFor(() => expect(counties()).toBe(0));
   fireEvent.click(box);
   await waitFor(() => expect(counties()).toBe(1));
+});
+
+// The box's choice carried over to later results, so unticking Region
+// Boundaries on one result hid the counties on a later county-only result and
+// left an empty map (#88).
+it('starts every county-only result with the county outlines shown', async () => {
+  const { rerender } = renderMap({ ...onlyCounties, facilities: everyLayer.facilities });
+  fireEvent.click(await regionBox());
+  await waitFor(() => expect(counties()).toBe(1));
+  fireEvent.click(await regionBox());
+  await waitFor(() => expect(counties()).toBe(0));
+
+  rerender(
+    <QueryClientProvider client={new QueryClient()}>
+      <ResultsMap layers={onlyCounties} />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(counties()).toBe(1));
+  expect((await regionBox()).checked).toBe(true);
 });
 
 it('draws aquifers in aquiferPane, under streams and counties, and leaves nothing above them when turned off', async () => {
