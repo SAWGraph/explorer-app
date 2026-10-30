@@ -40,7 +40,10 @@ once per region per session.
 
 These never touch an endpoint. Listed here so the coverage above is unambiguous.
 
-**Type**, the entity a block is about. Samples, Facilities, Surface Water Bodies, Wells.
+**Type**, the entity a block is about. Grouped into Samples (Sample Results), Features
+(Facilities, Surface Water, Ground Water (Aquifers), Wells), and two groups that only hold a
+disabled "Coming soon" row for now, Environmental Variables and Model Output. Surface Water is
+one entry for two engine types, `waterBodies` and `streams`; Feature Type picks between them.
 [`EntityTypeSelector.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/EntityTypeSelector.tsx)
 
 **Relationship**. Near, Downstream of, Upstream from.
@@ -56,8 +59,16 @@ instead of pretending those states do not exist.
 [`RegionSelector.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/RegionSelector.tsx),
 [`constants/regions.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/regions.ts)
 
-**Water Type**. Lake or Pond, Swamp or Marsh, Reservoir.
-[`WaterBodyFilters.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/WaterBodyFilters.tsx)
+**Feature Type**, shown whenever the Type is Surface Water, not behind "+ Add Filters". A tree
+with two parents, Surface Water Bodies (Lake or Pond, Swamp or Marsh, Reservoir) and Streams
+and Flowlines (Stream or River, Artificial Path, Canal or Ditch, Connector, Pipeline). Only one
+parent can hold ticks at a time, and that parent sets the block's type. It starts with Surface
+Water Bodies ticked; unticking everything shows an empty tree, and applying it empty runs
+Surface Water Bodies. A whole parent is stored as no filter, so it sends the same query as an unfiltered block. NHDPlus
+FTYPEs that are rare or absent in the source files (Inundation Area, Estuary, Ice Mass, Playa,
+Drainageway, Underground Conduit) are left out (#70).
+[`SurfaceWaterFilters.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SurfaceWaterFilters.tsx),
+[`constants/featureTypes.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/featureTypes.ts)
 
 **Well Source**. Illinois Wells and Maine Wells. Each is tied to one state, and picking a
 source that contradicts the selected state raises a warning.
@@ -92,7 +103,8 @@ Which one a dropdown gets comes down to whether its options have a hierarchy wor
 navigating. **Industry** uses the tree because NAICS codes nest and a flat list of 5,596 is
 unusable. **Material** uses it because 171 options are lopsided — 131 of them are fish
 species — and being able to say "all water samples" in one click, or fold Biota away, is the
-difference between usable and not. Everything else is a flat list.
+difference between usable and not. **Feature Type** uses it because its two parents are a
+real choice between two kinds of water. Everything else is a flat list.
 
 The two arrive at their tree differently. Industry has no explicit parent in the data, so
 the tree is derived from NAICS code prefixes. Material passes an explicit parent, because a

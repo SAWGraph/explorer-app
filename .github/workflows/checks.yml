@@ -57,7 +57,7 @@ jobs:
       - name: Query join order and observation joins
         run: npm run check-query-joins
 
-      # Vitest. Includes tests/queryGeneration.test.ts, the golden-file diff of
+      # Vitest. Includes engine/tests/queryGeneration.test.ts, the golden-file diff of
       # the SPARQL generated for the prebuilt, representative and critical
       # questions. The checks above assert a rule; this notices when a change
       # moves a question nobody was thinking about, which is the failure mode of

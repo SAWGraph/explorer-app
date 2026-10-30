@@ -127,10 +127,10 @@ Small states like Alabama (39 S2 cells) weren't in the arbitrary 5000 cells retu
 - Kept the explicit `filterS2ToRegionStep` as a fallback for endpoints that don't have region linkage data
 
 **Files Modified:**
-- `src/engine/templates/facilities.ts` - Added regionCode parameter and region filter clause
-- `src/engine/templates/samples.ts` - Added regionCode parameter and region filter clause
-- `src/engine/templates/waterBodies.ts` - Added regionCode parameter and region filter clause
-- `src/engine/planner.ts` - Modified getS2Step and planPipeline to pass region codes
+- `engine/templates/facilities.ts` - Added regionCode parameter and region filter clause
+- `engine/templates/samples.ts` - Added regionCode parameter and region filter clause
+- `engine/templates/waterBodies.ts` - Added regionCode parameter and region filter clause
+- `engine/planner.ts` - Modified getS2Step and planPipeline to pass region codes
 
 **Result:** Now queries for Alabama (and other small states) will work correctly. The S2 query filters to the region first, then returns those cells without arbitrary limits.
 
@@ -190,25 +190,25 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 **Symptom**: Opening the edit modal for a prebuilt query with `industryCodes: ['3253']` showed "Any industry..." placeholder instead of a chip for 3253.
 **Root cause**: `collapseSelections` assumed incoming codes were always fully expanded (parent + all descendants). When only the parent code `"3253"` was present without its child codes (`325311`, etc.), the function detected a "partial selection", recursed into children, found none selected, and returned an empty `userSelections` set.
 **Fix**: Simplified the logic — when a node's code is in `allCodes`, always add it to `userSelections` regardless of whether all descendants are also selected.
-**Files touched**: `src/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts`
+**Files touched**: `ui/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts`
 **Prevention**: When writing selection collapse/expand logic, handle the case where stored data may not match the fully expanded representation.
 
 ---
 
 ## 2026-09-08 — Substance dropdown empty: required label predicate with zero triples
 
-**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`, and `useSubstances()` in `src/hooks/useDiscoveryQueries.ts`
+**Component**: `engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`, and `useSubstances()` in `ui/hooks/useDiscoveryQueries.ts`
 **Symptom**: The Substance dropdown rendered "No options available" with a state selected, and silently showed the seven-entry `FALLBACK_SUBSTANCES` list with no state selected.
 **Root cause**: The query required `?substance dcterms:alternative ?_label`. That predicate has **zero** triples on substances, on `sawgraph` and `federation` alike. Because it was a required pattern rather than `OPTIONAL`, the whole query returned 0 rows instead of returning substances without labels. Substance names live on `rdfs:label` (896,899 triples). The likely origin of the mistake is `docs/SCHEMA.md`'s facility table, where `dcterms:alternative` is a legitimate *facility* predicate: 3,824,195 triples in fiokg, 3,742,487 of them on `fio:Facility`, 0 on `comptox:ChemicalEntity`.
 **Fix**: Switched to `rdfs:label`, then made both label patterns `OPTIONAL` and added a DTXSID fallback in the hook. Fixing only the predicate still hid 32 of 101 substances (47,642 observations, 5.0% of everything with a substance link) because the label was still required. Live counts: 0 rows → 69 → 101 unfiltered, and 0 → 69 → 79 for Maine.
-**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
+**Files touched**: `engine/templates/regions.ts`, `ui/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
 **Prevention**: A label pattern in a discovery query must be `OPTIONAL` with a URI-tail fallback. A required label does not degrade, it deletes: the row disappears along with its data, and the dropdown looks merely short rather than broken. This one mistake caused both the total outage and the 32 hidden substances. Cross-repo confirmation: `SAWGraph/streamlit-app/filters/substance.py:67` carries the identical bug and returns 0 rows live today, while `core/sparql.py:586` and `analyses/pfas_upstream/queries.py:147` in the same repo use `rdfs:label`; `analyses/aquifer_wells/queries.py:96-97` asks for both predicates but marks each `OPTIONAL`, and therefore survives.
 
 ---
 
 ## 2026-09-09 — QLever aggregate quirks while building the substance label fallback
 
-**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
+**Component**: `engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
 **Symptom**: Three separate failures while adding a fallback that borrows a substance name from the source parameter it was matched to.
 **Root cause**: All three are QLever aggregate behaviours, not SPARQL semantics.
 
@@ -217,21 +217,21 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 3. `SAMPLE()` picks arbitrarily across the 41 substances matched by more than one parameter, so labels changed between runs. `MIN()` is deterministic and, because `X` sorts before `X_A`, happens to prefer the unsuffixed base form.
 
 **Fix**: Project the borrowed name as its own column with `MIN(?_viaParam)`, require `rdfs:label` inside the OPTIONAL, and coalesce in the hook rather than in SPARQL.
-**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`
+**Files touched**: `engine/templates/regions.ts`, `ui/hooks/useDiscoveryQueries.ts`
 **Prevention**: Test aggregate expressions against **both** `sawgraph` and `federation`; they do not behave identically. And when an aggregate feeds a fallback chain, assert the expected coverage count rather than eyeballing the first few rows, since a silently unbound `SAMPLE` looks exactly like missing data.
 
 ---
 
 ## 2026-09-11 — A dead IRI returns 200 with no rows, it does not error
 
-**Component**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Component**: `engine/constants/prebuiltQueries.ts`, `engine/constants/materialTypes.ts`
 **Symptom**: The "PFHpA Groundwater Samples Downstream from Facilities in Cumberland County" card ran every pipeline step, reported success, and drew an empty map. No error anywhere.
 **Root cause**: The card's material filter pinned `http://w3id.org/sawgraph/v1/me-egad-data#sampleMaterialType.GW`, which matches zero triples. The August 2026 reload moved the two halves of the graph in opposite directions: instance data to `v2/me-egad-data#` and `v2/us-wqp-data#`, controlled vocabulary out of `-data` and into the roots `v1/me-egad#` and `v1/us-wqp#`. Material types are vocabulary, so the root form is the live one. All six `FALLBACK_MATERIAL_TYPES` entries carried the same dead namespace, and one also used `sampleMaterialType.SO` for sludge, a code that appears nowhere in the vocabulary — the real one is `.SU`.
 
 The failure mode is the point. The filter it builds is `VALUES ?matType { <dead-iri> }`, which is valid SPARQL. The endpoint answers 200 with zero rows, and nothing downstream can distinguish that from an honest "no data matches". Verified live: with the dead IRI, 0 sample points; with the root form, 65 sample points and 171 observations.
 
 **Fix**: `ef0c40b` — both files moved to `v1/me-egad#`, sludge corrected to `.SU`.
-**Files touched**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Files touched**: `engine/constants/prebuiltQueries.ts`, `engine/constants/materialTypes.ts`
 **Prevention**: Same family as the `dcterms:alternative` bug above — *a required pattern that cannot match does not degrade, it deletes*. Extend that to IRIs: a hardcoded IRI is a silent single point of failure the moment a namespace moves. When a query returns nothing, count the triples on the IRIs it names (`SELECT (COUNT(*) AS ?n) WHERE { { <iri> ?p ?o } UNION { ?s ?p2 <iri> } }`) before investigating anything else. Source of truth for the source-specific vocabularies is `SAWGraph/pfas-kg` under `datasets/*/controlledVocab/`, not `contaminoso`, which defines only the shapes.
 
 ---
@@ -275,7 +275,7 @@ and discarded it.
 
 **Fix**: ID-finding queries drop those joins unless a filter needs them, and any
 query the engine refuses is split into slices and merged
-(`src/engine/scope.ts`). 34 of the 37 failures now work, none regressed.
+(`engine/scope.ts`). 34 of the 37 failures now work, none regressed.
 
 **Three traps worth knowing**
 
@@ -297,7 +297,7 @@ query the engine refuses is split into slices and merged
 
 ## 2026-09-14 — Cached results served for the wrong question (FIXED)
 
-**Component**: `src/engine/cacheKey.ts` — `canonicalQuestion`
+**Component**: `engine/cacheKey.ts` — `canonicalQuestion`
 
 **Symptom**: none visible. That is the point of this entry. A map would render a
 complete, plausible answer that belonged to a *different* question, with no
@@ -364,8 +364,8 @@ entries cached earlier stay reachable.
 
 ## 2026-09-16 — "Upstream from" answered the mirror question (FIXED)
 
-**Component**: `src/engine/planner.ts` — `buildFusedSteps`, and
-`src/engine/templates/fusedQueries.ts` — `buildFusedWellQuery`
+**Component**: `engine/planner.ts` — `buildFusedSteps`, and
+`engine/templates/fusedQueries.ts` — `buildFusedWellQuery`
 
 **Symptom**: reported by Torsten: "the upstream query seems to be switched: I
 asked for facilities upstream of stream but seem to get stream upstream of
@@ -777,3 +777,124 @@ transitively, so `?ic fio:subcodeOf? ?sel` is an exact rewrite of
 `FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`. Measured: 13s with
 the FILTER, query-planning timeout with the path. The FILTER is the fast form
 here; do not "optimise" it.
+
+---
+
+## 2026-10-21: Water bodies drawn once per S2 cell, old polygons left on the map (FIXED)
+
+**Reported by David.** Seven questions about wells and surface water bodies in
+Hancock County, Maine, run one after another from Customize. The seventh asked
+exactly what the first did, yet its map looked different.
+
+**Symptom.** The seventh map showed lakes the first did not. The data was not
+the cause: both runs returned the same rows (2264 wells, 1272 water body rows),
+and the cache served the right answer.
+
+**Root cause.** `buildWaterBodiesByIri` (`engine/templates/hydrate.ts`)
+projected `?s2cell` in `SELECT DISTINCT`. A water body touches many S2 cells, so
+the query returned one row per (water body, cell), each repeating the full
+polygon: 1272 rows for 234 water bodies, Graham Lake 90 times. Nothing read the
+column. `transformWaterBodiesToFeatures` kept every row, so `WaterBodyLayer`
+rendered many children with the same React key. With duplicate keys React
+cannot match old children to new ones and leaves some mounted, and the layer is
+not remounted between runs, so polygons from earlier runs stayed on the map.
+
+Measured by rendering the real layer with David's sequence of results:
+
+| Step | Water bodies in the answer | Polygons on the map | Distinct on the map |
+|---|---|---|---|
+| Question 1, fresh map | 234 | 1272 | 234 |
+| after questions 4, 5 and 6 | 371 | 5143 | 375 |
+| question 7 (same as 1) | 234 | 6044 | 332 |
+
+The same duplication inflated the legend ("Surface Water Bodies (1272)" for 234),
+stacked the 30% fills until large lakes looked solid, and sent 19.2MB of polygon
+WKT where 0.8MB is unique.
+
+**Fix.** Both ends. The query matches `?s2cell` but no longer projects it (234
+rows, same 234 water bodies, live on hydrologykg). The transformer dedupes by
+water body IRI, which also covers results already stored in the cache with the
+old row shape. Regression test: `ui/tests/waterBodyLayer.test.tsx`.
+
+**Lesson.** A variable in `SELECT DISTINCT` that no consumer reads is not free:
+it multiplies rows by its fan-out. Wells project `?s2cell` too, but a point sits
+in one cell, so it does not multiply there.
+
+## 2026-10-28: Stream and county popups opened under the map data (FIXED)
+
+**Reported in issue #86.** On "facilities upstream from streams in Cook County",
+a county popup sat behind the county outlines and the facility squares, and a
+stream popup sat behind the streams and the facilities. The issue called it
+long standing.
+
+**Symptom.** Measured on the live site: the DuPage County popup was the topmost
+element at 0 of 15 points inside its box (county fill 11, facility squares 3, a
+stream 1), so its close button could not be clicked. The Butterfield Creek popup
+had facility squares over its text. Tooltips were fine.
+
+**Root cause.** `ResultsMap` wrapped the county and stream layers in
+react-leaflet `<Pane>` elements (`regionPane` z 350, `streamsPane` z 380) so
+their lines draw below the other data. A `<Pane>` sets the default pane for
+every child, and react-leaflet hands that default to popups and tooltips too
+(`withPane(props, context)` in `@react-leaflet/core/lib/div-overlay.js`). So
+the popups opened inside the line panes, under `overlayPane` (400) and
+`markerPane` (600), and under the pane's own SVG (z 200 from leaflet.css).
+
+It recurred. Tooltips hit the same trap when `streamsPane` arrived (9350655,
+2026-05-02). A `z-index: 1000 !important` rule on `.leaflet-tooltip` did not
+help, because it only orders tooltips within one pane. The fix was
+`pane="tooltipPane"` on every tooltip (897c7cf). Three days later the content
+moved from tooltips into new popups (184c9ac) without that prop, and the bug
+was back. Nothing recorded the trap.
+
+The aquifer overlay had the same family of bug. Its canvas renderer
+(`L.canvas()`, 0284aef) had no pane, and a renderer draws in its own pane, not
+its layers'. So the canvas sat in `overlayPane` above streams and counties and
+took their clicks, even after aquifers were turned off: 0 of 142 stream points
+could be clicked. `aquiferPane` stayed empty.
+
+**Fix.** `ResultsMap` creates the three panes with childless
+`<Pane name="..." />` elements, and each layer names its own pane:
+`pane="regionPane"` on the county `<Polygon>`, `pane="streamsPane"` on the
+stream `<Polyline>`, and `pane: 'aquiferPane'` on the canvas renderer. A `pane`
+prop on a path does not reach its children, so popups and tooltips keep
+Leaflet's own panes. Measured on localhost after the fix: both popups on top at
+15 of 15 points, the county close button works, and streams stay clickable with
+aquifers on and after turning them off (142 of 142).
+
+**Prevention.** `ui/tests/mapPanes.test.tsx` renders `ResultsMap` with one feature
+of every layer type and checks the pane each shape, popup and tooltip lands in,
+and where the aquifer canvas sits. An ESLint `no-restricted-syntax` rule in
+`eslint.config.js` rejects layers nested inside `<Pane>`.
+
+**Lesson.** A react-leaflet `<Pane>` with children sets a default for a whole
+subtree, not a setting for one layer. Name the pane on the layer itself, and
+give a custom renderer its own `pane`.
+
+## 2026-10-29: Popups ran off the bottom of the map: Leaflet's cached map size (FIXED)
+
+**Found while fixing #88.** Capping each popup to the map's size fixed the
+width on a 390px phone, but popups still ran up to 33px off the bottom there,
+and up to 21px at desktop size, before and after the cap.
+
+**Symptom.** On the phone, Leaflet reported the map as 390x622 while the map
+on screen was 390x392, measured in the same run. Every popup was capped and
+panned for a map 230px taller than the one the user could see.
+
+**Root cause.** Leaflet reads the container's size once and caches it. It
+re-reads it only on a window resize or an explicit `invalidateSize()`. The map
+is created before the question text above it has laid out; on a phone that text
+wraps into a tall column, the map shrinks, and no window resize fires. Leaflet's
+own autoPan, the popup cap and `fitBounds` all used the stale size.
+
+**Fix.** `FitPopupsToMap` in `ui/components/Map/ResultsMap.tsx` observes the map container with a
+`ResizeObserver` and calls `map.invalidateSize()` on every change. Measured at
+1396x1009, 390x844 and 1280x560: every popup 0px cut, close button on the map.
+Test: `re-reads the map size whenever its container resizes` in
+`ui/tests/mapPanes.test.tsx`.
+
+**Lesson.** When something on a Leaflet map is off by a constant amount at the
+edges, compare `map.getSize()` with the container's `clientWidth` and
+`clientHeight` before suspecting the feature. Also, a size stub in a test must
+return a fresh `L.point` each call: Leaflet mutates the point `getSize()`
+returns, so a shared one shrinks toward zero.

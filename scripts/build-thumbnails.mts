@@ -16,10 +16,10 @@
 // against ~90KB, and the marks are drawn as SVG on top, so the compression
 // artefacts land on terrain nobody is reading.
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { PREBUILT_QUERIES } from '../src/constants/prebuiltQueries';
-import { planPipeline } from '../src/engine/planner';
-import { executePipeline } from '../src/engine/executor';
-import { questionThumbnailUrl, boundsForQuestion } from '../src/constants/regionBounds';
+import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
+import { planPipeline } from '../engine/planner';
+import { executePipeline } from '../engine/executor';
+import { questionThumbnailUrl, boundsForQuestion } from '../ui/constants/regionBounds';
 
 const W = 440;
 const H = 300;

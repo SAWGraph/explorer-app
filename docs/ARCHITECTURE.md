@@ -108,47 +108,39 @@ This finds all facilities with industry code 3253 and returns their names.
 
 ## Folder Structure
 
+The engine and the UI are separate top-level folders. The engine is headless:
+it runs in Node as well as in the browser, and `engine/tests/headless.test.ts`
+fails if it imports anything from `ui/` or any package. The UI may import the
+engine; never the other way round. Each folder has its own README and tests.
+
 ```
 explorer/
-├── src/
-│   ├── components/          # React UI components
-│   │   ├── Dashboard/       # Pre-built query cards
-│   │   ├── QueryEditor/     # Block A / Relationship / Block C editors
-│   │   ├── Map/             # Leaflet map + one layer component per entity type
-│   │   ├── Pipeline/        # Progress strip, partial-results notice
-│   │   ├── Publish/         # Share a question and its result by link
-│   │   ├── DesignSystem/    # Design guide route
-│   │   ├── common/          # FlatSelect, HierarchicalSelect, shared bits
-│   │   └── Layout/          # Header, sidebar, layout
-│   │
-│   ├── engine/              # THE CORE: query planning and execution
-│   │   ├── planner.ts       # Question → pipeline steps
-│   │   ├── executor.ts      # Runs steps, splits what the engine refuses
-│   │   ├── scope.ts         # How to slice a step that was too big
-│   │   ├── sparqlClient.ts  # Sends SPARQL, retries, 60s request timeout
-│   │   ├── sparqlErrors.ts  # Classifies failures (a 429 is usually a timeout)
-│   │   ├── queryBreadth.ts  # Pre-flight warning for questions that reliably fail
-│   │   ├── cacheKey.ts      # Canonical question → cache key
-│   │   ├── wire.ts          # What a cached result looks like on the wire
-│   │   ├── resultTransformer.ts # SPARQL rows → map features
-│   │   └── templates/       # SPARQL builders
-│   │       ├── fusedQueries.ts   # The main one: spatial + hydrological joins
-│   │       ├── hydrate.ts        # Fetch details for a known list of IRIs
-│   │       ├── regions.ts        # Dropdown discovery queries
-│   │       ├── downstreamSamples.ts
-│   │       ├── wells.ts · aquifers.ts
-│   │       ├── facilities.ts · samples.ts  # Shared fragments, not whole queries
-│   │       └── spatial.ts        # Region boundary geometry
-│   │
-│   ├── api/                 # Talks to our own API (not to SPARQL)
-│   │   ├── resultCacheClient.ts
-│   │   └── publishClient.ts
-│   │
+├── engine/                  # Headless: question in, SPARQL out, rows in, features out
+│   ├── README.md            # Entry points and how to call the engine from Node
+│   ├── planner.ts           # Question to pipeline steps
+│   ├── executor.ts          # Runs steps, splits what the endpoint refuses
+│   ├── scope.ts             # How to slice a step that was too big
+│   ├── sparqlClient.ts      # Sends SPARQL, retries, 60s request timeout
+│   ├── sparqlErrors.ts      # Classifies failures (a 429 is usually a timeout)
+│   ├── queryBreadth.ts      # Pre-flight warning for questions that reliably fail
+│   ├── cacheKey.ts          # Canonical question to cache key
+│   ├── wire.ts              # What a cached result looks like on the wire
+│   ├── resultTransformer.ts # SPARQL rows to map features
+│   ├── questionGenerator.ts # The question as an English sentence
+│   ├── templates/           # SPARQL builders (fusedQueries is the main one)
+│   ├── types/               # AnalysisQuestion, MapFeature, SPARQL rows
+│   ├── constants/           # Endpoints, prefixes, regions, substances, prebuilt queries
+│   └── tests/               # npm run test:engine
+│
+├── ui/                      # The React app
+│   ├── README.md            # Folder map and how the UI calls the engine
+│   ├── main.tsx · App.tsx   # Entry point (index.html loads /ui/main.tsx)
+│   ├── components/          # Dashboard, QueryEditor, Map, Pipeline, Publish, Layout
+│   ├── hooks/               # React Query + pipeline hooks
 │   ├── store/queryStore.ts  # Zustand: the question, results, view state
 │   ├── storage/             # localStorage: saved questions, publish tokens
-│   ├── hooks/               # React Query + pipeline hooks
-│   ├── types/               # AnalysisQuestion, MapFeature, SPARQL rows
-│   └── constants/           # Endpoints, prefixes, regions, prebuilt queries
+│   ├── api/                 # Talks to our own API (not to SPARQL)
+│   └── tests/               # npm run test:ui (jsdom)
 │
 ├── server/                  # Express + Postgres API (deployed separately)
 │   └── src/
@@ -156,19 +148,20 @@ explorer/
 │       ├── routes/results.ts   # Public read, token-gated write
 │       └── routes/publish.ts   # Published questions
 │
-├── scripts/                 # Maintainer tools (tsx)
+├── scripts/                 # Maintainer tools (tsx); they import the engine directly
 │   ├── warm-cache.mts       # Run the dashboard questions, upload the results
 │   ├── check-cache-key.mts  # Assertions on cache-key canonicalisation
 │   └── query-matrix.mts     # Measure every query shape, write the CSV
 │
-└── docs/                    # See CLAUDE.md for the full map
+└── docs/                    # Project-wide docs
 ```
 
+`index.html`, `vite.config.ts`, `public/` and `package.json` stay at the root:
+Railway's builder finds the Vite config there and serves `dist/`.
+
 **Key directories:**
-- **`engine/`** — The brain. All query logic lives here.
-- **`components/`** — React UI. Organized by screen area.
-- **`store/`** — Zustand for global state (the current question and results).
-- **`hooks/`** — React Query for async data fetching (dropdown population).
+- **`engine/`**: the brain. All query logic lives here. See `engine/README.md`.
+- **`ui/`**: the React UI, organized by screen area. See `ui/README.md`.
 - **`server/`** — The only part that is not a static bundle. Holds the cache.
 
 ---
@@ -183,7 +176,7 @@ User selects in the UI:
 - **Block C** (anchor): "Landfills" (NAICS 562212)
 - **Region**: "Penobscot County, Maine"
 
-This creates an `AnalysisQuestion` object (`src/types/query.ts`):
+This creates an `AnalysisQuestion` object (`engine/types/query.ts`):
 
 ```typescript
 {
@@ -984,7 +977,7 @@ console.log(rows.length);
 ### 4. Test a query directly
 
 Copy it from the console and run it against the endpoint the step used — they
-are listed in `src/constants/endpoints.ts`. Most discovery steps run on
+are listed in `engine/constants/endpoints.ts`. Most discovery steps run on
 `federation`:
 
 ```

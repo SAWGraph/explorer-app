@@ -16,8 +16,8 @@
 //
 // No network: the pipeline steps only build query strings.
 import assert from 'node:assert/strict';
-import { planPipeline, type PipelineContext } from '../src/engine/planner';
-import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../src/types/query';
+import { planPipeline, type PipelineContext } from '../engine/planner';
+import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../engine/types/query';
 
 const ENTITY_TYPES: EntityType[] = [
   'samples',

@@ -76,7 +76,7 @@ template fix: the SPARQL text of each variant already works, what is missing is
 a pipeline that issues both and merges.
 
 The executor already merges slice results as a set, deduping on
-`JSON.stringify(row)` (`src/engine/scope.ts`), so the merge path exists. What is
+`JSON.stringify(row)` (`engine/scope.ts`), so the merge path exists. What is
 new is issuing a second variant of the same step deliberately rather than as a
 failure retry.
 
