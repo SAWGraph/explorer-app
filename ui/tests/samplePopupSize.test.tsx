@@ -11,6 +11,7 @@ import L from 'leaflet';
 import type { SparqlRow } from '../../engine/types/sparql';
 import type { MapFeature } from '../../engine/types/map';
 import { SampleLayer } from '../components/Map/SampleLayer';
+import { MapPanes } from '../components/Map/ResultsMap';
 
 let resolveRows: (rows: SparqlRow[]) => void = () => {};
 vi.mock('../../engine/sparqlClient', () => ({
@@ -30,6 +31,7 @@ it('re-measures the open popup once its substance table arrives', async () => {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MapContainer center={[44.2, -69.1]} zoom={9} style={{ height: 400, width: 400 }} ref={(m) => { map = m; }}>
+        <MapPanes />
         <SampleLayer features={[feature]} />
       </MapContainer>
     </QueryClientProvider>,

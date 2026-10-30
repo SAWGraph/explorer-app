@@ -18,6 +18,7 @@ export function WellLayer({ features }: WellLayerProps) {
             key={f.id}
             center={f.geometry.coordinates as LatLngExpression}
             radius={4}
+            pane="wellsPane"
             pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.aquifer, fillOpacity: 0.7, weight: 2 }}
           >
             <Popup maxWidth={500}>

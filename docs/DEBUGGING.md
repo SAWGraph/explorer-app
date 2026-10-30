@@ -870,3 +870,31 @@ and where the aquifer canvas sits. An ESLint `no-restricted-syntax` rule in
 **Lesson.** A react-leaflet `<Pane>` with children sets a default for a whole
 subtree, not a setting for one layer. Name the pane on the layer itself, and
 give a custom renderer its own `pane`.
+
+## 2026-10-29: Popups ran off the bottom of the map: Leaflet's cached map size (FIXED)
+
+**Found while fixing #88.** Capping each popup to the map's size fixed the
+width on a 390px phone, but popups still ran up to 33px off the bottom there,
+and up to 21px at desktop size, before and after the cap.
+
+**Symptom.** On the phone, Leaflet reported the map as 390x622 while the map
+on screen was 390x392, measured in the same run. Every popup was capped and
+panned for a map 230px taller than the one the user could see.
+
+**Root cause.** Leaflet reads the container's size once and caches it. It
+re-reads it only on a window resize or an explicit `invalidateSize()`. The map
+is created before the question text above it has laid out; on a phone that text
+wraps into a tall column, the map shrinks, and no window resize fires. Leaflet's
+own autoPan, the popup cap and `fitBounds` all used the stale size.
+
+**Fix.** `FitPopupsToMap` in `ui/components/Map/ResultsMap.tsx` observes the map container with a
+`ResizeObserver` and calls `map.invalidateSize()` on every change. Measured at
+1396x1009, 390x844 and 1280x560: every popup 0px cut, close button on the map.
+Test: `re-reads the map size whenever its container resizes` in
+`ui/tests/mapPanes.test.tsx`.
+
+**Lesson.** When something on a Leaflet map is off by a constant amount at the
+edges, compare `map.getSize()` with the container's `clientWidth` and
+`clientHeight` before suspecting the feature. Also, a size stub in a test must
+return a fresh `L.point` each call: Leaflet mutates the point `getSize()`
+returns, so a shared one shrinks toward zero.

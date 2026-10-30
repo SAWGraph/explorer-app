@@ -9,7 +9,7 @@
 // aquifer canvas had the opposite problem: it ignored aquiferPane, sat in
 // overlayPane above streams and counties, and swallowed their clicks even
 // after the overlay was turned off. Issue #86.
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import L from 'leaflet';
@@ -17,9 +17,20 @@ import type { MapFeature } from '../../engine/types/map';
 import type { MapLayerData } from '../hooks/useMapLayers';
 import { ResultsMap } from '../components/Map/ResultsMap';
 import { LAYER_REGISTRY } from '../components/Map/layerStyles';
+import { CachedResultNotice } from '../components/Pipeline/CachedResultNotice';
+import { useQueryStore } from '../store/queryStore';
 
 vi.mock('../../engine/sparqlClient', () => ({ executeSparql: () => new Promise(() => {}) }));
 window.matchMedia = (() => ({ matches: false })) as unknown as typeof window.matchMedia;
+// jsdom has no ResizeObserver; keep each callback so a test can fire it.
+const resizeCallbacks: (() => void)[] = [];
+window.ResizeObserver = class {
+  constructor(callback: () => void) {
+    resizeCallbacks.push(callback);
+  }
+  observe() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver;
 
 // ResultsMap owns its MapContainer, so catch each map as Leaflet creates it.
 let map: L.Map;
@@ -127,21 +138,208 @@ it('opens every popup and tooltip above all data, and keeps each layer in its ow
 
   const top = { popup: 'popup', tooltip: 'tooltip' };
   expect(panes()).toEqual({
-    sample: { shape: 'overlay', ...top },
+    sample: { shape: 'samples', ...top },
     facility: { shape: 'marker', ...top },
     waterBodyPoint: { shape: 'marker', ...top },
     waterBodyLine: { shape: 'overlay', ...top },
-    waterBodyArea: { shape: 'overlay', ...top },
-    well: { shape: 'overlay', ...top },
+    waterBodyArea: { shape: 'waterAreas', ...top },
+    well: { shape: 'wells', ...top },
     stream: { shape: 'streams', ...top },
     county: { shape: 'region', ...top },
   });
 });
 
+// Layers sharing a pane stack in the order they were added, so toggling one
+// off and on used to move it to the top (#88). With a pane each, this order is
+// the whole story.
+const leafletDefault: Record<string, number> = { overlayPane: 400, markerPane: 600, tooltipPane: 650, popupPane: 700 };
+const zOf = (name: string) => leafletDefault[name] ?? Number(map.getPane(name)!.style.zIndex);
+
+it('stacks the panes in a fixed order, bottom to top', () => {
+  renderMap(everyLayer);
+  const bottomToTop = ['aquiferPane', 'regionPane', 'waterAreasPane', 'streamsPane', 'overlayPane', 'samplesPane', 'wellsPane', 'markerPane', 'measurePane', 'tooltipPane', 'popupPane'];
+  const zs = bottomToTop.map(zOf);
+  expect(zs).toEqual([...new Set(zs)].sort((a, b) => a - b));
+});
+
+// Leaflet sizes a popup from its own maxWidth and maxHeight, never from the
+// map, so on a phone popups ran off the map, close button included. Sample
+// popups also had a 400px outer scroll around their own table scroll (#88).
+it('caps every popup to the size of the map it opens in', async () => {
+  renderMap(everyLayer);
+  await waitForFeatures(7);
+  const capsAt = (width: number, height: number) => {
+    // A fresh point each call, as Leaflet's own getSize() returns: callers mutate it.
+    vi.spyOn(map, 'getSize').mockImplementation(() => L.point(width, height));
+    const out: Record<string, [number | undefined, number | undefined]> = {};
+    map.eachLayer((layer) => {
+      const popup = layer.getPopup();
+      const tooltip = layer.getTooltip();
+      if (!popup || !tooltip) return;
+      layer.openPopup();
+      out[tooltip.getElement()!.textContent!] = [popup.options.maxWidth, popup.options.maxHeight ?? undefined];
+      layer.closePopup();
+    });
+    return out;
+  };
+
+  const phone = capsAt(390, 392);
+  expect(phone.facility).toEqual([330, 302]);
+  expect(phone.sample).toEqual([330, 302]);
+  expect(phone.stream).toEqual([330, 302]);
+
+  // A wide map keeps each popup's own width, and the height cap follows the map.
+  const desktop = capsAt(1396, 846);
+  expect(desktop.facility).toEqual([600, 756]);
+  expect(desktop.sample).toEqual([500, 756]);
+
+  // A map too small for the room a popup needs: never a negative or tiny cap.
+  expect(capsAt(180, 120).facility).toEqual([150, 100]);
+});
+
+// Popups opened under Map Layers or the saved results banner, close button
+// included, and fitted results could land under them (#88).
+it('keeps popups and fitted results clear of the banner and the open panels, the panels only while open', async () => {
+  // The real banner, as MainContent renders it: a sibling of the map.
+  useQueryStore.setState({ resultProvenance: { computedAt: null, partial: false } });
+  onTestFinished(() => useQueryStore.setState({ resultProvenance: null }));
+  const withBanner = (layers: MapLayerData) => (
+    <QueryClientProvider client={new QueryClient()}>
+      <ResultsMap layers={layers} />
+      <CachedResultNotice />
+    </QueryClientProvider>
+  );
+  const rect = (x: number, y: number, width: number, height: number) =>
+    ({ x, y, width, height, left: x, top: y, right: x + width, bottom: y + height }) as DOMRect;
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    if (this.classList.contains('leaflet-container')) return rect(0, 0, 1396, 846);
+    if (this.classList.contains('cached-result-notice')) return rect(300, 10, 600, 60);
+    if (this.matches('.custom-layer-panel > details[open]')) return rect(1136, 10, 250, 160);
+    return rect(0, 0, 0, 0);
+  });
+  const fitBounds = vi.spyOn(L.Map.prototype, 'fitBounds').mockImplementation(function (this: L.Map) {
+    return this;
+  });
+  const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [] };
+  const { rerender } = render(withBanner(empty));
+  await screen.findByText(/Aquifers/);
+  vi.spyOn(map, 'getSize').mockImplementation(() => L.point(1396, 846));
+  rerender(withBanner(everyLayer));
+  await waitForFeatures(7);
+
+  // The banner ends 70px down: 70 + 8. Map Layers spans x 1136 to 1386 of a
+  // 1396px map: 1396 - 1136 + 8.
+  const fitOptions = fitBounds.mock.calls[fitBounds.mock.calls.length - 1][1]!;
+  expect([fitOptions.paddingTopLeft, fitOptions.paddingBottomRight]).toEqual([L.point(50, 78), L.point(268, 50)]);
+
+  let facility: L.Marker | undefined;
+  map.eachLayer((layer) => {
+    if (layer instanceof L.Marker && layer.getTooltip()?.getElement()?.textContent === 'facility') facility = layer;
+  });
+  const paddingWhenOpened = () => {
+    facility!.openPopup();
+    const { autoPanPaddingTopLeft, autoPanPaddingBottomRight } = facility!.getPopup()!.options;
+    facility!.closePopup();
+    return [autoPanPaddingTopLeft, autoPanPaddingBottomRight];
+  };
+  expect(paddingWhenOpened()).toEqual([L.point(5, 78), L.point(268, 5)]);
+
+  document.querySelector<HTMLDetailsElement>('.custom-layer-panel > details')!.open = false;
+  expect(paddingWhenOpened()).toEqual([L.point(5, 78), L.point(5, 5)]);
+});
+
+// On a phone an open Map Layers (about 280px) left popups 47px wide, or less,
+// and handed fitBounds a negative size (#88).
+it('reserves nothing for an open panel that would leave too little of the map', async () => {
+  const rect = (x: number, y: number, width: number, height: number) =>
+    ({ x, y, width, height, left: x, top: y, right: x + width, bottom: y + height }) as DOMRect;
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    if (this.classList.contains('leaflet-container')) return rect(0, 0, 390, 392);
+    if (this.matches('.custom-layer-panel > details[open]')) return rect(100, 10, 280, 300);
+    return rect(0, 0, 0, 0);
+  });
+  const fitBounds = vi.spyOn(L.Map.prototype, 'fitBounds').mockImplementation(function (this: L.Map) {
+    return this;
+  });
+  const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [] };
+  const { rerender } = renderMap(empty);
+  await screen.findByText(/Aquifers/);
+  vi.spyOn(map, 'getSize').mockImplementation(() => L.point(390, 392));
+  rerender(
+    <QueryClientProvider client={new QueryClient()}>
+      <ResultsMap layers={everyLayer} />
+    </QueryClientProvider>,
+  );
+  await waitForFeatures(7);
+
+  expect(fitBounds.mock.calls[fitBounds.mock.calls.length - 1][1]!.paddingBottomRight).toEqual(L.point(50, 50));
+  let facility: L.Marker | undefined;
+  map.eachLayer((layer) => {
+    if (layer instanceof L.Marker && layer.getTooltip()?.getElement()?.textContent === 'facility') facility = layer;
+  });
+  facility!.openPopup();
+  expect(facility!.getPopup()!.options.maxWidth).toBe(330);
+  facility!.closePopup();
+});
+
+// Leaflet caches the map's size and re-reads it only on a window resize. On a
+// phone the map shrank from 622px to 392px as the question text laid out, and
+// popups were capped and panned for the old size, running off the bottom (#88).
+it('re-reads the map size whenever its container resizes', () => {
+  renderMap(everyLayer);
+  const invalidateSize = vi.spyOn(map, 'invalidateSize');
+  resizeCallbacks[resizeCallbacks.length - 1]();
+  expect(invalidateSize).toHaveBeenCalledWith({ debounceMoveend: true });
+});
+
+const onlyCounties: MapLayerData = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [] };
+const regionBox = async () => (await screen.findByText(/Region Boundaries/)).closest('label')!.querySelector('input')!;
+const counties = () => {
+  let n = 0;
+  map.eachLayer((layer) => {
+    if (layer instanceof L.Polygon) n++;
+  });
+  return n;
+};
+
 it('does the same for county outlines on a result with no data layers', async () => {
-  renderMap({ ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [] });
+  renderMap(onlyCounties);
   await waitForFeatures(1);
   expect(panes()).toEqual({ county: { shape: 'region', popup: 'popup', tooltip: 'tooltip' } });
+});
+
+// A result with only county outlines drew them from a branch of its own, so
+// ticking Region Boundaries drew a second copy and unticking it could never
+// hide the first (#88).
+it('draws county outlines once on a result with no data layers, and the box shows and hides them', async () => {
+  renderMap(onlyCounties);
+  const box = await regionBox();
+  await waitFor(() => expect(counties()).toBe(1));
+  expect(box.checked).toBe(true);
+
+  fireEvent.click(box);
+  await waitFor(() => expect(counties()).toBe(0));
+  fireEvent.click(box);
+  await waitFor(() => expect(counties()).toBe(1));
+});
+
+// The box's choice carried over to later results, so unticking Region
+// Boundaries on one result hid the counties on a later county-only result and
+// left an empty map (#88).
+it('starts every county-only result with the county outlines shown', async () => {
+  const { rerender } = renderMap({ ...onlyCounties, facilities: everyLayer.facilities });
+  fireEvent.click(await regionBox());
+  await waitFor(() => expect(counties()).toBe(1));
+  fireEvent.click(await regionBox());
+  await waitFor(() => expect(counties()).toBe(0));
+
+  rerender(
+    <QueryClientProvider client={new QueryClient()}>
+      <ResultsMap layers={onlyCounties} />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(counties()).toBe(1));
+  expect((await regionBox()).checked).toBe(true);
 });
 
 it('draws aquifers in aquiferPane, under streams and counties, and leaves nothing above them when turned off', async () => {

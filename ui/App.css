@@ -672,6 +672,10 @@
 }
 
 /* Edit Modal */
+/* One above Leaflet's control corners (.leaflet-top, .leaflet-bottom: 1000).
+   On a tie the later element wins, so a modal mounted before the map (Save,
+   Publish) sat under the zoom buttons and map panels (#88). Dropdowns inside a
+   modal are portaled at 1100 and stay above it. */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -679,7 +683,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1001;
 }
 
 .modal-content {
@@ -1172,6 +1176,13 @@
 .sample-popup-samples {
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* On a short map the whole popup scrolls (Leaflet adds this class), so the
+   table drops its own scroll: never a scroll inside a scroll (#88). */
+.leaflet-popup-scrolled .sample-popup-samples {
+  max-height: none;
+  overflow-y: visible;
 }
 
 .sample-section {

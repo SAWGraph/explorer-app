@@ -50,6 +50,7 @@ export function WaterBodyLayer({ features }: WaterBodyLayerProps) {
             <Polygon
               key={f.id}
               positions={f.geometry.coordinates as LatLngExpression[][]}
+              pane="waterAreasPane"
               pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.watershed, fillOpacity: 0.3, weight: 2 }}
             >
               <Popup maxWidth={500}>
