@@ -28,3 +28,21 @@ it.each(QUESTIONS)('%s: the join collapses to one row per well before columns at
   expect(query.indexOf(`${open![1]} geo:hasGeometry`)).toBeGreaterThan(open!.index!);
   expect(inner).not.toContain('geo:hasGeometry');
 });
+
+// The wells query ignores any scope, so splitting it re-sends the same query.
+// Every step that can be divided must build a different query per slice.
+it.each(QUESTIONS)('%s: a divisible step builds a different query for each slice', async (_name, question) => {
+  const ctx: PipelineContext = {
+    question,
+    targetIris: ['http://example.org/t/1', 'http://example.org/t/2'],
+    anchorIris: ['http://example.org/a/1', 'http://example.org/a/2'],
+    results: {},
+  };
+  for (const step of planPipeline(question)) {
+    if (!step.divide || step.type.startsWith('FIND_')) continue;
+    const halves = await step.divide(ctx, undefined);
+    if (!halves) continue;
+    const queries = new Set(halves.map((s) => step.buildQuery(ctx, s)));
+    expect(queries.size, step.type).toBe(halves.length);
+  }
+});
