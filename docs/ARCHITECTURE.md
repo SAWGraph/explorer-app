@@ -881,6 +881,17 @@ elsewhere. Treat this as the primary endpoint, not a special case.
 The region is a starting point, not a post-filter: the cells are selected by
 county first, so the engine never looks outside it.
 
+A cell that straddles the county line passes this check, and so does every
+feature in it. For wells the feature itself is checked too, through its county
+subdivision (`featureRegionClause` in `engine/templates/fusedQueries.ts`):
+
+```sparql
+?_subdivisionC kwg-ont:administrativePartOf+ kwgr:administrativeRegion.USA.23009 .
+?wellC spatial:connectedTo ?_subdivisionC .
+```
+
+Water bodies have no region links, so for them the cell check is all there is.
+
 ### Pattern 2: Spatial relationship (near)
 
 ```sparql

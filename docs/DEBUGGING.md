@@ -898,3 +898,59 @@ edges, compare `map.getSize()` with the container's `clientWidth` and
 `clientHeight` before suspecting the feature. Also, a size stub in a test must
 return a fresh `L.point` each call: Leaflet mutates the point `getSize()`
 returns, so a shared one shrinks toward zero.
+
+## 2026-11-04: A region on wells let in wells from across the county line (FIXED)
+
+**Reported by David** (emails of Oct 19 and Oct 30). "Wells near surface water
+bodies in Hancock County, ME" returned wells outside the county, and putting
+the region on block A, block C or both gave the same map at 0 cells away.
+
+**Root cause.** The region clause only asked whether the S2 cell touches the
+county (`?s2target spatial:connectedTo kwgr:administrativeRegion.USA.23009`).
+A cell that straddles the line passes, and so does every well in it. At 0 cells
+away the well and the water body share one cell, so a region on either block
+checks that same cell, which is why Q1 to Q3 matched.
+
+**Fix.** `featureRegionClause` in `engine/templates/fusedQueries.ts` adds
+David's check whenever a wells block carries a region: the well must link to a
+county subdivision that is `administrativePartOf+` the region. The cell clause
+stays, because it narrows the search first. It goes into
+`buildFusedWhereBody` (discovery and well hydration) and
+`buildEntityProbeQuery` (chunk membership), so slices agree with discovery.
+A state region works through the same roll-up (subdivision, county, state).
+
+Measured on federation, wells near water bodies, Hancock:
+
+| Region on | Cells away | Wells before | Wells after | Water bodies before | after |
+|---|---|---|---|---|---|
+| wells | 0 | 2264 | 2229 | 234 | 230 |
+| both | 0 | 2264 | 2229 | 234 | 230 |
+| water bodies | 0 | 2264 | 2264 | 234 | 234 |
+| wells | 1 | 5222 | 5125 | 368 | 355 |
+| both | 1 | 5194 | 5123 | 362 | 352 |
+| water bodies | 1 | 5289 | 5289 | 371 | 371 |
+
+No slowdown: Hancock at 3 cells away ran in 8s with the check and 24s without;
+Maine and Illinois at 1 cell away stayed near 2s. Test:
+`engine/tests/wellRegion.test.ts`.
+
+**Known limits.**
+- Every Maine well in a Hancock cell has a subdivision link (7428 of 7428). In
+  Cook County, IL, 10 of 33,182 wells have none and now drop out.
+- Water bodies link only to S2 cells and flowlines, never to a region, so a
+  region on water bodies is still cell-based.
+- Sample points and facilities link to subdivisions through `kwg-ont:sfWithin`
+  and can follow the same pattern once measured.
+
+**Traps.**
+- Subdivision IRIs are `https://datacommons.org/browser/geoId/...`, not
+  `kwgr:`. They still carry `administrativePartOf` to the `kwgr:` county.
+- `administrativePartOf` is not materialised transitively (0 subdivisions link
+  straight to Maine), so the `+` is required.
+- The same subdivision check inside `OPTIONAL` with `GROUP BY` returned 0 for
+  sample points and facilities while the required form returned 130 and 183.
+  Write it as a required pattern.
+
+**Cache.** The result cache key describes the question, not the engine, so
+cached answers to wells questions with a region keep the old, wider answer
+until purged (see `docs/ARCHITECTURE.md`, result cache).
