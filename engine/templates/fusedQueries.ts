@@ -186,7 +186,7 @@ export function buildEntityProbeQuery(
   // list it returns becomes the chunk membership (engine/scope.ts). A
   // narrowing join here removes entities from every slice, so the probe has to
   // see exactly what discovery sees.
-  const bind = bindEntityInCell(block, '?s2probe', 'P', false);
+  const bind = bindEntityInCell(block, '?s2probe', 'P', false) + featureRegionClause(block, regionCodes, 'P');
   const region = regionClause(regionCodes, '?s2probe', '?_regionP');
   return `
     ${PREFIXES}
@@ -214,6 +214,36 @@ function regionClause(regionCodes: string[] | undefined, s2Var: string, internal
   const values = regionCodes.map((c) => `kwgr:administrativeRegion.USA.${c}`).join(' ');
   return `VALUES ${internalVar} { ${values} }
       ${s2Var} spatial:connectedTo ${internalVar} .`;
+}
+
+// regionClause only asks whether the S2 cell touches the region, so a cell that
+// straddles the border lets in features from the far side: 35 of 2,264 wells on
+// "wells near water bodies in Hancock County, ME" sat outside the county. Wells
+// link to their county subdivision, and subdivisions roll up to the county and
+// the state through administrativePartOf, so the well itself can be checked
+// (every Maine well in a Hancock cell carries the link; 10 of 33,182 in Cook
+// County, IL do not and drop out). Kept alongside the cell clause, which
+// narrows the search first. Required, not OPTIONAL: QLever returned nothing
+// for this pattern inside OPTIONAL with GROUP BY.
+//
+// ponytail: wells only. Sample points and facilities link to subdivisions via
+// kwg-ont:sfWithin and can follow once measured; water bodies have no region
+// links in the graph at all, so they stay cell-based.
+function featureRegionClause(block: EntityBlock, regionCodes: string[] | undefined, suffix: string): string {
+  if (block.type !== 'wells' || !regionCodes?.length) return '';
+  const subdivision = `?_subdivision${suffix}`;
+  const region =
+    regionCodes.length === 1
+      ? `kwgr:administrativeRegion.USA.${regionCodes[0]}`
+      : `?_wellRegion${suffix}`;
+  const values =
+    regionCodes.length === 1
+      ? ''
+      : `VALUES ${region} { ${regionCodes.map((c) => `kwgr:administrativeRegion.USA.${c}`).join(' ')} }
+      `;
+  return `
+      ${values}${subdivision} kwg-ont:administrativePartOf+ ${region} .
+      ?well${suffix} spatial:connectedTo ${subdivision} .`;
 }
 
 // Builds a property-path fragment chaining N hops of (sfTouches | sameAs)
@@ -344,8 +374,12 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   // to fall back on the whole observation chain.
   const anchorObs = opts.anchorSampleObservations ?? true;
   const targetObs = opts.targetSampleObservations ?? true;
-  const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A', anchorObs);
-  const targetBind = bindEntityInCell(opts.target, '?s2target', 'C', targetObs);
+  const anchorBind =
+    bindEntityInCell(opts.anchor, '?s2anchor', 'A', anchorObs) +
+    featureRegionClause(opts.anchor, opts.anchorRegion, 'A');
+  const targetBind =
+    bindEntityInCell(opts.target, '?s2target', 'C', targetObs) +
+    featureRegionClause(opts.target, opts.targetRegion, 'C');
   const anchorPin = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
   const targetPin = pinValues(entityIriVar(opts.target, 'C'), opts.targetIris);
   const aRegion = regionClause(opts.anchorRegion, '?s2anchor', '?_regionA');
