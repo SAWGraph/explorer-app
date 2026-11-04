@@ -308,31 +308,62 @@ function boundedTrace(
       }`;
 }
 
+// A filtered samples block joins one row per matching measurement, not one per
+// sample point, and the duplicates only collapse at the final DISTINCT. Carried
+// into the spatial join, 407 points in Kennebec + Androscoggin became 20,826
+// rows and "samples >= 4 ng/L near wells" did not finish in 90s. Collapsed to
+// one row per point and cell first, the same question answered in under 3s
+// with the same 407 points (issue #82).
+//
+// `lines` must carry the cell type, the region and any IRI pin: QLever
+// evaluates the subquery on its own, so a region left outside would make it
+// list every matching sample in the graph. Returns null for any other side,
+// whose rows are already one per entity.
+function collapseSamples(
+  block: EntityBlock,
+  suffix: string,
+  s2Var: string,
+  lines: string,
+): string | null {
+  if (block.type !== 'samples' || !sampleJoinsNeeded(block.sampleFilters).observation) return null;
+  return `{ SELECT DISTINCT ?sp${suffix} ${s2Var} WHERE {
+      ${lines}
+      } }`;
+}
+
 // Returns just the inner WHERE-body patterns shared across all fused queries:
 // anchor binding + spatial path (neighbor expansion for "near", hydrology trace
 // for downstream/upstream) + target binding + region clauses on each side.
 function buildFusedWhereBody(opts: FusedBodyOpts): string {
-  const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A');
-  const targetBind = bindEntityInCell(opts.target, '?s2target', 'C');
-  const anchorPin = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
-  const targetPin = pinValues(entityIriVar(opts.target, 'C'), opts.targetIris);
   const aRegion = regionClause(opts.anchorRegion, '?s2anchor', '?_regionA');
   const tRegion = regionClause(opts.targetRegion, '?s2target', '?_regionC');
+  const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A');
+  const targetBind = bindEntityInCell(opts.target, '?s2target', 'C');
+  const anchorCell = `?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
+      ${aRegion}
+      ${anchorBind}`;
+  const targetCell = `?s2target rdf:type kwg-ont:S2Cell_Level13 .
+      ${tRegion}
+      ${targetBind}`;
+  const anchorPin = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
+  const targetPin = pinValues(entityIriVar(opts.target, 'C'), opts.targetIris);
+  // A collapsed samples side carries its pin inside, so it is not written again
+  // where the pin otherwise goes. Every other side keeps its text unchanged.
+  const anchorCollapsed = collapseSamples(opts.anchor, 'A', '?s2anchor', anchorPin + anchorCell);
+  const targetCollapsed = collapseSamples(opts.target, 'C', '?s2target', targetPin + targetCell);
+  const aPin = anchorCollapsed ? '' : anchorPin;
+  const tPin = targetCollapsed ? '' : targetPin;
+  const anchorSide = anchorCollapsed ?? anchorCell;
+  const targetSide = targetCollapsed ?? targetCell;
 
   if (opts.mode === 'near') {
     const hopPath = neighborPath(opts.hops ?? 1, '?s2anchor', '?s2target');
-    return `${anchorPin}${targetPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
-      ${aRegion}
-      ${anchorBind}
+    return `${aPin}${tPin}${anchorSide}
       ${hopPath}
-      ?s2target rdf:type kwg-ont:S2Cell_Level13 .
-      ${tRegion}
-      ${targetBind}`;
+      ${targetSide}`;
   }
 
-  const seed = `${anchorPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
-      ${aRegion}
-      ${anchorBind}
+  const seed = `${aPin}${anchorSide}
       ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .
       ?s2neighbor spatial:connectedTo ?upstream_flowline .
       ?upstream_flowline rdf:type hyf:HY_FlowPath .`;
@@ -357,7 +388,10 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
         }
       BIND(?ds_flowline AS ?streamC)
       ${streamFtypeFilter(opts.target.streamFilters, 'C')}`
-      : `?s2target spatial:connectedTo ?ds_flowline ;
+      : targetCollapsed
+        ? `?s2target spatial:connectedTo ?ds_flowline .
+      ${targetCollapsed}`
+        : `?s2target spatial:connectedTo ?ds_flowline ;
                 rdf:type kwg-ont:S2Cell_Level13 .
       ${tRegion}
       ${targetBind}`;
@@ -383,9 +417,7 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       opts.target.type === 'streams'
         ? `?ds_flowline rdf:type hyf:HY_FlowPath .
       ${targetPart}`
-        : `?s2target rdf:type kwg-ont:S2Cell_Level13 .
-      ${tRegion}
-      ${targetBind}
+        : `${targetSide}
       ?s2target spatial:connectedTo ?ds_flowline .`;
 
     // The bounded block is rebuilt around the target seed. `trace` above is
@@ -398,19 +430,17 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
     // spatial:connectedTo is stored both ways between cells and flowlines
     // (1,391,903 pairs each direction, verified on federation), so reading it
     // off the flowline here matches the same pairs as ?s2neighbor → flowline.
-    return `${targetPin}${targetHead}
+    return `${tPin}${targetHead}
       ${targetTrace}
       ?upstream_flowline rdf:type hyf:HY_FlowPath ;
                 spatial:connectedTo ?s2neighbor .
       ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .
-      ${anchorPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
-      ${aRegion}
-      ${anchorBind}`;
+      ${aPin}${anchorSide}`;
   }
 
   return `${seed}
       ${trace}
-      ${targetPin}${targetPart}`;
+      ${tPin}${targetPart}`;
 }
 
 // True when the question narrows this block at all. Exported because

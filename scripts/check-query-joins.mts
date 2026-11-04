@@ -41,7 +41,11 @@ const check = (cond: boolean, msg: string) => {
 // Which side the body leads with. The first variable after WHERE { decides the
 // plan; anything else in the body can follow.
 function leadsWith(query: string): 'anchor' | 'target' | 'other' {
-  const body = query.slice(query.indexOf('WHERE {') + 'WHERE {'.length).trimStart();
+  let body = query.slice(query.indexOf('WHERE {') + 'WHERE {'.length).trimStart();
+  // A filtered samples side leads as a collapsed subquery (collapseSamples in
+  // fusedQueries.ts); its cell variable names the side.
+  const collapsed = body.match(/^\{\s*SELECT DISTINCT \?sp[AC] (\?s2\w+) WHERE \{/);
+  if (collapsed) body = collapsed[1];
   if (body.startsWith('?s2target') || body.startsWith('?ds_flowline')) return 'target';
   if (body.startsWith('?s2anchor')) return 'anchor';
   // A pinned side leads with its VALUES block, so neither branch above matches.
