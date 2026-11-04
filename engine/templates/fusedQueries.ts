@@ -67,22 +67,13 @@ function sampleJoinsNeeded(filters: SampleFilters | undefined) {
   };
 }
 
-// `sampleObservations: false` drops the observation joins from a samples block
-// outright. Only the IRI-finding queries may pass it: they project just the
-// sample-point IRI, and re-deriving every observation there is what pushes the
-// hydrology queries past QLever's 30s limit / memory ceiling (429/500).
-// buildFusedWellQuery is the one caller left on the `true` default: it projects
-// well columns from a body that may carry a samples block on the other side.
-//
-// With `false` and an active sample filter the block is rebuilt from
-// sampleJoinsNeeded: enough to honour the filter, nothing that only feeds a
-// popup.
-export function bindEntityInCell(
-  block: EntityBlock,
-  s2Var: string,
-  suffix: string,
-  sampleObservations = true,
-): string {
+// A samples block carries only the observation joins its filters read
+// (sampleJoinsNeeded): enough to honour the filter, nothing that only feeds a
+// popup. Every caller projects entity IRIs or the other side's columns, and
+// re-deriving every observation is what pushed the hydrology queries past
+// QLever's 30s limit / memory ceiling (429/500). Measurement detail comes from
+// buildSamplesByIri (./hydrate) instead.
+export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: string): string {
   switch (block.type) {
     case 'facilities': {
       const industry = buildIndustryValues(
@@ -99,43 +90,29 @@ export function bindEntityInCell(
                 spatial:connectedTo ${s2Var} .`;
       const filters = buildSampleFilterClauses(block.sampleFilters, suffix);
 
-      if (!sampleObservations) {
-        const need = sampleJoinsNeeded(block.sampleFilters);
-        if (!need.observation) return point;
-        const parts = [
-          point,
-          `?observation${suffix} coso:observedAtSamplePoint ?sp${suffix} .`,
-        ];
-        if (need.substance) {
-          parts.push(`?observation${suffix} coso:ofDSSToxSubstance ?substance${suffix} .`);
-        }
-        if (need.material) {
-          // The material lives on the analysed sample, not the observation.
-          parts.push(`?observation${suffix} coso:analyzedSample ?sample${suffix} .
-      ?sample${suffix} coso:sampleOfMaterialType ?matType${suffix} .`);
-        }
-        if (need.result) {
-          parts.push(`?observation${suffix} coso:hasResult ?result${suffix} .
-      ${resultValueClauses(suffix)}`);
-        }
-        if (need.unit) {
-          parts.push(`?result${suffix} coso:measurementUnit ?unit${suffix} .`);
-        }
-        parts.push(filters);
-        return parts.join('\n      ');
+      const need = sampleJoinsNeeded(block.sampleFilters);
+      if (!need.observation) return point;
+      const parts = [
+        point,
+        `?observation${suffix} coso:observedAtSamplePoint ?sp${suffix} .`,
+      ];
+      if (need.substance) {
+        parts.push(`?observation${suffix} coso:ofDSSToxSubstance ?substance${suffix} .`);
       }
-
-      return `${point}
-      ?observation${suffix} rdf:type coso:ContaminantObservation ;
-          coso:observedAtSamplePoint ?sp${suffix} ;
-          coso:ofDSSToxSubstance ?substance${suffix} ;
-          coso:analyzedSample ?sample${suffix} ;
-          coso:hasResult ?result${suffix} .
-      ?sample${suffix} coso:sampleOfMaterialType ?matType${suffix} .
-      ?matType${suffix} rdfs:label ?matTypeLabel${suffix} .
-      ?result${suffix} coso:measurementUnit ?unit${suffix} .
-      ${resultValueClauses(suffix)}
-      ${filters}`;
+      if (need.material) {
+        // The material lives on the analysed sample, not the observation.
+        parts.push(`?observation${suffix} coso:analyzedSample ?sample${suffix} .
+      ?sample${suffix} coso:sampleOfMaterialType ?matType${suffix} .`);
+      }
+      if (need.result) {
+        parts.push(`?observation${suffix} coso:hasResult ?result${suffix} .
+      ${resultValueClauses(suffix)}`);
+      }
+      if (need.unit) {
+        parts.push(`?result${suffix} coso:measurementUnit ?unit${suffix} .`);
+      }
+      parts.push(filters);
+      return parts.join('\n      ');
     }
     case 'waterBodies': {
       let filterClauses = '';
@@ -182,11 +159,10 @@ export function buildEntityProbeQuery(
   limit: number,
 ): string {
   const entityVar = entityIriVar(block, 'P');
-  // `false`, like the IRI-finding queries: the probe lists entity IRIs, and the
-  // list it returns becomes the chunk membership (engine/scope.ts). A
-  // narrowing join here removes entities from every slice, so the probe has to
-  // see exactly what discovery sees.
-  const bind = bindEntityInCell(block, '?s2probe', 'P', false);
+  // The probe lists entity IRIs, and the list it returns becomes the chunk
+  // membership (engine/scope.ts). A narrowing join here removes entities from
+  // every slice, so the probe has to see exactly what discovery sees.
+  const bind = bindEntityInCell(block, '?s2probe', 'P');
   const region = regionClause(regionCodes, '?s2probe', '?_regionP');
   return `
     ${PREFIXES}
@@ -243,9 +219,6 @@ interface FusedBodyOpts extends FusedBaseOpts {
   // IRIs is what makes a too-large query fit inside the engine's 30s budget.
   anchorIris?: string[];
   targetIris?: string[];
-  // Set by the IRI-finding queries only — see bindEntityInCell.
-  anchorSampleObservations?: boolean;
-  targetSampleObservations?: boolean;
   maxDistanceKm?: number;
 }
 
@@ -339,13 +312,8 @@ function boundedTrace(
 // anchor binding + spatial path (neighbor expansion for "near", hydrology trace
 // for downstream/upstream) + target binding + region clauses on each side.
 function buildFusedWhereBody(opts: FusedBodyOpts): string {
-  // No `|| hasSampleFilters(...)` override any more: bindEntityInCell now keeps
-  // exactly the joins an active filter reads, so a filtered side no longer has
-  // to fall back on the whole observation chain.
-  const anchorObs = opts.anchorSampleObservations ?? true;
-  const targetObs = opts.targetSampleObservations ?? true;
-  const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A', anchorObs);
-  const targetBind = bindEntityInCell(opts.target, '?s2target', 'C', targetObs);
+  const anchorBind = bindEntityInCell(opts.anchor, '?s2anchor', 'A');
+  const targetBind = bindEntityInCell(opts.target, '?s2target', 'C');
   const anchorPin = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
   const targetPin = pinValues(entityIriVar(opts.target, 'C'), opts.targetIris);
   const aRegion = regionClause(opts.anchorRegion, '?s2anchor', '?_regionA');
@@ -526,12 +494,6 @@ export function buildFusedNearQuery(opts: FusedNearOpts): string {
     hops: opts.hops,
     anchorIris: opts.anchorIris,
     targetIris: opts.targetIris,
-    // Both sides, not just the projected one: a near query projects a single
-    // IRI, so neither side needs observation detail beyond its own filters.
-    // Keying this off `project` left the *non*-projected samples side carrying
-    // the full chain even with no filters set.
-    anchorSampleObservations: false,
-    targetSampleObservations: false,
   });
   const projectVar =
     opts.project === 'anchor'
@@ -565,13 +527,6 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
     anchorIris: opts.anchorIris,
     targetIris: opts.targetIris,
     maxDistanceKm: opts.maxDistanceKm,
-    // Verified on the live endpoint: keeping the observation joins on either
-    // side of a downstream/upstream trace always fails (429 timeout / 500 OOM).
-    // Sample points with no observations are dropped again at hydration, so the
-    // sample layer is unchanged; the facility layer can include facilities whose
-    // only downstream sample points carry no observations.
-    anchorSampleObservations: false,
-    targetSampleObservations: false,
   });
   const projectVar =
     opts.project === 'anchor'
@@ -689,7 +644,7 @@ function targetReachClause(opts: FusedFlowlineOpts): string {
   // list states. Passing the bare block rather than opts.target drops those
   // clauses. Measured on the York question: re-deriving the substance filter
   // cost 1s of the 8 and changed nothing.
-  const targetBind = bindEntityInCell({ type: opts.target.type }, '?s2celltarget', 'C', false);
+  const targetBind = bindEntityInCell({ type: opts.target.type }, '?s2celltarget', 'C');
   const reach =
     opts.direction === 'downstream'
       ? `?flowline hyf:downstreamFlowPathTC ?_flTarget .`
@@ -729,7 +684,7 @@ export function buildFusedFlowlineQuery(opts: FusedFlowlineOpts): string {
   // per pinned IRI; for a samples anchor it drops the whole observation chain,
   // including the coso:measurementUnit join this branch exists to keep out of
   // queries that do not read it.
-  const anchorBind = bindEntityInCell({ type: opts.anchor.type }, '?s2anchor', 'A', false);
+  const anchorBind = bindEntityInCell({ type: opts.anchor.type }, '?s2anchor', 'A');
   // ponytail: inlined as VALUES rather than re-derived. Anchor sets are small
   // (tens), unlike the sample IRI lists that forced server-side fusion.
   const anchorValues = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
