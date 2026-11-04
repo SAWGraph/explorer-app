@@ -614,9 +614,10 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
 
   // The body yields one row per well and every other-side entity it is near,
   // so collapse it to one row per well and cell before the columns attach.
-  // Attached to the raw fan-out, "samples near wells in Penobscot and Knox"
-  // asked for 3.2 GB and failed twice; collapsed first it answered in 9-23s
-  // with all 3,391 wells, and the dashboard wells questions halved (#82).
+  // Attached to the raw fan-out, "samples (no filter) near wells in Penobscot
+  // and Knox" asked for 3.2 GB and failed twice; collapsed first it answered
+  // in 9-23s with all 3,391 wells discovery found, and the dashboard wells
+  // questions halved (#82).
   return `
     ${PREFIXES}
     SELECT DISTINCT

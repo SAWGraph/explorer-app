@@ -633,11 +633,18 @@ Both blocks of a question go through it, once for the anchor cell and once for
 the target cell, and the relationship supplies the path between the two cells.
 That is the whole trick: "near" is `sfTouches`, and a trace is a flow-path join.
 
-**One guard is worth knowing about.** `bindEntityInCell` takes a
-`sampleObservations` flag. An ID-finding query needs the sample *points*; a
-detail query needs every observation on them. Serving both callers from one
-branch is what made a query to find sample IDs build every measurement in the
-state and discard it — the bug behind most of `QUERY-MATRIX.md` Part 5.
+**Two guards are worth knowing about.** `bindEntityInCell` emits only the
+observation joins a sample filter reads (`sampleJoinsNeeded`). Measurement
+detail comes from `buildSamplesByIri` after discovery. Building every
+measurement inside a fused query was the bug behind most of `QUERY-MATRIX.md`
+Part 5, and the full chain in the wells step behind #82.
+
+Even the trimmed block yields one row per matching measurement. So
+`buildFusedWhereBody` wraps a filtered samples side, with its cell, region and
+any chunk pin, in `SELECT DISTINCT ?sp ?cell` before it meets the other side
+(`collapseSamples`), and `buildFusedWellQuery` collapses its join to one row
+per well and cell before attaching well columns. Without the first, 407
+sample points entered a 2-hop join as 20,826 rows (#82).
 
 The older `facilities.ts` and `samples.ts` are no longer whole-query builders.
 They survive as fragment helpers — `buildIndustryValues()`,
