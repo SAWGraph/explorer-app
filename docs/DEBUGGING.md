@@ -915,9 +915,10 @@ checks that same cell, which is why Q1 to Q3 matched.
 David's check whenever a wells block carries a region: the well must link to a
 county subdivision that is `administrativePartOf+` the region. The cell clause
 stays, because it narrows the search first. It goes into
-`buildFusedWhereBody` (discovery and well hydration) and
-`buildEntityProbeQuery` (chunk membership), so slices agree with discovery.
-A state region works through the same roll-up (subdivision, county, state).
+`buildFusedWhereBody` (discovery), `buildEntityProbeQuery` (chunk membership,
+so slices agree with discovery) and the end of `buildFusedWellQuery` (well
+hydration). A state region works through the same roll-up (subdivision,
+county, state).
 
 Measured on federation, wells near water bodies, Hancock:
 
@@ -930,8 +931,11 @@ Measured on federation, wells near water bodies, Hancock:
 | both | 1 | 5194 | 5123 | 362 | 352 |
 | water bodies | 1 | 5289 | 5289 | 371 | 371 |
 
-No slowdown: Hancock at 3 cells away ran in 8s with the check and 24s without;
-Maine and Illinois at 1 cell away stayed near 2s. Test:
+Cost. Hancock at 3 cells away ran in 8s with the check and 24s without.
+Statewide it costs a few seconds per discovery step ("wells in Maine near
+wastewater plants": 1s to 4s, 2s to 7s). Where the clause sits matters in well
+hydration: inside the body that query went from 8s to 23s, after the OPTIONALs
+it stays at 8s (3 rounds each, same 2,431 wells). Test:
 `engine/tests/wellRegion.test.ts`.
 
 **Known limits.**
