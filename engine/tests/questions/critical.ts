@@ -82,4 +82,27 @@ export const CRITICAL: CriticalQuestion[] = [
       blockC: { type: 'samples', region: YORK, sampleFilters: { substances: [PFOS], includeNondetects: false } },
     },
   },
+  // The filtered samples block carried one row per measurement into the
+  // spatial join, and the whole question stalled past 60s before the county
+  // slices answered it in 228s.
+  {
+    name: 'samples ≥ 4 ng/L in Penobscot and Knox near wells in the same counties',
+    source: 'issue #82',
+    question: {
+      blockA: { type: 'samples', region: { stateCode: '23', countyCodes: ['23019', '23013'] }, sampleFilters: { minConcentration: 4 } },
+      relationship: { type: 'near', hops: 2 },
+      blockC: { type: 'wells', region: { stateCode: '23', countyCodes: ['23019', '23013'] } },
+    },
+  },
+  // Same row blow-up with no region on the samples side: the collapsed
+  // subquery then lists matching samples graph-wide (2,763 points, 2.3s).
+  {
+    name: 'samples ≥ 4 ng/L anywhere near wells in Somerset',
+    source: 'issue #82',
+    question: {
+      blockA: { type: 'samples', sampleFilters: { minConcentration: 4 } },
+      relationship: { type: 'near', hops: 2 },
+      blockC: { type: 'wells', region: { stateCode: '23', countyCodes: ['23025'] } },
+    },
+  },
 ];
