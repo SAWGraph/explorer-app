@@ -34,6 +34,13 @@ describe('region on wells', () => {
     }
   });
 
+  it('checks the well last in well hydration, where it costs nothing', () => {
+    // Inside the body this query took 23s instead of 8s on Maine wells.
+    const q = queries(wells(HANCOCK), waterBodies()).HYDRATE_TARGET_BY_IRI;
+    expect(q.match(/administrativePartOf\+/g)).toHaveLength(1);
+    expect(q.indexOf('administrativePartOf+')).toBeGreaterThan(q.lastIndexOf('OPTIONAL'));
+  });
+
   it('keeps the cell check too, since it narrows the search first', () => {
     const q = queries(wells(HANCOCK), waterBodies());
     expect(q.FIND_TARGET_IRIS).toContain('?s2target spatial:connectedTo kwgr:administrativeRegion.USA.23009 .');

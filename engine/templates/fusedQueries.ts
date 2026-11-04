@@ -274,6 +274,9 @@ interface FusedBodyOpts extends FusedBaseOpts {
   anchorIris?: string[];
   targetIris?: string[];
   // Set by the IRI-finding queries only — see bindEntityInCell.
+  // Leave featureRegionClause out of the body; the caller appends it. Only
+  // buildFusedWellQuery does this, see there.
+  deferFeatureRegion?: boolean;
   anchorSampleObservations?: boolean;
   targetSampleObservations?: boolean;
   maxDistanceKm?: number;
@@ -376,10 +379,10 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   const targetObs = opts.targetSampleObservations ?? true;
   const anchorBind =
     bindEntityInCell(opts.anchor, '?s2anchor', 'A', anchorObs) +
-    featureRegionClause(opts.anchor, opts.anchorRegion, 'A');
+    (opts.deferFeatureRegion ? '' : featureRegionClause(opts.anchor, opts.anchorRegion, 'A'));
   const targetBind =
     bindEntityInCell(opts.target, '?s2target', 'C', targetObs) +
-    featureRegionClause(opts.target, opts.targetRegion, 'C');
+    (opts.deferFeatureRegion ? '' : featureRegionClause(opts.target, opts.targetRegion, 'C'));
   const anchorPin = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
   const targetPin = pinValues(entityIriVar(opts.target, 'C'), opts.targetIris);
   const aRegion = regionClause(opts.anchorRegion, '?s2anchor', '?_regionA');
@@ -656,7 +659,14 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
     mode: opts.relationship.type === 'near' ? 'near' : opts.direction,
     hops: opts.relationship.hops,
     maxDistanceKm: opts.relationship.maxDistanceKm,
+    deferFeatureRegion: true,
   });
+  // The well-in-region check goes last, after the OPTIONALs. Written inside the
+  // body it took "wells in Maine near wastewater plants" from 8s to 23s; here it
+  // runs in 8s with the same 2,431 wells. Measured 3 rounds each on federation.
+  const featureRegion =
+    featureRegionClause(opts.anchor, opts.anchorRegion, 'A') +
+    featureRegionClause(opts.target, opts.targetRegion, 'C');
   const suffix = opts.wellSide === 'anchor' ? 'A' : 'C';
   const wellVar = `?well${suffix}`;
   const s2Var = opts.wellSide === 'anchor' ? '?s2anchor' : '?s2target';
@@ -681,6 +691,7 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
       OPTIONAL { ${wellVar} il_isgs:wellDepth/qudt:numericValue ?ilDepth . }
       OPTIONAL { ${wellVar} il_isgs:wellPurpose ?ilPurpose . }
       OPTIONAL { ${wellVar} il_isgs:wellYield/qudt:numericValue ?ilYield . }
+      ${featureRegion}
     }
   `;
 }
