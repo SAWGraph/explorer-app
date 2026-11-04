@@ -612,8 +612,11 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
   const wellVar = `?well${suffix}`;
   const s2Var = opts.wellSide === 'anchor' ? '?s2anchor' : '?s2target';
 
-  // Projecting only ?s2cell (not the anchor cell) collapses the near-join
-  // fan-out to one row per well/cell — parity with the old buildWellsByIri.
+  // The body yields one row per well and every other-side entity it is near,
+  // so collapse it to one row per well and cell before the columns attach.
+  // Attached to the raw fan-out, "samples near wells in Penobscot and Knox"
+  // asked for 3.2 GB and failed twice; collapsed first it answered in 9-23s
+  // with all 3,391 wells, and the dashboard wells questions halved (#82).
   return `
     ${PREFIXES}
     SELECT DISTINCT
@@ -621,7 +624,9 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
       ?wellName ?meUse ?meWellType ?meDepth ?meOverburden
       ?ilOwner ?ilDepth ?ilPurpose ?ilYield
     WHERE {
+      { SELECT DISTINCT ${wellVar} ${s2Var} WHERE {
       ${body}
+      } }
       ${wellVar} geo:hasGeometry/geo:asWKT ?wellWKT .
       OPTIONAL { ${wellVar} rdfs:label ?wellName . }
       OPTIONAL { ${wellVar} me_mgs:hasUse ?meUse . }
