@@ -9,14 +9,15 @@ import type { AnalysisQuestion } from './types/query';
 // old entries would then be missing data the map expects.
 const WIRE_VERSION = 'w2'; // w2: results carry the SPARQL that produced them
 
-// Bump DATA_VERSION after a knowledge-graph reload to make every existing key
+// Bump DATA_VERSION after a knowledge-graph reload, or after an engine change
+// that changes answers to questions already cached, to make every existing key
 // unreachable in one move.
 //
 // Deliberately a constant, not an environment variable: this value has to agree
 // between the browser bundle and the warm-cache script, and an env var that
 // differs between the two would produce silent, permanent cache misses with
 // nothing to see in either place.
-const DATA_VERSION = '2026-09';
+const DATA_VERSION = '2026-11'; // 2026-11: wells region checks the well's subdivision (#96)
 
 // Label maps exist to render chips in the editor. Verified not to reach any
 // query template (`grep -rn "Labels" engine/` finds nothing), so a user
