@@ -110,3 +110,23 @@ it.each(QUESTIONS)('%s: a samples chunk pin sits only inside the subquery', (_na
     expect(wraps, step.type).toContain(pin);
   }
 });
+
+// Discovery must count only sample points the map can draw. buildSamplesByIri
+// keeps a point only if it has a location and a result naming a chemical, and
+// a filter that matched an aggregate row such as SUM_PFOA_PFOS drew wells
+// around a point the map never showed (#82).
+it.each(QUESTIONS)('%s: discovery counts only drawable sample points', (_name, question) => {
+  const ctx = context(question);
+  for (const step of planPipeline(question).filter((s) => s.type.startsWith('FIND_'))) {
+    for (const w of distinctSampleBlocks(step.buildQuery(ctx))) {
+      expect(w, `${step.type}: location`).toMatch(/\?sp[AC] geo:hasGeometry/);
+      expect(w, `${step.type}: the filtered result names a chemical`).toMatch(/\?observation[AC] coso:observedAtSamplePoint \?sp[AC] ;\s*coso:ofDSSToxSubstance/);
+    }
+  }
+});
+
+it('an unfiltered samples side is held to the location rule', () => {
+  const question: AnalysisQuestion = { blockA: { type: 'samples', region: PENOBSCOT_KNOX }, relationship: { type: 'near', hops: 2 }, blockC: { type: 'wells', region: PENOBSCOT_KNOX } };
+  const [w] = distinctSampleBlocks(planPipeline(question)[0].buildQuery(context(question)));
+  expect(w).toMatch(/\?spC geo:hasGeometry/);
+});

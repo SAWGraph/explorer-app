@@ -26,7 +26,7 @@ it.each(QUESTIONS)('%s: the join collapses to one row per well before columns at
   const inner = query.slice(open!.index!, query.indexOf(`${open![1]} geo:hasGeometry`));
   expect(inner).toMatch(/kwg-ont:sfTouches|hyf:downstreamFlowPathTC/);
   expect(query.indexOf(`${open![1]} geo:hasGeometry`)).toBeGreaterThan(open!.index!);
-  expect(inner).not.toContain('geo:hasGeometry');
+  expect(inner).not.toContain(`${open![1]} geo:hasGeometry`);
 });
 
 // The wells query ignores any scope, so splitting it re-sends the same query.

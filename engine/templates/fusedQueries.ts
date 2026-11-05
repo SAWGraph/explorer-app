@@ -92,13 +92,15 @@ export function bindEntityInCell(block: EntityBlock, s2Var: string, suffix: stri
 
       const need = sampleJoinsNeeded(block.sampleFilters);
       if (!need.observation) return point;
+      // The observation that passes a filter has to name a chemical. Aggregate
+      // rows such as SUM_PFOA_PFOS carry no DSSTox substance, so a point whose
+      // only result >= 4 ng/L was a sum matched here while the map, which lists
+      // chemicals, never drew it (sample point 151764 on North Haven, #82).
       const parts = [
         point,
-        `?observation${suffix} coso:observedAtSamplePoint ?sp${suffix} .`,
+        `?observation${suffix} coso:observedAtSamplePoint ?sp${suffix} ;
+          coso:ofDSSToxSubstance ?substance${suffix} .`,
       ];
-      if (need.substance) {
-        parts.push(`?observation${suffix} coso:ofDSSToxSubstance ?substance${suffix} .`);
-      }
       if (need.material) {
         // The material lives on the analysed sample, not the observation.
         parts.push(`?observation${suffix} coso:analyzedSample ?sample${suffix} .
@@ -308,8 +310,8 @@ function boundedTrace(
       }`;
 }
 
-// A filtered samples block joins one row per matching measurement, not one per
-// sample point, and the duplicates only collapse at the final DISTINCT. Carried
+// A samples block joins one row per matching measurement, not one per sample
+// point, and the duplicates only collapse at the final DISTINCT. Carried
 // into the spatial join, 407 points in Kennebec + Androscoggin became 20,826
 // rows and "samples >= 4 ng/L near wells" did not finish in 90s. Collapsed to
 // one row per point and cell first, the same question answered in under 3s
@@ -317,17 +319,22 @@ function boundedTrace(
 //
 // `lines` must carry the cell type, the region and any IRI pin: QLever
 // evaluates the subquery on its own, so a region left outside would make it
-// list every matching sample in the graph. Returns null for any other side,
-// whose rows are already one per entity.
+// list every matching sample in the graph. Returns null for every other
+// entity type, whose rows are already one per entity.
 function collapseSamples(
   block: EntityBlock,
   suffix: string,
   s2Var: string,
   lines: string,
 ): string | null {
-  if (block.type !== 'samples' || !sampleJoinsNeeded(block.sampleFilters).observation) return null;
+  if (block.type !== 'samples') return null;
+  // The map draws only points with a location, so discovery counts only those.
+  // An unfiltered side does not also check for a result naming a chemical:
+  // that join ran "samples in Maine downstream of aquifers" out of memory where
+  // it answered in 17-45s without it (#82).
   return `{ SELECT DISTINCT ?sp${suffix} ${s2Var} WHERE {
       ${lines}
+      ?sp${suffix} geo:hasGeometry ?_spGeom${suffix} .
       } }`;
 }
 
