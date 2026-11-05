@@ -1,6 +1,6 @@
 # Engine redesign: one stage, one file
 
-**Status**: draft
+**Status**: active
 **Created**: 2026-11-05
 **Completed**:
 
@@ -99,11 +99,11 @@ Around the stages:
 **Phase 0: restructure, same behaviour.** The golden SPARQL snapshot stays
 byte-identical in every PR.
 
-- [ ] Endpoint as an input, the in-memory fake, executor tests that pin today's behaviour
+- [x] Endpoint as an input, the in-memory fake, executor tests that pin today's behaviour (the recording wrapper for `query-matrix` moves to the stage-files item)
 - [ ] `errors.ts` catalogue (same wording, one file)
 - [ ] Normalise: orientation in one place; delete the dead upstream branches
 - [ ] Entity modules
-- [ ] Stage files and `runQuestion`
+- [ ] Stage files and `runQuestion`, plus the recording wrapper so `query-matrix` runs the real engine
 
 **Phase 1: behaviour changes.** Each with a regression test, a
 `docs/DEBUGGING.md` entry, and `npm run health-check` before merge.

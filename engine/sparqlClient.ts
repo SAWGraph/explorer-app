@@ -24,6 +24,15 @@ export interface SparqlOptions {
   signal?: AbortSignal;
 }
 
+// What the engine sends every request through. `executeSparql` (QLever over
+// HTTP) is the production one; a test passes its own, so the whole run,
+// splitting and probes included, works without a network.
+export type SparqlRunner = (
+  endpoint: EndpointKey,
+  query: string,
+  options?: SparqlOptions,
+) => Promise<SparqlRow[]>;
+
 // ponytail: a plain Map, not an LRU. Entries are per-session and few (one per
 // distinct cacheable query); nothing here justifies eviction logic yet.
 const responseCache = new Map<string, SparqlRow[]>();
