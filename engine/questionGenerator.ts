@@ -228,9 +228,10 @@ function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
 function describeRelationship(rel: SpatialRelationship): string {
   switch (rel.type) {
     case 'near': {
-      const miles = rel.hops ?? 1;
-      if (miles === 0) return 'near';
-      return `near (~${miles} mile${miles > 1 ? 's' : ''})`;
+      // A level 13 S2 cell is about 1 mile corner to corner, so N hops
+      // keeps every match within N+1 miles.
+      const miles = (rel.hops ?? 1) + 1;
+      return `within at most ${miles} mile${miles > 1 ? 's' : ''} of`;
     }
     case 'downstream':
       return rel.maxDistanceKm
