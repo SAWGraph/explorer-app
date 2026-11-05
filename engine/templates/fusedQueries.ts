@@ -206,14 +206,22 @@ function streamFtypeFilter(filters: StreamFilters | undefined, suffix: string): 
       VALUES ?flFtype${suffix} { ${values} }`;
 }
 
+// The region as a term to match against: its IRI when there is one code, or
+// `internalVar` bound by a VALUES list (the `values` prefix) when there are several.
+function regionTerm(regionCodes: string[], internalVar: string): { values: string; term: string } {
+  const iri = (c: string) => `kwgr:administrativeRegion.USA.${c}`;
+  if (regionCodes.length === 1) return { values: '', term: iri(regionCodes[0]) };
+  return {
+    values: `VALUES ${internalVar} { ${regionCodes.map(iri).join(' ')} }
+      `,
+    term: internalVar,
+  };
+}
+
 function regionClause(regionCodes: string[] | undefined, s2Var: string, internalVar: string): string {
   if (!regionCodes?.length) return '';
-  if (regionCodes.length === 1) {
-    return `${s2Var} spatial:connectedTo kwgr:administrativeRegion.USA.${regionCodes[0]} .`;
-  }
-  const values = regionCodes.map((c) => `kwgr:administrativeRegion.USA.${c}`).join(' ');
-  return `VALUES ${internalVar} { ${values} }
-      ${s2Var} spatial:connectedTo ${internalVar} .`;
+  const { values, term } = regionTerm(regionCodes, internalVar);
+  return `${values}${s2Var} spatial:connectedTo ${term} .`;
 }
 
 // regionClause only asks whether the S2 cell touches the region, so a cell that
@@ -232,17 +240,11 @@ function regionClause(regionCodes: string[] | undefined, s2Var: string, internal
 function featureRegionClause(block: EntityBlock, regionCodes: string[] | undefined, suffix: string): string {
   if (block.type !== 'wells' || !regionCodes?.length) return '';
   const subdivision = `?_subdivision${suffix}`;
-  const region =
-    regionCodes.length === 1
-      ? `kwgr:administrativeRegion.USA.${regionCodes[0]}`
-      : `?_wellRegion${suffix}`;
-  const values =
-    regionCodes.length === 1
-      ? ''
-      : `VALUES ${region} { ${regionCodes.map((c) => `kwgr:administrativeRegion.USA.${c}`).join(' ')} }
-      `;
+  // Its own variable, not regionClause's: in a bounded trace the cell clause
+  // sits inside a subquery, out of scope where hydration appends this one.
+  const { values, term } = regionTerm(regionCodes, `?_wellRegion${suffix}`);
   return `
-      ${values}${subdivision} kwg-ont:administrativePartOf+ ${region} .
+      ${values}${subdivision} kwg-ont:administrativePartOf+ ${term} .
       ?well${suffix} spatial:connectedTo ${subdivision} .`;
 }
 
@@ -273,10 +275,10 @@ interface FusedBodyOpts extends FusedBaseOpts {
   // IRIs is what makes a too-large query fit inside the engine's 30s budget.
   anchorIris?: string[];
   targetIris?: string[];
-  // Set by the IRI-finding queries only — see bindEntityInCell.
   // Leave featureRegionClause out of the body; the caller appends it. Only
   // buildFusedWellQuery does this, see there.
   deferFeatureRegion?: boolean;
+  // Set by the IRI-finding queries only — see bindEntityInCell.
   anchorSampleObservations?: boolean;
   targetSampleObservations?: boolean;
   maxDistanceKm?: number;
@@ -645,8 +647,10 @@ export interface FusedWellSideOpts extends FusedBaseOpts {
 }
 
 // Well hydration without IRI inlining. Re-derives the well set inside the same
-// fused query body (which already applies the region + well-category filters via
+// fused query body (which applies the cell region and well-category filters via
 // bindEntityInCell), then projects geometry + attributes from the well variable.
+// The well's own region check is left out of the body and appended after the
+// OPTIONALs (deferFeatureRegion), so a caller reusing the body must add it too.
 // Replaces buildWellsByIri (templates/hydrate.ts): statewide well sets are ~20k+
 // IRIs and inlining them as VALUES makes the request body exceed hydrologykg's
 // ~1MB limit (413). Server-deriving keeps the request ~1KB. Runs on federation.

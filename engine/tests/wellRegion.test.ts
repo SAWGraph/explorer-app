@@ -69,6 +69,51 @@ describe('region on wells', () => {
   });
 });
 
+// Upstream and downstream build the well binding along other paths: the target
+// can lead the body, and a bounded trace wraps its seed in a subquery. The
+// hydration check has to land at the top level whichever path ran.
+describe('region on wells in a trace', () => {
+  const facilities: EntityBlock = { type: 'facilities' };
+  const trace = (
+    type: 'downstream' | 'upstream',
+    maxDistanceKm?: number,
+  ): Record<string, string> => {
+    const question: AnalysisQuestion = {
+      blockA: wells(HANCOCK),
+      relationship: { type, ...(maxDistanceKm ? { maxDistanceKm } : {}) },
+      blockC: facilities,
+    };
+    return Object.fromEntries(planPipeline(question).map((s) => [s.type, s.buildQuery(ctx(question))]));
+  };
+  // Wells are block A: the target of a downstream question, the anchor of an upstream one.
+  const cases = [
+    ['downstream', undefined, 'HYDRATE_TARGET_BY_IRI'],
+    ['downstream', 30, 'HYDRATE_TARGET_BY_IRI'],
+    ['upstream', undefined, 'HYDRATE_ANCHOR_BY_IRI'],
+    ['upstream', 30, 'HYDRATE_ANCHOR_BY_IRI'],
+  ] as const;
+
+  for (const [type, km, hydrate] of cases) {
+    const label = `${type}${km ? `, ${km} km` : ''}`;
+    it(`${label}: checks the well in both discovery steps`, () => {
+      const q = trace(type, km);
+      expect(q.FIND_TARGET_IRIS).toMatch(IN_HANCOCK);
+      expect(q.FIND_ANCHOR_IRIS).toMatch(IN_HANCOCK);
+    });
+
+    it(`${label}: checks the well once, after the OPTIONALs, in well hydration`, () => {
+      const q = trace(type, km)[hydrate];
+      expect(q.match(/administrativePartOf\+/g)).toHaveLength(1);
+      const at = q.indexOf('administrativePartOf+');
+      expect(at).toBeGreaterThan(q.lastIndexOf('OPTIONAL'));
+      // Top level: every brace opened before the check is closed again, apart
+      // from the WHERE block itself.
+      const before = q.slice(q.indexOf('WHERE {'), at);
+      expect(before.split('{').length - before.split('}').length).toBe(1);
+    });
+  }
+});
+
 describe('no region on wells', () => {
   it('leaves the wells unchecked when only the water bodies carry the region', () => {
     const q = queries(wells(), waterBodies(HANCOCK), 1);
