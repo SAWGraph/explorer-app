@@ -1,8 +1,8 @@
 // Runs the dashboard questions and writes down what happened, so a regression
 // has a date attached to it instead of being noticed weeks later.
 //
-//   npx tsx scripts/health-check.mts <ref-label> [--out docs/health/history.jsonl]
-//   npx tsx scripts/health-check.mts --render-only   # rebuild STATUS.md, no queries
+//   npx tsx engine/scripts/health-check.mts <ref-label> [--out docs/health/history.jsonl]
+//   npx tsx engine/scripts/health-check.mts --render-only   # rebuild STATUS.md, no queries
 //
 // Deliberately takes no token and writes nothing to the API. It is pure
 // measurement: every run goes through the real pipeline against the live
@@ -19,9 +19,9 @@
 import { execSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
-import { planPipeline } from '../engine/planner';
-import { executePipeline } from '../engine/executor';
+import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
+import { planPipeline } from '../planner';
+import { executePipeline } from '../executor';
 
 // The keys useMapLayers renders (wire.ts RENDERED_KEYS). Counting anything else
 // would flag drift in intermediate bookkeeping the user never sees.

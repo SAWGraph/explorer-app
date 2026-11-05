@@ -50,7 +50,7 @@ export function boundsForQuestion(question: AnalysisQuestion): Bbox {
 /**
  * Plain basemap of the question's region. Used only as the fallback for a card
  * whose thumbnail has not been generated yet; the real thumbnails are built by
- * scripts/build-thumbnails.mts and show the actual results.
+ * ui/scripts/build-thumbnails.mts and show the actual results.
  */
 export function questionThumbnailUrl(question: AnalysisQuestion): string {
   const bbox = boundsForQuestion(question);

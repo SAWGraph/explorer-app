@@ -1,16 +1,16 @@
 // Warms the cache for a list of questions given as JSON, for demos or any other
 // set that is not in prebuiltQueries.ts.
 //
-//   CACHE_WRITE_TOKEN=... API_BASE=https://... npx tsx scripts/warm-questions.mts demo-questions.json
+//   CACHE_WRITE_TOKEN=... API_BASE=https://... npx tsx scripts/ops/warm-questions.mts demo-questions.json
 //
 // The file is a JSON array of { title, question }. Same trusted-writer path as
 // warm-cache.mts: the real pipeline runs here, and only the result is uploaded.
 import { readFileSync } from 'node:fs';
-import { planPipeline } from '../engine/planner';
-import { executePipeline } from '../engine/executor';
-import { cacheKey } from '../engine/cacheKey';
-import { toWire } from '../engine/wire';
-import type { AnalysisQuestion } from '../engine/types/query';
+import { planPipeline } from '../../engine/planner';
+import { executePipeline } from '../../engine/executor';
+import { cacheKey } from '../../engine/cacheKey';
+import { toWire } from '../../engine/wire';
+import type { AnalysisQuestion } from '../../engine/types/query';
 
 const API_BASE = (process.env.API_BASE ?? 'http://localhost:3001').replace(/\/$/, '');
 const TOKEN = process.env.CACHE_WRITE_TOKEN;

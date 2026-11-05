@@ -5,9 +5,9 @@ for the day it ran — so `ls` answers "when was this last run", and comparing
 two sweeps is a `diff` of two paths.
 
 ```
-QUERY_MATRIX_MODE=engine npx tsx scripts/query-matrix.mts M1 init   # start a sweep
-QUERY_MATRIX_MODE=engine npx tsx scripts/query-matrix.mts M2        # each later phase
-npx tsx scripts/query-matrix.mts --index                            # rebuild this file
+QUERY_MATRIX_MODE=engine npx tsx engine/scripts/query-matrix.mts M1 init   # start a sweep
+QUERY_MATRIX_MODE=engine npx tsx engine/scripts/query-matrix.mts M2        # each later phase
+npx tsx engine/scripts/query-matrix.mts --index                            # rebuild this file
 ```
 
 `raw` posts each step's SPARQL directly and writes one row per step; `engine`
@@ -44,4 +44,4 @@ The other 99 rows (62 `near`, 37 `downstream`) are unaffected, and are the contr
 diffing this file against the next sweep.
 
 
-Generated 2026-09-20.
+Generated 2026-11-05.

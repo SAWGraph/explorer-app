@@ -21,17 +21,15 @@ npm run preview      # Preview production build
 
 npm run health-check -- <ref>   # Run every dashboard question, record the results
 npm run query-matrix            # Re-measure every query shape (slow)
-npm run check-cache-key         # Assertions on cache-key canonicalisation
-npm run check-trace-direction   # Every hydrology query traces downstream from the seed
-npm run check-step-labels       # Progress labels, all 108 question shapes
-npm run check-substance-labels  # Substance naming rule and popup grouping
-npm run check-flowline-scope    # Flowline layer is bounded at both ends
-npm run check-query-joins       # Join order and observation joins in generated SPARQL
+npm run flow-distance-check     # Bounded downstream trace vs the UC1_CQ2c notebook (live)
 npm run warm-cache              # Precompute dashboard results (needs CACHE_WRITE_TOKEN)
 npm run build-thumbnails        # Re-render prebuilt card thumbnails (live queries, ~4 min)
+npm run contrast-check          # WCAG contrast report for map and UI colours (report only)
 ```
 
-Install dependencies with `npm install --legacy-peer-deps` (react-leaflet has a peer dep mismatch with React 19). Tests are Vitest (`npm test`, files in `tests/`). One file: `npx vitest run tests/queryGeneration.test.ts`; one test: add `-t "<name>"`. `tests/__snapshots__/query-shapes.txt` is a golden file of the SPARQL every question generates: re-record with `npx vitest run -u` after an intended change and read its diff. The `check-*` scripts are older self-checks still run by `.github/workflows/checks.yml`; don't add new ones. See `.claude/rules/common/testing.md`.
+Scripts live with what they serve: `engine/scripts/` (live measurement), `ui/scripts/` (UI assets), `scripts/ops/` (writes to the live cache).
+
+Install dependencies with `npm install --legacy-peer-deps` (react-leaflet has a peer dep mismatch with React 19). Tests are Vitest (`npm test`, files in `engine/tests/` and `ui/tests/`). One file: `npx vitest run engine/tests/queryGeneration.test.ts`; one test: add `-t "<name>"`. `engine/tests/__snapshots__/query-shapes.txt` is a golden file of the SPARQL every question generates: re-record with `npx vitest run -u` after an intended change and read its diff. The rule tests (`traceDirection`, `flowlineScope`, `cacheKey`, `stepLabels`, `substanceLabels`, `queryJoins`) assert properties across the whole question space. See `.claude/rules/common/testing.md`.
 
 ## Architecture
 
@@ -120,7 +118,7 @@ the answer usually contradicts the obvious guess.
 
 - `DEBUGGING.md` — bugs that have already been diagnosed, with root causes and fixes.
 - `QUERY-MATRIX.md` — every query shape the app can build, measured. Part 2 is the query space; Part 3 the baseline times; **Part 4 the error catalogue** (what each HTTP status really means — note QLever reports a 30s timeout as `429 Too Many Requests`); Part 5 the four root causes; Parts 6–7 the post-fix re-measurement; Part 8 distance-bounded traces, including which county fails and what rescues it.
-- `query-matrix/` — one CSV per sweep, named for the day it ran, with a generated `README.md` indexing them: when, which commit, how many shapes passed, what moved since last time. Run a sweep with `npm run query-matrix`, rebuild the index with `npx tsx scripts/query-matrix.mts --index`.
+- `query-matrix/` — one CSV per sweep, named for the day it ran, with a generated `README.md` indexing them: when, which commit, how many shapes passed, what moved since last time. Run a sweep with `npm run query-matrix`, rebuild the index with `npx tsx engine/scripts/query-matrix.mts --index`.
 - `health/STATUS.md` — are the dashboard questions working right now, how long they take, and whether their row counts moved. Regenerated weekly by `.github/workflows/health-check.yml`; `health/history.jsonl` is the full time series, one JSON line per question per run. **This is where you date a regression.**
 
 **The code**
@@ -130,7 +128,6 @@ the answer usually contradicts the obvious guess.
 
 **Working notes**
 
-- `queries/` — write-ups of individual real questions, one file each.
 - `aquifer-queries.md` — scratch queries from scoping aquifer support (ME + IL only, as of 2026-08).
 - `plans/` — drafts → active → done (see Planning below).
 - `changelog/` — weekly files (see Changelog below).

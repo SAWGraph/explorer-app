@@ -22,8 +22,8 @@ Output is one GeoJSON feature per aquifer for static map rendering.
 
 Usage:
     python3 -m pip install shapely
-    python3 scripts/precompute_aquifers.py            # -> ui/assets/aquifers.geojson
-    python3 scripts/precompute_aquifers.py --self-check
+    python3 ui/scripts/precompute_aquifers.py            # -> ui/assets/aquifers.geojson
+    python3 ui/scripts/precompute_aquifers.py --self-check
 
 Re-run when aquifer data changes upstream (currently ME + IL only).
 """

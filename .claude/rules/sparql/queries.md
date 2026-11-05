@@ -50,4 +50,4 @@ Part 4 is the full catalogue.
 3. Discovery queries (`templates/regions.ts`): update the matching
    `docs/wiki/` page in the same PR with what the query really returns.
 4. Hydrology traces must go downstream from the seed
-   (`npm run check-trace-direction`).
+   (`engine/tests/traceDirection.test.ts`, run by `npm test`).

@@ -1,12 +1,10 @@
-// Self-check for the direction of every hydrology trace the planner can build
+// The direction of every hydrology trace the planner can build
 // (engine/planner.ts, engine/templates/fusedQueries.ts).
-//
-//   npx tsx scripts/check-trace-direction.mts
 //
 // The templates trace one way only: the target comes out `direction` of the
 // anchor, seeded from the anchor's S2 cells. The planner puts the anchor on the
-// upstream side of the question — block C for "A downstream from C", block A
-// for "A upstream from C" — so every trace it builds must run *downstream from
+// upstream side of the question (block C for "A downstream from C", block A
+// for "A upstream from C"), so every trace it builds must run *downstream from
 // the seed*. Pairing anchor=blockA with direction='upstream', which the planner
 // did until 2026-09-16, answered the mirror question for all 36 upstream
 // shapes, and nothing in the app looked wrong enough to catch it: both layers
@@ -17,19 +15,16 @@
 // server-side instead of hydrating by IRI). They have to agree, so this checks
 // the SPARQL they emit rather than the direction flag they were handed.
 //
+// Inputs are the full shape space rather than tests/questions/ on purpose: the
+// upstream bug lived in shapes no hand-picked question exercised.
+//
 // No network: the pipeline steps only build query strings.
 import assert from 'node:assert/strict';
-import { planPipeline, type PipelineContext } from '../engine/planner';
-import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../engine/types/query';
+import { it } from 'vitest';
+import { planPipeline, type PipelineContext } from '../planner';
+import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../types/query';
 
-const ENTITY_TYPES: EntityType[] = [
-  'samples',
-  'facilities',
-  'waterBodies',
-  'wells',
-  'aquifers',
-  'streams',
-];
+const ENTITY_TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers', 'streams'];
 const HYDROLOGY: SpatialRelationship['type'][] = ['downstream', 'upstream'];
 
 // Every way the templates write the transitive closure. The chain variable that
@@ -84,80 +79,78 @@ const context = (): PipelineContext => ({
   results: {},
 });
 
-let checks = 0;
-let combinations = 0;
+it('every hydrology trace runs downstream from its seed', () => {
+  let combinations = 0;
+  for (const a of ENTITY_TYPES) {
+    for (const c of ENTITY_TYPES) {
+      for (const rel of HYDROLOGY) {
+        for (const maxDistanceKm of [undefined, 30]) {
+          const question: AnalysisQuestion = {
+            blockA: { type: a, region: { stateCode: '23' } },
+            relationship: { type: rel, ...(maxDistanceKm ? { maxDistanceKm } : {}) },
+            blockC: { type: c },
+          };
+          const where = `${a} ${rel} ${c}${maxDistanceKm ? ` (${maxDistanceKm}km)` : ''}`;
+          combinations++;
 
-for (const a of ENTITY_TYPES) {
-  for (const c of ENTITY_TYPES) {
-    for (const rel of HYDROLOGY) {
-      for (const maxDistanceKm of [undefined, 30]) {
-        const question: AnalysisQuestion = {
-          blockA: { type: a, region: { stateCode: '23' } },
-          relationship: { type: rel, ...(maxDistanceKm ? { maxDistanceKm } : {}) },
-          blockC: { type: c },
-        };
-        const where = `${a} ${rel} ${c}${maxDistanceKm ? ` (${maxDistanceKm}km)` : ''}`;
-        combinations++;
+          let traced = 0;
+          for (const step of planPipeline(question)) {
+            const sparql = step.buildQuery(context());
+            if (!sparql.includes('downstreamFlowPathTC')) continue;
+            traced++;
 
-        let traced = 0;
-        for (const step of planPipeline(question)) {
-          const sparql = step.buildQuery(context());
-          if (!sparql.includes('downstreamFlowPathTC')) continue;
-          traced++;
-
-          if (sparql.includes('?upstream_flowline') && sparql.includes('?ds_flowline')) {
-            // The anchor's flowline has to reach the target's, whichever end
-            // the bounded block seeds from. This is the property the whole
-            // direction rule exists to protect: pairing anchor=blockA with
-            // direction='upstream' reverses the chain and fails here.
-            assert.ok(
-              flowsInto(sparql, '?upstream_flowline', '?ds_flowline'),
-              `${step.type} has no directed path from the anchor's flowline to the target's: ${where}`,
-            );
-            checks++;
-          } else {
-            for (const pattern of REVERSED) {
+            if (sparql.includes('?upstream_flowline') && sparql.includes('?ds_flowline')) {
+              // The anchor's flowline has to reach the target's, whichever end
+              // the bounded block seeds from. This is the property the whole
+              // direction rule exists to protect: pairing anchor=blockA with
+              // direction='upstream' reverses the chain and fails here.
               assert.ok(
-                !sparql.includes(pattern),
-                `${step.type} traces upstream from the seed ("${pattern}"): ${where}`,
+                flowsInto(sparql, '?upstream_flowline', '?ds_flowline'),
+                `${step.type} has no directed path from the anchor's flowline to the target's: ${where}`,
               );
-              checks++;
+            } else {
+              for (const pattern of REVERSED) {
+                assert.ok(
+                  !sparql.includes(pattern),
+                  `${step.type} traces upstream from the seed ("${pattern}"): ${where}`,
+                );
+              }
+              assert.ok(
+                FORWARD.some((pattern) => sparql.includes(pattern)),
+                `${step.type} has no recognisable trace pattern: ${where}`,
+              );
             }
-            assert.ok(
-              FORWARD.some((pattern) => sparql.includes(pattern)),
-              `${step.type} has no recognisable trace pattern: ${where}`,
-            );
-            checks++;
           }
-        }
 
-        // A hydrology question that traced nowhere would pass the loop above
-        // by doing nothing at all.
-        assert.ok(traced > 0, `no step traced: ${where}`);
-        checks++;
+          // A hydrology question that traced nowhere would pass the loop above
+          // by doing nothing at all.
+          assert.ok(traced > 0, `no step traced: ${where}`);
+        }
       }
     }
   }
-}
+  assert.equal(combinations, 144);
+});
 
 // And the relationship the user picked must still reach the templates intact:
 // 'near' never traces.
-for (const a of ENTITY_TYPES) {
-  for (const c of ENTITY_TYPES) {
-    const question: AnalysisQuestion = {
-      blockA: { type: a, region: { stateCode: '23' } },
-      relationship: { type: 'near', hops: 1 },
-      blockC: { type: c },
-    };
-    combinations++;
-    for (const step of planPipeline(question)) {
-      assert.ok(
-        !step.buildQuery(context()).includes('downstreamFlowPathTC'),
-        `near question traces flow paths: ${a} near ${c} (${step.type})`,
-      );
-      checks++;
+it('near questions never trace flow paths', () => {
+  let combinations = 0;
+  for (const a of ENTITY_TYPES) {
+    for (const c of ENTITY_TYPES) {
+      const question: AnalysisQuestion = {
+        blockA: { type: a, region: { stateCode: '23' } },
+        relationship: { type: 'near', hops: 1 },
+        blockC: { type: c },
+      };
+      combinations++;
+      for (const step of planPipeline(question)) {
+        assert.ok(
+          !step.buildQuery(context()).includes('downstreamFlowPathTC'),
+          `near question traces flow paths: ${a} near ${c} (${step.type})`,
+        );
+      }
     }
   }
-}
-
-console.log(`trace direction: ${combinations} combinations, ${checks} checks passed`);
+  assert.equal(combinations, 36);
+});

@@ -1,6 +1,9 @@
-name: Checks
+name: PR checks
 
-# The repo's self-checks, on every pull request. They were all runnable before
+# Build, Vitest and lint on every pull request, and on every push to main and
+# development. Blocks a PR that breaks the build or a test; lint is advisory.
+#
+# Why it exists: the self-checks were all runnable before
 # this file existed and none of them ran unless someone remembered to, which is
 # how an engine bug that every one of these styles of check would have caught
 # (upstream tracing the relation backwards, see docs/DEBUGGING.md 2026-09-16)
@@ -17,7 +20,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  checks:
+  pr-checks:
+    name: Build, test, lint
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -35,33 +39,14 @@ jobs:
       - name: Build (tsc -b && vite build)
         run: npm run build
 
-      # Each of these asserts something that is silent when wrong: a wrong
-      # answer, a mislabelled step, a cache key that collides. They fail the
-      # build rather than reporting, because a self-check nobody is obliged to
-      # read is a self-check that does not exist.
-      - name: Trace direction
-        run: npm run check-trace-direction
-
-      - name: Flowline scope
-        run: npm run check-flowline-scope
-
-      - name: Cache key
-        run: npm run check-cache-key
-
-      - name: Step labels
-        run: npm run check-step-labels
-
-      - name: Substance labels
-        run: npm run check-substance-labels
-
-      - name: Query join order and observation joins
-        run: npm run check-query-joins
-
-      # Vitest. Includes engine/tests/queryGeneration.test.ts, the golden-file diff of
-      # the SPARQL generated for the prebuilt, representative and critical
-      # questions. The checks above assert a rule; this notices when a change
-      # moves a question nobody was thinking about, which is the failure mode of
-      # a shared query builder.
+      # Vitest. Two kinds of test, both blocking:
+      # - Rule tests (traceDirection, flowlineScope, cacheKey, stepLabels,
+      #   substanceLabels, queryJoins) assert something that is silent when
+      #   wrong: a wrong answer, a mislabelled step, a cache key that collides.
+      # - engine/tests/queryGeneration.test.ts, the golden-file diff of the
+      #   SPARQL generated for the prebuilt, representative and critical
+      #   questions, notices when a change moves a question nobody was thinking
+      #   about, which is the failure mode of a shared query builder.
       - name: Tests
         run: npm test
 

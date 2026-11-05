@@ -148,10 +148,14 @@ explorer/
 │       ├── routes/results.ts   # Public read, token-gated write
 │       └── routes/publish.ts   # Published questions
 │
-├── scripts/                 # Maintainer tools (tsx); they import the engine directly
+├── scripts/ops/             # Write to the live cache (need CACHE_WRITE_TOKEN)
 │   ├── warm-cache.mts       # Run the dashboard questions, upload the results
-│   ├── check-cache-key.mts  # Assertions on cache-key canonicalisation
-│   └── query-matrix.mts     # Measure every query shape, write the CSV
+│   └── warm-questions.mts   # Same, for a JSON list of questions
+│
+│   Maintainer scripts live with what they serve: engine/scripts/ measures
+│   the engine against the live endpoints (health-check, query-matrix,
+│   flow-distance-check); ui/scripts/ builds or audits UI assets
+│   (build-thumbnails, precompute_aquifers, contrast-check).
 │
 └── docs/                    # Project-wide docs
 ```
@@ -259,7 +263,7 @@ the two decisions have to be made separately rather than passing
 `relationship.type` through as the direction. Doing exactly that answered the
 mirror question for every upstream shape until 2026-09-16
 (`docs/DEBUGGING.md`, 2026-09-16), and it is guarded now by
-`scripts/check-trace-direction.mts`, which reads the emitted SPARQL rather than
+`engine/tests/traceDirection.test.ts`, which reads the emitted SPARQL rather than
 the flag, because three separate builders trace and they all have to agree.
 
 ### 3. Executor Runs the Steps
@@ -564,7 +568,7 @@ statewide well question and are never drawn.
 
 **Who can write.** Reads are public; writes are not. The publisher writes the
 result it has just computed, authenticated by the `editToken` the server issued
-for that publication. The maintainer script `scripts/warm-cache.mts` writes with
+for that publication. The maintainer script `scripts/ops/warm-cache.mts` writes with
 `CACHE_WRITE_TOKEN`. Nothing else can put an entry in front of someone else's
 map.
 
@@ -775,7 +779,7 @@ genuinely reads the unit, so that case keeps it. Nothing ever needs the material
 
 **The rule to carry into new templates:** fetch what you project or filter on,
 nothing else, and reach for `OPTIONAL` the moment a field is not universal.
-`scripts/check-query-joins.mts` asserts this across all 108 shapes in CI.
+`engine/tests/queryJoins.test.ts` asserts this across all 108 shapes in CI.
 
 ### 6. Why Transform SPARQL Rows to Features?
 
