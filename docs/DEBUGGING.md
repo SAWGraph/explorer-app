@@ -935,7 +935,11 @@ Cost. Hancock at 3 cells away ran in 8s with the check and 24s without.
 Statewide it costs a few seconds per discovery step ("wells in Maine near
 wastewater plants": 1s to 4s, 2s to 7s). Where the clause sits matters in well
 hydration: inside the body that query went from 8s to 23s, after the OPTIONALs
-it stays at 8s (3 rounds each, same 2,431 wells). Test:
+it stays at 8s (3 rounds each, same 2,431 wells). Several counties use a
+VALUES list ("wells near water bodies in York, Cumberland and Androscoggin",
+1 cell away): discovery 5s to 10s and 1s to 8s, hydration 31s either way,
+17,489 wells down to 17,092. Reusing the cell clause's `?_regionC` instead of a
+second VALUES variable ran no faster and lost one well. Test:
 `engine/tests/wellRegion.test.ts`.
 
 **Known limits.**
