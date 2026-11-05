@@ -49,8 +49,10 @@ one entry for two engine types, `waterBodies` and `streams`; Feature Type picks 
 **Relationship**. Near, Downstream of, Upstream from.
 [`RelationshipSelector.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/RelationshipSelector.tsx)
 
-**Distance**, shown only when the relationship is Near. Zero to four miles, which map to S2
-cell expansion hops rather than real distances.
+**Distance**, shown only when the relationship is Near. "Within at most 1 mile of" to "within
+at most 5 miles of", which map to 0 to 4 S2 cell expansion hops. A level 13 cell is about 1 mile
+corner to corner, so N hops keeps every match within N+1 miles; it is a bound, not a measured
+distance.
 [`RelationshipSelector.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/RelationshipSelector.tsx)
 
 **State**. All fifty are listed, but only the ones in `AVAILABLE_STATE_FIPS` are selectable.
