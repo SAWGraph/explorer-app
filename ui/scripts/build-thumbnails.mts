@@ -1,7 +1,7 @@
 // Renders one map thumbnail per prebuilt analysis into public/thumbs/<id>.svg,
 // so the dashboard cards show the actual answer rather than a generic map.
 //
-//   npx tsx scripts/build-thumbnails.mts [id ...]
+//   npx tsx ui/scripts/build-thumbnails.mts [id ...]
 //
 // Offline and manual, like the query matrix: it runs the real pipeline against
 // the live endpoints, which takes minutes. Re-run it when a prebuilt question
@@ -16,10 +16,10 @@
 // against ~90KB, and the marks are drawn as SVG on top, so the compression
 // artefacts land on terrain nobody is reading.
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
-import { planPipeline } from '../engine/planner';
-import { executePipeline } from '../engine/executor';
-import { questionThumbnailUrl, boundsForQuestion } from '../ui/constants/regionBounds';
+import { PREBUILT_QUERIES } from '../../engine/constants/prebuiltQueries';
+import { planPipeline } from '../../engine/planner';
+import { executePipeline } from '../../engine/executor';
+import { questionThumbnailUrl, boundsForQuestion } from '../constants/regionBounds';
 
 const W = 440;
 const H = 300;

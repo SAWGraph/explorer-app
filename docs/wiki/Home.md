@@ -34,8 +34,6 @@ code and are read while working in it:
   a log of bugs and graph quirks with their causes
 * [`docs/CONVENTIONS.md`](https://github.com/SAWGraph/explorer-app/blob/main/docs/CONVENTIONS.md),
   coding standards
-* [`docs/queries/`](https://github.com/SAWGraph/explorer-app/tree/main/docs/queries),
-  five complete example questions walked through end to end
 
 ## Editing this wiki
 

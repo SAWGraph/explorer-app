@@ -30,7 +30,7 @@ import the engine; the engine never imports the UI.
 
 ## Calling it from Node
 
-This is what `scripts/warm-cache.mts` and `scripts/health-check.mts` do:
+This is what `scripts/ops/warm-cache.mts` and `engine/scripts/health-check.mts` do:
 
 ```ts
 import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';

@@ -354,7 +354,7 @@ entries cached earlier stay reachable.
   listing known-relevant ones — a whitelist silently drops whatever is added
   next, and adding a field to `AnalysisQuestion` is a normal thing to do.
 - Any new field on `AnalysisQuestion` that changes results must be reflected in
-  `scripts/check-cache-key.mts`. It now covers bounded vs unbounded, two
+  `engine/tests/cacheKey.test.ts`. It now covers bounded vs unbounded, two
   different bounds, and that the unbounded key is unchanged — 19 checks.
 - The same reasoning applies to `WIRE_VERSION` in that file: bump it when the
   set of stored result keys changes, or cached entries will be missing data the
@@ -480,7 +480,7 @@ north of Chicago and nothing downstream of it.
   the other, which is what overloaded variables do.
 - **Plausible output is not verification.** The only assertion that would have
   caught this is one about the *query*, not the result. That is
-  `scripts/check-trace-direction.mts`: across all 180 planner shapes, every
+  `engine/tests/traceDirection.test.ts`: across all 180 planner shapes, every
   query carrying `hyf:downstreamFlowPathTC` must trace downstream from the seed,
   and a `near` question must not trace at all. It reads the emitted SPARQL, so
   it covers all three builders that trace (discovery, the flowline layer, well
@@ -559,7 +559,7 @@ it did before (6.88s vs 6.59s).
 - **Textual triple order is a semantic-free change with a non-semantic-free
   cost.** It cannot alter the answer, and it decided whether this question
   answered at all. That makes it cheap to try and worth asserting:
-  `scripts/check-query-joins.mts` reads the emitted SPARQL and fails if the
+  `engine/tests/queryJoins.test.ts` reads the emitted SPARQL and fails if the
   unconstrained side leads, or if the unit join appears without a concentration
   range.
 - **Measure the fix against the shapes it touches, not the one that prompted
@@ -620,7 +620,7 @@ because connectivity dominates the cap at that range; at 5km the cap still bites
 (2,314), so the two constraints compose. The shipped bounded query had been
 drawing a Merrimack segment straight through its own 25km cap.
 
-`scripts/check-flowline-scope.mts` asserts both ends are bound for all 100
+`engine/tests/flowlineScope.test.ts` asserts both ends are bound for all 100
 shapes that draw the layer, bounded and unbounded.
 
 **Also fixed here: `includeNondetects: true` counted as a filter.** The
@@ -701,7 +701,7 @@ combinations. Details in `docs/QUERY-MATRIX.md` Part 10.
 
 ### The tripwire this nearly disarmed
 
-`check-trace-direction.mts` kept `?_flEnd hyf:downstreamFlowPathTC ?_flMid` on a
+`traceDirection.test.ts` kept `?_flEnd hyf:downstreamFlowPathTC ?_flMid` on a
 blacklist of reversed traces. A block seeded from the target writes that exact
 triple while tracing correctly, so the string cannot decide it any more. Deleting
 the entry would have quietly removed the only guard against the 2026-09-16
@@ -714,7 +714,7 @@ where `?a <pred> ?b` always means a flows into b, and assert a path from
 standing in for, and it admits both seed sides. Verified by mutation:
 reintroducing the 2026-09-16 bug still fails it, and a half-applied reorder that
 moves the query text while leaving the aggregate seeded from the anchor fails
-the new `seedsFrom` assertion in `check-query-joins.mts`.
+the new `seedsFrom` assertion in `queryJoins.test.ts`.
 
 ### Two measurement traps worth not repeating
 

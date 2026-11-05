@@ -72,7 +72,7 @@ Supported relationships: **near** (~1–2 km), **downstream**, **upstream**
 
 Downstream/upstream traces accept an optional cumulative flowpath cutoff
 (`Within N km of flow`). Unset, the trace is the full transitive closure.
-`node scripts/flow-distance-check.mjs` verifies the bounded trace against the
+`node engine/scripts/flow-distance-check.mjs` verifies the bounded trace against the
 live endpoints.
 
 ## SPARQL endpoints
@@ -111,6 +111,5 @@ Inside `docs/`:
 | `DEBUGGING.md`      | Documented bugs with root causes and fixes                      |
 | `CONVENTIONS.md`    | Coding standards, endpoint selection rules                      |
 | `wiki/`             | One page per filter dropdown; source of truth for the GitHub Wiki |
-| `queries/`          | Write-ups of individual real questions                          |
 | `changelog/`        | Weekly changelogs (`YYYY-Www.md`)                               |
 | `plans/`            | Feature planning: `drafts/` → `active/` → `done/`               |

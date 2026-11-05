@@ -8,7 +8,7 @@
 // is a superset of exactly that set (we also expand to neighbouring S2 cells
 // and add the "+1" segment past the cutoff).
 //
-// Run: node scripts/flow-distance-check.mjs
+// Run: node engine/scripts/flow-distance-check.mjs
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 

@@ -3,7 +3,7 @@
 **Baseline measured**: 2026-09-13, against the live `apps.okn.us` endpoints
 **Re-measured after Phases 1 + 2**: 2026-09-14 (Part 6)
 **Raw data**: [`query-matrix/`](./query-matrix/) — one row per query executed, importable into a spreadsheet
-**Harness**: [`scripts/query-matrix.mts`](../scripts/query-matrix.mts) — re-run it and diff the CSV after any engine change
+**Harness**: [`engine/scripts/query-matrix.mts`](../engine/scripts/query-matrix.mts) — re-run it and diff the CSV after any engine change
 
 This is the reference sheet. Every claim here is a measurement, not an estimate.
 Where something is an estimate, it says so.
@@ -94,7 +94,7 @@ Every shape below was run once against the live endpoints in a single sweep on
 The gaps are deliberate: the 80 missing combinations are near-distance variants
 of pairs whose hop-1 behaviour is already recorded, and distance cost is
 characterised separately in 3.4. Fill them by adding pairs to phase M4 in
-`scripts/query-matrix.mts` if a question there ever matters.
+`engine/scripts/query-matrix.mts` if a question there ever matters.
 
 | | Runs | Worked | of which slow (>15s) | Failed |
 | --- | --- | --- | --- | --- |
@@ -481,7 +481,7 @@ reason.
   an instant one, and what makes a 218s Illinois answer a one-time cost.
 - **Not re-measured:** the full 156-query sweep has not been re-run since the
   change. Only the shapes in 6.1 were checked. Re-run
-  `scripts/query-matrix.mts` before treating Part 3 as superseded.
+  `engine/scripts/query-matrix.mts` before treating Part 3 as superseded.
 - **The okn.us asks** (access token to raise the 30s limit; a materialized
   downstream relation) would remove the ceiling that everything here works
   around.
@@ -825,7 +825,7 @@ it is ever in doubt again.
 ## Part 10: Flow-distance bounds and the seed side (2026-09-20)
 
 Until this date the harness never swept the flow-distance bound at all.
-`maxDistanceKm` appeared zero times in `scripts/query-matrix.mts`, `mk()` had no
+`maxDistanceKm` appeared zero times in `engine/scripts/query-matrix.mts`, `mk()` had no
 distance parameter, and M4, which the header called a distance sweep, sweeps the
 `near` relationship's hop distance in miles instead. The only bounded shape the
 matrix ever ran was one dashboard prebuilt inside M5.

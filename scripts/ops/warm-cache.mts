@@ -1,7 +1,7 @@
 // Warms the result cache for the dashboard questions.
 //
 //   CACHE_WRITE_TOKEN=... API_BASE=https://sawgraph-explorer-api-development.up.railway.app \
-//     npx tsx scripts/warm-cache.mts
+//     npx tsx scripts/ops/warm-cache.mts
 //
 // Run this by hand after a knowledge-graph reload (and bump DATA_VERSION in
 // engine/cacheKey.ts first, which makes every existing entry unreachable).
@@ -10,11 +10,11 @@
 //
 // This is a trusted writer — it runs the real pipeline and uploads what it got,
 // so nothing untrusted ever reaches another user's map.
-import { planPipeline } from '../engine/planner';
-import { executePipeline } from '../engine/executor';
-import { cacheKey } from '../engine/cacheKey';
-import { toWire } from '../engine/wire';
-import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
+import { planPipeline } from '../../engine/planner';
+import { executePipeline } from '../../engine/executor';
+import { cacheKey } from '../../engine/cacheKey';
+import { toWire } from '../../engine/wire';
+import { PREBUILT_QUERIES } from '../../engine/constants/prebuiltQueries';
 
 const API_BASE = (process.env.API_BASE ?? 'http://localhost:3001').replace(/\/$/, '');
 const TOKEN = process.env.CACHE_WRITE_TOKEN;

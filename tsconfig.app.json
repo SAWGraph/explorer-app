@@ -24,5 +24,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["ui", "engine"]
+  "include": ["ui", "engine"],
+  // Node maintainer scripts, run with tsx; not part of the browser bundle.
+  "exclude": ["engine/scripts", "ui/scripts"]
 }

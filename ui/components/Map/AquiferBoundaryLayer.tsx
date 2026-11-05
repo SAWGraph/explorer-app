@@ -7,7 +7,7 @@ import { WATER_COLORS } from './mapColors';
 // immutable URL that never serves stale, and changes when the data changes.
 import aquifersUrl from '../../assets/aquifers.geojson?url';
 
-// Precomputed by scripts/precompute_aquifers.py (aquifers have no geometry in
+// Precomputed by ui/scripts/precompute_aquifers.py (aquifers have no geometry in
 // the KG — this dissolves their S2 cells into boundaries). Lazy-loaded on first
 // enable; the file is ~6.8MB so we don't fetch it until the layer is toggled on.
 // ponytail: module-level cache so re-toggling doesn't refetch.

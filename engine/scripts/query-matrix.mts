@@ -5,8 +5,8 @@
 // the query engine and diff the output against docs/query-matrix/2026-09-14-raw-baseline.csv — no shape
 // may regress from working to failing.
 //
-//   npx tsx scripts/query-matrix.mts M1 init   # first phase truncates the CSV
-//   npx tsx scripts/query-matrix.mts M2        # subsequent phases append
+//   npx tsx engine/scripts/query-matrix.mts M1 init   # first phase truncates the CSV
+//   npx tsx engine/scripts/query-matrix.mts M2        # subsequent phases append
 //
 // Phases: M1 near(1) all 25 entity pairs | M2 downstream all pairs
 //         M3 upstream all pairs | M4 near-hop distance | M5 dashboard queries
@@ -38,11 +38,11 @@
 
 import { execSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { planPipeline } from '../engine/planner';
-import { executePipeline } from '../engine/executor';
-import { ENDPOINTS } from '../engine/constants/endpoints';
-import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
-import type { AnalysisQuestion, EntityType } from '../engine/types/query';
+import { planPipeline } from '../planner';
+import { executePipeline } from '../executor';
+import { ENDPOINTS } from '../constants/endpoints';
+import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
+import type { AnalysisQuestion, EntityType } from '../types/query';
 
 // 'raw' posts each step's SPARQL directly — measures the endpoint, not us, and
 // is how the pre-Phase-2 baseline was recorded. 'engine' runs the real pipeline
@@ -324,7 +324,7 @@ if (phase === 'MD') { // flow-distance bounds, both narrowing directions
 //
 // One row per sweep: when, which commit, how many query shapes passed, and what
 // moved since the previous sweep in the same mode. Regenerate with
-// `npx tsx scripts/query-matrix.mts --index` — it reads the CSVs, runs nothing.
+// `npx tsx engine/scripts/query-matrix.mts --index` — it reads the CSVs, runs nothing.
 
 interface Sweep {
   file: string;
@@ -401,9 +401,9 @@ function writeIndex(): void {
     'two sweeps is a `diff` of two paths.',
     '',
     '```',
-    'QUERY_MATRIX_MODE=engine npx tsx scripts/query-matrix.mts M1 init   # start a sweep',
-    'QUERY_MATRIX_MODE=engine npx tsx scripts/query-matrix.mts M2        # each later phase',
-    'npx tsx scripts/query-matrix.mts --index                            # rebuild this file',
+    'QUERY_MATRIX_MODE=engine npx tsx engine/scripts/query-matrix.mts M1 init   # start a sweep',
+    'QUERY_MATRIX_MODE=engine npx tsx engine/scripts/query-matrix.mts M2        # each later phase',
+    'npx tsx engine/scripts/query-matrix.mts --index                            # rebuild this file',
     '```',
     '',
     '`raw` posts each step\'s SPARQL directly and writes one row per step; `engine`',

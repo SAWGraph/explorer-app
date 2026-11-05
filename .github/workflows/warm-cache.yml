@@ -1,4 +1,5 @@
-name: Warm result cache
+name: Warm result cache (manual)
+run-name: "Warm cache: ${{ inputs.environment }}${{ inputs.only && format(' ({0})', inputs.only) || '' }}"
 
 # Runs the dashboard questions and stores their results, so visitors get them
 # instantly instead of waiting 10-70s for a live pipeline run.
@@ -41,6 +42,7 @@ concurrency:
 
 jobs:
   warm:
+    name: Warm the ${{ inputs.environment }} cache
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
