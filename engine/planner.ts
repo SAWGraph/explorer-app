@@ -158,13 +158,19 @@ function hydrateStep(
       }
     },
     // Wells re-derive their set server-side (they can run to 80k+ IRIs), so
-    // there is no IRI list to pre-split for them.
+    // there is no IRI list to pre-split for them, and nothing to divide: their
+    // query ignores the scope, so every "half" re-sent the identical query
+    // until the 300s step budget ran out. #82's wells step spent 533s that way
+    // before failing. A failed wells step now fails on its first refusal.
     initialScopes:
       block.type === 'wells'
         ? undefined
         : (ctx) => iriScopes(side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
-    divide: async (ctx, scope) =>
-      divideIriList(scope, side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
+    divide:
+      block.type === 'wells'
+        ? undefined
+        : async (ctx, scope) =>
+            divideIriList(scope, side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
   };
 }
 
