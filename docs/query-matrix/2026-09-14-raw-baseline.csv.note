@@ -1,0 +1,6 @@
+**The pre-Phase-2 baseline, in raw mode.** Each step's SPARQL posted straight
+to the endpoint, one row per step, before splitting and merging existed. It is
+the reference that `docs/DEBUGGING.md` and `docs/ARCHITECTURE.md` say to diff
+against, and the only full raw sweep. It predates the `commit` column, so the
+code it measured is unrecorded. Like `2026-09-14-engine.csv`, its 25 `upstream`
+rows measured the mirror question (trace-direction bug, fixed 2026-09-16).

@@ -331,6 +331,9 @@ interface Sweep {
   date: string;
   mode: string;
   commit: string;
+  // Which phases (M1..M9, MD) the sweep ran. A 32-shape MD sweep and a full
+  // 124-shape sweep look alike in every other column.
+  phases: string[];
   // label -> worst status seen for that query. Raw mode writes one row per
   // step, so a query is only a pass if every one of its steps passed.
   byLabel: Map<string, string>;
@@ -353,10 +356,13 @@ function readSweeps(): Sweep[] {
       const iLabel = header.indexOf('label');
       const iStatus = header.indexOf('status');
       const iClass = header.indexOf('errorClass');
+      const iMatrix = header.indexOf('matrix');
       const byLabel = new Map<string, string>();
+      const phases = new Set<string>();
       let commit = '';
       for (const line of lines.slice(1)) {
         const cols = line.split(',');
+        if (iMatrix > -1 && cols[iMatrix]) phases.add(cols[iMatrix]);
         // Labels are quoted and contain no commas (csv() strips whitespace runs
         // and quotes), so a plain split is safe here.
         const label = (cols[iLabel] ?? '').replace(/"/g, '');
@@ -378,6 +384,7 @@ function readSweeps(): Sweep[] {
         date: m?.[1] ?? file,
         mode: m?.[2] ?? '?',
         commit: m?.[3] || commit || 'unrecorded',
+        phases: [...phases],
         byLabel,
       };
     });
@@ -397,7 +404,7 @@ function writeIndex(): void {
     '# Query matrix sweeps',
     '',
     'Every run of `npm run query-matrix`, newest first. One CSV per sweep, named',
-    'for the day it ran — so `ls` answers "when was this last run", and comparing',
+    'for the day it ran, so `ls` answers "when was this last run", and comparing',
     'two sweeps is a `diff` of two paths.',
     '',
     '```',
@@ -410,8 +417,12 @@ function writeIndex(): void {
     'runs the real pipeline, one row per query, and is the mode to use after an',
     'engine change. The two are not comparable row for row.',
     '',
-    '| Sweep | Mode | Commit | Shapes | Pass | Fail | Since the previous sweep |',
-    '| --- | --- | --- | ---: | ---: | ---: | --- |',
+    'Phases: M1 near, M2 downstream, M3 upstream (all entity pairs), M4 near-hop',
+    'distance, M5 dashboard questions, M6 six states, M7 no region, M8 filters,',
+    'M9 county scopes, MD flow-distance bounds.',
+    '',
+    '| Sweep | Mode | Commit | Phases | Shapes | Pass | Fail | Since the previous sweep |',
+    '| --- | --- | --- | --- | ---: | ---: | ---: | --- |',
   ];
 
   for (let i = sweeps.length - 1; i >= 0; i--) {
@@ -420,7 +431,7 @@ function writeIndex(): void {
     const fail = [...s.byLabel.values()].filter((v) => v === 'error').length;
     const prev = sweeps.slice(0, i).reverse().find((p) => p.mode === s.mode);
     out.push(
-      `| [\`${s.date}\`](./${s.file}) | ${s.mode} | \`${s.commit}\` | ${s.byLabel.size} | ${pass} | ${fail} | ${delta(s, prev)} |`,
+      `| [\`${s.date}\`](./${s.file}) | ${s.mode} | \`${s.commit}\` | ${phaseRange(s.phases)} | ${s.byLabel.size} | ${pass} | ${fail} | ${delta(s, prev)} |`,
     );
   }
 
@@ -432,13 +443,27 @@ function writeIndex(): void {
   if (noted.length) {
     out.push('', '## Notes', '');
     for (const x of noted) {
-      out.push(`**[\`${x.file}\`](./${x.file})** — ${readFileSync(`${DIR}/${x.file}.note`, 'utf8').trim()}`, '');
+      out.push(`**[\`${x.file}\`](./${x.file})**: ${readFileSync(`${DIR}/${x.file}.note`, 'utf8').trim()}`, '');
     }
   }
 
   out.push('', `Generated ${new Date().toISOString().slice(0, 10)}.`, '');
   writeFileSync(`${DIR}/README.md`, out.join('\n'));
   console.log(`Wrote ${DIR}/README.md — ${sweeps.length} sweep(s).`);
+}
+
+// ['M1', 'M2', 'M3', 'M5', 'MD'] -> 'M1 to M3, M5, MD'.
+function phaseRange(phases: string[]): string {
+  const nums = phases.map((p) => /^M(\d+)$/.exec(p)?.[1]).filter((n): n is string => !!n).map(Number).sort((a, b) => a - b);
+  const others = phases.filter((p) => !/^M\d+$/.test(p)).sort();
+  const runs: string[] = [];
+  for (let i = 0; i < nums.length; i++) {
+    let j = i;
+    while (j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++;
+    runs.push(j - i >= 2 ? `M${nums[i]} to M${nums[j]}` : nums.slice(i, j + 1).map((n) => `M${n}`).join(', '));
+    i = j;
+  }
+  return [...runs, ...others].join(', ') || '?';
 }
 
 function delta(now: Sweep, prev?: Sweep): string {
