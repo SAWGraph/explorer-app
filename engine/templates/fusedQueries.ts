@@ -187,7 +187,7 @@ export function buildEntityProbeQuery(
   // narrowing join here removes entities from every slice, so the probe has to
   // see exactly what discovery sees.
   const bind = bindEntityInCell(block, '?s2probe', 'P', false);
-  const region = regionClause(regionCodes, '?s2probe', '?_regionP');
+  const region = regionClause(block, regionCodes, '?s2probe', 'P');
   return `
     ${PREFIXES}
     SELECT DISTINCT (${entityVar} AS ?iri) WHERE {
@@ -206,14 +206,32 @@ function streamFtypeFilter(filters: StreamFilters | undefined, suffix: string): 
       VALUES ?flFtype${suffix} { ${values} }`;
 }
 
-function regionClause(regionCodes: string[] | undefined, s2Var: string, internalVar: string): string {
+// A cell that crosses the county line touches the county, so the cell check
+// alone lets in wells from the next county (35 of 2,264 for Hancock, #96).
+// Wells link to the county subdivision they sit in, which rolls up to county
+// and state. The other types have no measured leak, so they keep the cell
+// check only. The cell check stays for wells too, because it narrows first.
+function regionClause(
+  block: EntityBlock,
+  regionCodes: string[] | undefined,
+  s2Var: string,
+  suffix: string,
+): string {
   if (!regionCodes?.length) return '';
-  if (regionCodes.length === 1) {
-    return `${s2Var} spatial:connectedTo kwgr:administrativeRegion.USA.${regionCodes[0]} .`;
-  }
-  const values = regionCodes.map((c) => `kwgr:administrativeRegion.USA.${c}`).join(' ');
-  return `VALUES ${internalVar} { ${values} }
-      ${s2Var} spatial:connectedTo ${internalVar} .`;
+  const iris = regionCodes.map((c) => `kwgr:administrativeRegion.USA.${c}`);
+  const anyOf = (v: string) =>
+    iris.length === 1 ? { values: '', region: iris[0] } : { values: `VALUES ${v} { ${iris.join(' ')} }\n      `, region: v };
+  const cell = anyOf(`?_region${suffix}`);
+  const cellClause = `${cell.values}${s2Var} spatial:connectedTo ${cell.region} .`;
+  if (block.type !== 'wells') return cellClause;
+  // Its own variable, so the well's region need not be the one its cell
+  // touches. Sharing ?_region lost 1 of 17,092 wells in York, Cumberland
+  // and Androscoggin, 1 cell away.
+  const well = anyOf(`?_wellRegion${suffix}`);
+  const subdivision = `?_subdivision${suffix}`;
+  return `${cellClause}
+      ${well.values}${entityIriVar(block, suffix)} spatial:connectedTo ${subdivision} .
+      ${subdivision} kwg-ont:administrativePartOf+ ${well.region} .`;
 }
 
 // Builds a property-path fragment chaining N hops of (sfTouches | sameAs)
@@ -348,8 +366,8 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   const targetBind = bindEntityInCell(opts.target, '?s2target', 'C', targetObs);
   const anchorPin = pinValues(entityIriVar(opts.anchor, 'A'), opts.anchorIris);
   const targetPin = pinValues(entityIriVar(opts.target, 'C'), opts.targetIris);
-  const aRegion = regionClause(opts.anchorRegion, '?s2anchor', '?_regionA');
-  const tRegion = regionClause(opts.targetRegion, '?s2target', '?_regionC');
+  const aRegion = regionClause(opts.anchor, opts.anchorRegion, '?s2anchor', 'A');
+  const tRegion = regionClause(opts.target, opts.targetRegion, '?s2target', 'C');
 
   if (opts.mode === 'near') {
     const hopPath = neighborPath(opts.hops ?? 1, '?s2anchor', '?s2target');

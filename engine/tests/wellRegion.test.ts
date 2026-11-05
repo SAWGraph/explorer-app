@@ -76,9 +76,9 @@ describe('a region on wells checks the well', () => {
   });
 });
 
-// Counts measured on federation on 2026-11-05 for "wells near water bodies in
-// Hancock County, ME" at 0 cells away. They move if the graph is reloaded.
-describe.skipIf(!process.env.LIVE_SPARQL)('Hancock on federation', () => {
+// Counts for "wells near water bodies", measured on federation on 2026-11-05.
+// They move if the graph is reloaded.
+describe.skipIf(!process.env.LIVE_SPARQL)('on federation', () => {
   const count = async (q: string) => (await executeSparql('federation', q)).length;
 
   it('region on water bodies only keeps the cell answer', async () => {
@@ -91,6 +91,10 @@ describe.skipIf(!process.env.LIVE_SPARQL)('Hancock on federation', () => {
 
   it('region on both matches region on wells', async () => {
     expect(await count(near(HANCOCK, HANCOCK))).toBe(2229);
+  }, 60_000);
+
+  it('keeps a well in any picked county, whichever county its cell touches', async () => {
+    expect(await count(near(undefined, ['23031', '23005', '23001'], 1))).toBe(17092);
   }, 60_000);
 
   it('returns no well without a Hancock subdivision link', async () => {
