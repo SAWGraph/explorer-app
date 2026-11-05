@@ -898,3 +898,31 @@ edges, compare `map.getSize()` with the container's `clientWidth` and
 `clientHeight` before suspecting the feature. Also, a size stub in a test must
 return a fresh `L.point` each call: Leaflet mutates the point `getSize()`
 returns, so a shared one shrinks toward zero.
+
+## 2026-11-05: A refused wells details step split into identical queries (FIXED)
+
+**Found while tracing the engine for the redesign** (and earlier in #94 for
+issue #82, where it was fixed on a branch that was closed unmerged).
+
+**Symptom.** When the server refused the wells details step (timeout, out of
+memory), the step kept "splitting" and resending for the whole 300s step
+budget, then failed. Issue #82's wells step spent 533s this way before failing.
+
+**Root cause.** Wells details do not load by IRI. `buildFusedWellQuery`
+re-derives the well set server-side and ignores the scope it is given. But
+`hydrateStep` in `engine/planner.ts` gave every entity type the by-IRI
+`divide`, wells included. Each refusal halved the IRI list into two slices,
+both slices built the byte-identical query, the server refused it again, and
+each was halved again.
+
+**Fix.** Wells get no `divide`, so a refused wells step fails on its first
+refusal with its error. Splitting comes back when wells load by IRI (engine
+redesign, Phase 2), where each slice really asks for less.
+
+**Prevention.** `engine/tests/stepDivide.test.ts` checks, for all 108 question
+shapes, that every divisible step builds a different query for every slice it
+divides into, and that no slice re-sends the undivided query. It fails on
+`samples near wells, HYDRATE_ANCHOR_BY_IRI` without the fix.
+
+**Lesson.** A step's `divide` and its `buildQuery` have to agree about the
+scope. If the query cannot see the scope, splitting is a loop, not a rescue.
