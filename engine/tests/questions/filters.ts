@@ -71,10 +71,10 @@ export const NO_OP_FILTERS: BlockFilterCase[] = [
 
 // Every option RelationshipSelector offers, as a change from a neighbour.
 export const RELATIONSHIPS: RelationshipCase[] = [
-  { name: 'near 0 -> 1 mile', from: { type: 'near', hops: 0 }, to: { type: 'near', hops: 1 } },
-  { name: 'near 1 -> 2 miles', from: { type: 'near', hops: 1 }, to: { type: 'near', hops: 2 } },
-  { name: 'near 2 -> 3 miles', from: { type: 'near', hops: 2 }, to: { type: 'near', hops: 3 } },
-  { name: 'near 3 -> 4 miles', from: { type: 'near', hops: 3 }, to: { type: 'near', hops: 4 } },
+  { name: 'near, within at most 1 -> 2 miles', from: { type: 'near', hops: 0 }, to: { type: 'near', hops: 1 } },
+  { name: 'near, within at most 2 -> 3 miles', from: { type: 'near', hops: 1 }, to: { type: 'near', hops: 2 } },
+  { name: 'near, within at most 3 -> 4 miles', from: { type: 'near', hops: 2 }, to: { type: 'near', hops: 3 } },
+  { name: 'near, within at most 4 -> 5 miles', from: { type: 'near', hops: 3 }, to: { type: 'near', hops: 4 } },
   { name: 'near -> downstream', from: { type: 'near', hops: 1 }, to: { type: 'downstream' } },
   { name: 'near -> upstream', from: { type: 'near', hops: 1 }, to: { type: 'upstream' } },
   { name: 'downstream -> upstream', from: { type: 'downstream' }, to: { type: 'upstream' } },

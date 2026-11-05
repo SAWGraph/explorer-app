@@ -7,17 +7,17 @@ interface RelationshipSelectorProps {
 }
 
 const RELATIONSHIP_TYPES: { value: SpatialRelationship['type']; label: string; description: string }[] = [
-  { value: 'near', label: 'Near', description: 'of the feature(s) below' },
+  { value: 'near', label: 'Near', description: 'the feature(s) below' },
   { value: 'downstream', label: 'Downstream of', description: 'downstream of the feature(s) below' },
   { value: 'upstream', label: 'Upstream from', description: 'upstream from the feature(s) below' },
 ];
 
 const NEAR_DISTANCE_OPTIONS = [
-  { value: '0', label: '0 miles' },
-  { value: '1', label: '~1 mile' },
-  { value: '2', label: '~2 miles' },
-  { value: '3', label: '~3 miles' },
-  { value: '4', label: '~4 miles' },
+  { value: '0', label: 'within at most 1 mile of' },
+  { value: '1', label: 'within at most 2 miles of' },
+  { value: '2', label: 'within at most 3 miles of' },
+  { value: '3', label: 'within at most 4 miles of' },
+  { value: '4', label: 'within at most 5 miles of' },
 ];
 
 // Cumulative flowpath length cutoff. '' = unbounded (today's behavior).
