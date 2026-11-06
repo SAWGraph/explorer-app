@@ -33,17 +33,20 @@ describe('one sweep row per request', () => {
       return [{ x: '1' }];
     }, false);
 
-    expect(rows.map((r) => [r.step, r.slice, r.status, r.kind])).toEqual([
+    // Rows come in the order the requests finished. The boundaries run
+    // alongside the main steps, so where their row lands is not fixed.
+    const main = rows.filter((r) => r.step !== 'GET_REGION_BOUNDARIES');
+    expect(main.map((r) => [r.step, r.slice, r.status, r.kind])).toEqual([
       ['FIND_TARGET_IRIS', '', 200, 'ok'],
       ['FIND_ANCHOR_IRIS', '', 200, 'ok'],
       ['HYDRATE_TARGET_BY_IRI', 'batch 1', 200, 'ok'],
       ['HYDRATE_TARGET_BY_IRI', 'batch 2', 200, 'ok'],
       ['HYDRATE_ANCHOR_BY_IRI', '', 200, 'ok'],
-      ['GET_REGION_BOUNDARIES', '', 200, 'ok'],
     ]);
-    expect(rows[2].rows).toBe(1000);
-    expect(rows[3].rows).toBe(500);
-    expect(rows[2].requestBytes).toBeGreaterThan(rows[3].requestBytes);
+    expect(rows.filter((r) => r.step === 'GET_REGION_BOUNDARIES').map((r) => [r.slice, r.status, r.kind])).toEqual([['', 200, 'ok']]);
+    expect(main[2].rows).toBe(1000);
+    expect(main[3].rows).toBe(500);
+    expect(main[2].requestBytes).toBeGreaterThan(main[3].requestBytes);
   });
 
   it('records the refusal that stopped a run with chunking off', async () => {

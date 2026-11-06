@@ -49,6 +49,11 @@ export interface PipelineStep {
     scope: Scope | undefined,
     sparql: SparqlRunner,
   ) => Promise<Scope[] | null>;
+  // The steps that must be done before this one starts. The executor starts
+  // every step whose wait is over, so a step with a short wait runs alongside
+  // the others (decoration while the details load). A step the plan leaves out
+  // counts as done: query-sweep runs one step on its own.
+  after: PipelineStepType[];
   // Losing this step degrades the map but still leaves a usable answer.
   optional?: boolean;
   // Reuse the response for the rest of the session (immutable reference data).
@@ -75,6 +80,7 @@ function hydrateStep(
   block: EntityBlock,
   side: 'target' | 'anchor',
   fused: FusedContext,
+  after: PipelineStepType[],
 ): PipelineStep {
   const type = side === 'target' ? 'HYDRATE_TARGET_BY_IRI' : 'HYDRATE_ANCHOR_BY_IRI';
   // How a type's details load, and from where, is the entity module's to say
@@ -95,6 +101,7 @@ function hydrateStep(
       type,
       endpoint: details.endpoint,
       description,
+      after,
       buildQuery: () =>
         buildFusedWellQuery({
           anchor: fused.anchorBlock,
@@ -117,6 +124,7 @@ function hydrateStep(
     type,
     endpoint: details.endpoint,
     description,
+    after,
     buildQuery: (ctx, scope) => details.buildQuery(irisFor(ctx, scope, side), block),
     initialScopes: (ctx) => iriScopes(side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
     divide: async (ctx, scope) =>
@@ -178,10 +186,14 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   const findingA = `Finding ${aLabel} ${prep} ${cLabel}`;
   const findingC = `Finding ${cLabel} with ${aLabel} ${prep} them`;
   
+  // The main steps (find, find, details, details) still run one at a time, in
+  // this order: only decoration runs alongside (plan decision 12). Whether the
+  // main steps can share the endpoint is for a sweep to measure first.
   steps.push({
     type: 'FIND_TARGET_IRIS',
     endpoint: 'federation',
     description: oriented.targetIs === 'A' ? findingA : findingC,
+    after: [],
     buildQuery: (_ctx, scope) => buildIriQuery('target', scope),
     divide: divideFound,
   });
@@ -189,6 +201,9 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     type: 'FIND_ANCHOR_IRIS',
     endpoint: 'federation',
     description: oriented.targetIs === 'A' ? findingC : findingA,
+    // Not for its rows: a target side that finds nothing ends the run, and
+    // waiting saves this query when it does.
+    after: ['FIND_TARGET_IRIS'],
     buildQuery: (_ctx, scope) => buildIriQuery('anchor', scope),
     divide: divideFound,
   });
@@ -202,7 +217,9 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
       type: 'GET_FLOWLINE_GEOMETRIES',
       endpoint: 'federation',
       description: `Loading ${relationship.type} stream geometries`,
-      // Runs after FIND_ANCHOR_IRIS so it can trace from the resolved anchors.
+      // Traces from the anchors found and stops at the targets found, then
+      // runs alongside the details.
+      after: ['FIND_TARGET_IRIS', 'FIND_ANCHOR_IRIS'],
       buildQuery: (ctx, scope) =>
         buildFusedFlowlineQuery({
           anchor: anchorBlock,
@@ -230,8 +247,8 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     targetRegion,
   };
 
-  steps.push(hydrateStep(targetBlock, 'target', fusedCtx));
-  steps.push(hydrateStep(anchorBlock, 'anchor', fusedCtx));
+  steps.push(hydrateStep(targetBlock, 'target', fusedCtx, ['FIND_ANCHOR_IRIS']));
+  steps.push(hydrateStep(anchorBlock, 'anchor', fusedCtx, ['HYDRATE_TARGET_BY_IRI']));
 
   // Per-observation detail is no longer fetched up front. It filled map popups
   // one click at a time but cost 18–37MB per run (one sample point is ~30KB);
@@ -244,6 +261,8 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
       type: 'GET_REGION_BOUNDARIES',
       endpoint: 'spatialkg',
       description: 'Loading region boundaries',
+      // Needs only the state, so it starts with the run instead of after it.
+      after: [],
       buildQuery: () => buildRegionBoundaryQuery(stateCode),
       // County outlines never change within a session, and this step was
       // measured at 25.5s on a cold cache (docs/QUERY-SWEEP.md 3.8).

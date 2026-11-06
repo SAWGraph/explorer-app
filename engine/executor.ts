@@ -210,6 +210,11 @@ export interface ExecuteOptions {
   chunkOnRefusal?: boolean;
 }
 
+// What one started step came back with: its outcome, or what it threw.
+type Finished =
+  | { index: number; ok: true; outcome: StepOutcome }
+  | { index: number; ok: false; thrown: unknown };
+
 export async function executePipeline(
   steps: PipelineStep[],
   question: AnalysisQuestion,
@@ -225,63 +230,113 @@ export async function executePipeline(
   const partial: PartialFailure[] = [];
   const queries: SentQuery[] = [];
 
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
-    const base = { stepIndex: i, totalSteps: steps.length, description: step.description };
-    onProgress({ ...base, status: 'running' });
+  // Steps start as soon as what they wait for is done (`after`, planner.ts),
+  // so decoration runs alongside the main steps. Once the run has its outcome
+  // (an empty side, a failed step) the steps still running are stopped: their
+  // rows would not be shown.
+  const ended = new AbortController();
+  const stepSignal = signal ? AbortSignal.any([signal, ended.signal]) : ended.signal;
+  const planned = new Set(steps.map((step) => step.type));
+  const done = new Set<PipelineStep['type']>();
+  const waiting = new Set(steps.keys());
+  const running = new Map<number, Promise<Finished>>();
+  const progressBase = (i: number) => ({ stepIndex: i, totalSteps: steps.length, description: steps[i].description });
 
-    let outcome: StepOutcome;
-    try {
-      outcome = await runStep(
-        step,
-        context,
-        (chunksDone, chunksTotal) => {
-          if (chunksTotal > 1) {
-            onProgress({ ...base, status: 'running', chunksDone, chunksTotal });
-          }
-        },
-        (sent) => queries.push({ step: i, description: step.description, endpoint: step.endpoint, ...sent }),
-        signal,
-        sparql,
-        chunkOnRefusal,
-      );
-    } catch (err) {
-      signal?.throwIfAborted();
+  const start = (i: number) => {
+    const step = steps[i];
+    const base = progressBase(i);
+    onProgress({ ...base, status: 'running' });
+    const finished = runStep(
+      step,
+      context,
+      // A step stopped when the run ended may still hear back from a request
+      // already on its way; the run has returned, so neither is reported.
+      (chunksDone, chunksTotal) => {
+        if (chunksTotal > 1 && !ended.signal.aborted) {
+          onProgress({ ...base, status: 'running', chunksDone, chunksTotal });
+        }
+      },
+      (sent) => {
+        if (!ended.signal.aborted) queries.push({ step: i, description: step.description, endpoint: step.endpoint, ...sent });
+      },
+      stepSignal,
+      sparql,
+      chunkOnRefusal,
+    ).then(
+      (outcome): Finished => ({ index: i, ok: true, outcome }),
+      (thrown: unknown): Finished => ({ index: i, ok: false, thrown }),
+    );
+    running.set(i, finished);
+  };
+
+  // Every result leaves through here: it stops what is still running, and
+  // lists the SPARQL in step order, not in the order the answers came back.
+  const end = <R extends PipelineResult>(result: R): R => {
+    ended.abort();
+    for (const i of running.keys()) onProgress({ ...progressBase(i), status: 'skipped' });
+    queries.sort((a, b) => a.step - b.step);
+    return result;
+  };
+
+  while (waiting.size > 0 || running.size > 0) {
+    for (const i of waiting) {
+      if (steps[i].after.every((type) => done.has(type) || !planned.has(type))) {
+        waiting.delete(i);
+        start(i);
+      }
+    }
+    if (running.size === 0) {
+      throw new Error(`Steps that wait for each other: ${[...waiting].map((i) => steps[i].type).join(', ')}`);
+    }
+
+    const finished = await Promise.race(running.values());
+    running.delete(finished.index);
+    const i = finished.index;
+    const step = steps[i];
+    const base = progressBase(i);
+
+    if (!finished.ok) {
+      // A cancelled run rejects with the cancel, whichever step saw it first.
+      if (signal?.aborted) {
+        ended.abort();
+        throw signal.reason;
+      }
       onProgress({ ...base, status: 'failed' });
-      return {
+      return end({
         status: 'error',
         failedAtStep: i,
         message: stepFailedMessage(step.description),
-        error: err instanceof Error ? err : new Error(String(err)),
+        error: finished.thrown instanceof Error ? finished.thrown : new Error(String(finished.thrown)),
         queries,
-      };
+      });
     }
+    const { outcome } = finished;
 
     // With chunking off the run answers completely or shows the first error:
     // any failure, in any step (optional ones too), fails it.
     if (outcome.stoppedAt) {
       onProgress({ ...base, status: 'failed' });
-      return {
+      return end({
         status: 'error',
         failedAtStep: i,
         message: stepFailedMessage(step.description),
         error: outcome.stoppedAt,
         queries,
         chunkingOff: true,
-      };
+      });
     }
 
     // Nothing came back at all: this step has no answer to give.
     const missing = [...outcome.failedScopes, ...outcome.skippedScopes];
     if (missing.length > 0 && outcome.rows.length === 0 && !step.optional) {
       onProgress({ ...base, status: 'failed' });
-      return {
+      return end({
         status: 'error',
         failedAtStep: i,
         message: stepFailedMessage(step.description),
         error: outcome.lastError ?? new Error('Query failed'),
         queries,
-      };
+      });
     }
     if (missing.length > 0) {
       partial.push({
@@ -299,12 +354,12 @@ export async function executePipeline(
 
       if (context.targetIris.length === 0) {
         onProgress({ ...base, status: 'done', resultCount: 0 });
-        return {
+        return end({
           status: 'empty',
           failedAtStep: i,
           message: stepEmptyMessage(step.description),
           queries,
-        };
+        });
       }
     }
 
@@ -322,12 +377,13 @@ export async function executePipeline(
     }
 
     onProgress({ ...base, status: 'done', resultCount: results.length });
+    done.add(step.type);
   }
 
-  return {
+  return end({
     status: 'success',
     data: context.results,
     ...(partial.length > 0 ? { partial } : {}),
     queries,
-  };
+  });
 }

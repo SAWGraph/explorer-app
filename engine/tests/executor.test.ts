@@ -46,18 +46,20 @@ const answering = () =>
   });
 
 describe('a question that answers', () => {
-  it('runs find, find, details, details, boundaries, and loads details for exactly what was found', async () => {
+  it('runs find, find, details, details with the boundaries alongside, and loads details for exactly what was found', async () => {
     const fake = answering();
     const result = await run(SAMPLES_NEAR_LANDFILLS, fake);
 
     expect(result.status).toBe('success');
     if (result.status !== 'success') return;
     expect(result.queries?.map((q) => q.step)).toEqual([0, 1, 2, 3, 4]);
-    expect(fake.calls.map((c) => c.endpoint)).toEqual(['federation', 'federation', 'federation', 'federation', 'spatialkg']);
+    // The boundaries (spatialkg) go out with the first discovery query.
+    expect(fake.calls.map((c) => c.endpoint)).toEqual(['federation', 'spatialkg', 'federation', 'federation', 'federation']);
 
     // The detail steps pin the IRIs discovery found, and nothing else.
-    expect(pinned(fake.calls[2].query, 'sp')).toEqual(SAMPLES);
-    expect(pinned(fake.calls[3].query, 'facility')).toEqual(FACILITIES);
+    const sent = (marker: string) => fake.calls.find((c) => c.query.includes(marker))!.query;
+    expect(pinned(sent('VALUES ?sp {'), 'sp')).toEqual(SAMPLES);
+    expect(pinned(sent('VALUES ?facility {'), 'facility')).toEqual(FACILITIES);
 
     // The two keys the map reads.
     expect(result.data['FIND_TARGET_ENTITIES']).toHaveLength(3);
@@ -67,9 +69,11 @@ describe('a question that answers', () => {
 });
 
 describe('a question with nothing on one side', () => {
-  it('stops as empty after the target side finds nothing, without sending the other steps', async () => {
+  it('stops as empty after the target side finds nothing, without sending the other main steps', async () => {
     const fake = fakeEndpoint(({ query }) => {
       if (projected(query) === 'spC') return [];
+      // The boundaries started with the run; the empty answer stops them.
+      if (query.includes('?regionWKT')) return new Promise<never>(() => {});
       throw new Error(`should not be sent:\n${query}`);
     });
     const result = await run(SAMPLES_NEAR_LANDFILLS, fake);
@@ -77,7 +81,7 @@ describe('a question with nothing on one side', () => {
     expect(result.status).toBe('empty');
     if (result.status !== 'empty') return;
     expect(result.failedAtStep).toBe(0);
-    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls.map((c) => c.endpoint)).toEqual(['federation', 'spatialkg']);
   });
 });
 
@@ -223,7 +227,7 @@ describe('a cancelled run', () => {
     });
 
     await expect(run(SAMPLES_NEAR_LANDFILLS, fake, controller.signal)).rejects.toThrow();
-    expect(fake.calls.map((c) => c.endpoint)).toEqual(['federation', 'federation', 'federation']);
+    expect(fake.calls.map((c) => c.endpoint)).toEqual(['federation', 'spatialkg', 'federation', 'federation']);
   });
 });
 
@@ -237,13 +241,18 @@ describe('progress reports', () => {
     const events: ReturnType<typeof brief>[] = [];
     await run(SAMPLES_NEAR_LANDFILLS, answering(), undefined, (p) => events.push(brief(p)));
 
-    expect(events).toEqual([
-      [0, 'running', null, null, null], [0, 'done', 3, null, null],
-      [1, 'running', null, null, null], [1, 'done', 2, null, null],
-      [2, 'running', null, null, null], [2, 'done', 3, null, null],
-      [3, 'running', null, null, null], [3, 'done', 2, null, null],
-      [4, 'running', null, null, null], [4, 'done', 1, null, null],
-    ]);
+    const ofStep = (i: number) => events.filter(([step]) => step === i);
+    expect(ofStep(0)).toEqual([[0, 'running', null, null, null], [0, 'done', 3, null, null]]);
+    expect(ofStep(1)).toEqual([[1, 'running', null, null, null], [1, 'done', 2, null, null]]);
+    expect(ofStep(2)).toEqual([[2, 'running', null, null, null], [2, 'done', 3, null, null]]);
+    expect(ofStep(3)).toEqual([[3, 'running', null, null, null], [3, 'done', 2, null, null]]);
+    expect(ofStep(4)).toEqual([[4, 'running', null, null, null], [4, 'done', 1, null, null]]);
+    // The main steps one after another; the boundaries running from the start.
+    const at = (i: number, status: string) => events.findIndex(([step, s]) => step === i && s === status);
+    expect(at(1, 'running')).toBeGreaterThan(at(0, 'done'));
+    expect(at(2, 'running')).toBeGreaterThan(at(1, 'done'));
+    expect(at(3, 'running')).toBeGreaterThan(at(2, 'done'));
+    expect(at(4, 'running')).toBeLessThan(at(0, 'done'));
   });
 
   it('count slices as they finish once a step is split', async () => {
@@ -405,6 +414,115 @@ describe('a trace question', () => {
 // error: no probes or slices, no retry, no 300s step limit, no partial answers.
 // Request-size batches (1,000 IRIs a request) are how detail steps send their
 // IRIs, not chunking, and stay on.
+// Decoration (stream lines, boundaries) is drawn around the answer, so it no
+// longer waits its turn behind the main steps: each part starts as soon as
+// what it reads is there. The boundaries need only the state; the stream lines
+// need both sides found. Measured before: boundaries were 24.8s of a 39.1s run.
+describe('decoration alongside the main steps', () => {
+  // Resolves once `sent()` holds, or fails after a few turns of the event loop
+  // instead of hanging the run (a step that waits too long never sends).
+  const whenSent = async (sent: () => boolean, what: string) => {
+    for (let i = 0; i < 50 && !sent(); i++) await new Promise((r) => setTimeout(r, 0));
+    if (!sent()) throw new Error(`${what} was not sent in time`);
+  };
+
+  it('sends the region boundaries while discovery is still running', async () => {
+    const base = answering();
+    const fake: FakeEndpoint = fakeEndpoint(async (call) => {
+      if (projected(call.query) === 'spC') {
+        await whenSent(() => fake.calls.some((c) => c.endpoint === 'spatialkg'), 'the boundaries');
+      }
+      return base.run(call.endpoint, call.query, call.options);
+    });
+    const result = await run(SAMPLES_NEAR_LANDFILLS, fake);
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') return;
+    expect(result.data['GET_REGION_BOUNDARIES']).toHaveLength(1);
+  });
+
+  it('sends the stream lines once both sides are found, while the details are still loading', async () => {
+    const trace = tracing(3);
+    const fake: FakeEndpoint = fakeEndpoint(async (call) => {
+      // The stream lines answer only once the details have gone out too.
+      if (call.query.includes('?flowlineWKT')) {
+        await whenSent(() => fake.calls.some((c) => c.query.includes('VALUES ?sp {')), 'the sample details');
+      }
+      return trace.run(call.endpoint, call.query, call.options);
+    });
+    const result = await run(SAMPLES_DOWNSTREAM_OF_LANDFILLS, fake);
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') return;
+    const order = (marker: (q: string) => boolean) => fake.calls.findIndex((c) => marker(c.query));
+    expect(order((q) => q.includes('?flowlineWKT'))).toBeGreaterThan(order((q) => projected(q) === 'facilityA'));
+    expect(result.data['GET_FLOWLINE_GEOMETRIES']).toHaveLength(3);
+  });
+
+  it('stops the decoration still loading when the run ends, and reports it skipped', async () => {
+    let boundariesSignal: AbortSignal | undefined;
+    const fake = fakeEndpoint(({ query, options }) => {
+      if (projected(query) === 'spC') return [];
+      boundariesSignal = options.signal;
+      return new Promise<never>(() => {});
+    });
+    const events: StepProgress[] = [];
+    const result = await run(SAMPLES_NEAR_LANDFILLS, fake, undefined, (p) => events.push(p));
+
+    expect(result.status).toBe('empty');
+    expect(boundariesSignal?.aborted).toBe(true);
+    expect(events.filter((p) => p.stepIndex === 4).map((p) => p.status)).toEqual(['running', 'skipped']);
+  });
+
+  it('adds nothing to a finished run when a stopped request answers late', async () => {
+    let answerLate: () => void = () => {};
+    const fake = fakeEndpoint(({ query }) => {
+      if (projected(query) === 'spC') return [];
+      // An endpoint that ignores the stop and answers anyway.
+      return new Promise((resolve) => {
+        answerLate = () => resolve([{ region: 'http://ex.org/r/1', regionWKT: 'POLYGON((0 0, 1 0, 1 1, 0 0))' }]);
+      });
+    });
+    const events: StepProgress[] = [];
+    const result = await run(SAMPLES_NEAR_LANDFILLS, fake, undefined, (p) => events.push(p));
+    const sent = result.queries?.length;
+    const reported = events.length;
+
+    answerLate();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.queries?.length).toBe(sent);
+    expect(events).toHaveLength(reported);
+  });
+
+  it('lists the SPARQL it sent in step order, whichever answered first', async () => {
+    const base = answering();
+    const fake = fakeEndpoint(async (call) => {
+      // The boundaries answer last, after every main step.
+      if (call.endpoint === 'spatialkg') {
+        await whenSent(() => fake.calls.some((c) => c.query.includes('VALUES ?facility {')), 'the anchor details');
+      }
+      return base.run(call.endpoint, call.query, call.options);
+    });
+    const result = await run(SAMPLES_NEAR_LANDFILLS, fake);
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') return;
+    expect(result.queries?.map((q) => q.step)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('still rejects with the cancel when the user cancels while decoration is loading', async () => {
+    const controller = new AbortController();
+    const base = answering();
+    const fake = fakeEndpoint((call) => {
+      if (call.endpoint === 'spatialkg') return new Promise<never>(() => {});
+      if (call.query.includes('VALUES ?sp {')) controller.abort(new Error('cancelled by the user'));
+      return base.run(call.endpoint, call.query, call.options);
+    });
+
+    await expect(run(SAMPLES_NEAR_LANDFILLS, fake, controller.signal)).rejects.toThrow('cancelled by the user');
+  });
+});
+
 describe('with chunking on refusal turned off', () => {
   const runWithoutChunking = (question: AnalysisQuestion, fake: FakeEndpoint) =>
     run(question, fake, undefined, undefined, false);
@@ -430,8 +548,9 @@ describe('with chunking on refusal turned off', () => {
     expect(result.failedAtStep).toBe(0);
     expect(result.chunkingOff).toBe(true);
     expect(result.error).toBeInstanceOf(SparqlError);
-    // The whole query, once. No probes, no slices.
-    expect(fake.calls.map((c) => projected(c.query))).toEqual(['spC']);
+    // The whole query, once. No probes, no slices. (The boundaries went out
+    // alongside it, and were stopped.)
+    expect(fake.calls.filter((c) => c.endpoint === 'federation').map((c) => projected(c.query))).toEqual(['spC']);
   });
 
   it('asks the endpoint not to retry', async () => {
@@ -449,7 +568,7 @@ describe('with chunking on refusal turned off', () => {
     await run(SAMPLES_NEAR_LANDFILLS, fake); // chunking on: refused, remembered, split
     fake.calls.length = 0;
     await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, fake);
-    expect(fake.calls.map((c) => projected(c.query))).toEqual(['spC']);
+    expect(fake.calls.filter((c) => c.endpoint === 'federation').map((c) => projected(c.query))).toEqual(['spC']);
   });
 
   it('fails the run when an optional step (stream lines) is refused', async () => {
