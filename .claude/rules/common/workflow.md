@@ -31,7 +31,8 @@ Also, when it applies:
 
 - Touched query generation and the snapshot moved on purpose: `npx vitest run -u`,
   then read the diff of `tests/__snapshots__/query-shapes.txt` before committing.
-- Changed a query shape's performance: `npm run query-sweep` (slow, live).
+- Changed a query shape's performance: a query sweep (slow, live). Run it in CI:
+  `git push origin <branch>:sweep/chunking-off` (see `.github/workflows/query-sweep.yml`).
 - Changed a prebuilt dashboard question: `npm run health-check -- <ref>`.
 - Fixed a bug: add a regression test (see `testing.md`) and a
   `docs/DEBUGGING.md` entry with root cause and fix.

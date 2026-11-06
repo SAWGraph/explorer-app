@@ -18,6 +18,13 @@ Where something is an estimate, it says so.
 > older names below (`timeout-30s`, `engine-oom`, `client-timeout-45s`). The
 > first chunking-off sweep on the new harness is the new baseline; the 2026-09
 > sweeps stay as history and do not diff row for row against it.
+>
+> **Run sweeps in CI, not on a laptop.** A sweep takes 1 to 2 hours and needs a
+> machine that stays awake: a Mac sleeping overnight stretched the 60s request
+> timer into 10 to 17 minutes per request and ruined two baseline attempts.
+> `.github/workflows/query-sweep.yml` runs it on GitHub: push
+> `git push origin development:sweep/chunking-off` (or `sweep/chunking-on`) and it
+> sweeps that commit, then opens a PR with the CSV and the index.
 
 > **Reading the baseline (Part 3):** those numbers are the *pre-Phase-1/2*
 > behaviour, kept as the benchmark to measure against. They are no longer what

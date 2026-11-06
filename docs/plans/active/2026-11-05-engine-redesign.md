@@ -114,7 +114,8 @@ byte-identical in every PR.
 - [x] Chunking flag: `chunkOnRefusal` run option (default on), `VITE_CHUNK_ON_REFUSAL=false` in the app (build setting only). Off: no retry, no splitting, no 300s step limit, and any failure in any step fails the run with the first error; request-size batches and the 60s request limit stay on. Settled in a second design session on 2026-11-06
 - [ ] "Run again" button on the error strip, for every failed run (its own PR)
 - [x] `query-sweep` runs on the real engine through a recording endpoint: `QUERY_SWEEP_CHUNKING=off` (default) or `on`, one CSV row per request, the engine's error kinds, `requestBytes` instead of response bytes; raw mode's own loop is gone (item 1b; renamed from `query-matrix` first)
-- [ ] Record the new baseline: a full chunking-off sweep (M1 to M9, MD) on `development`, committed with the index pointing at it
+- [x] `.github/workflows/query-sweep.yml`: sweeps run in CI (push `sweep/chunking-off` or `sweep/chunking-on`), opening a PR with the CSV; two laptop attempts were ruined by the Mac sleeping
+- [ ] Record the new baseline: a full chunking-off sweep (M1 to M9, MD) on `development`, from the workflow
 - [ ] Decoration alongside, with the dependency-driven loop
 - [ ] Live counts: early empty, advice, slice axis
 - [ ] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills)
