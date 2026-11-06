@@ -1,6 +1,6 @@
 import type { EntityBlock } from './types/query';
 import type { EndpointKey } from './constants/endpoints';
-import { executeSparql } from './sparqlClient';
+import type { SparqlRunner } from './sparqlClient';
 import { blockIsFiltered, buildEntityProbeQuery } from './templates/fusedQueries';
 import { buildDiscoverCountiesQuery } from './templates/regions';
 
@@ -69,6 +69,9 @@ export interface AxisContext {
   anchorRegion?: string[];
   targetRegion?: string[];
   endpoint: EndpointKey;
+  // The runner the probes and county lookups go through: the executor's own,
+  // so a test's fake endpoint sees every request.
+  sparql: SparqlRunner;
 }
 
 // Picks how to slice a question that was too big to run whole, preferring
@@ -77,8 +80,8 @@ export async function chooseAxis(ctx: AxisContext): Promise<Scope[] | null> {
   // Both probes are independent, and each can take seconds on an unfiltered
   // side, so overlap them rather than paying for them one after the other.
   const [anchor, target] = await Promise.all([
-    probeSide(ctx.anchorBlock, ctx.anchorRegion, ctx.endpoint),
-    probeSide(ctx.targetBlock, ctx.targetRegion, ctx.endpoint),
+    probeSide(ctx.sparql, ctx.anchorBlock, ctx.anchorRegion, ctx.endpoint),
+    probeSide(ctx.sparql, ctx.targetBlock, ctx.targetRegion, ctx.endpoint),
   ]);
 
   if (anchor) {
@@ -107,13 +110,13 @@ export async function chooseAxis(ctx: AxisContext): Promise<Scope[] | null> {
 
   if (side) {
     const codes = side === 'target' ? ctx.targetRegion! : ctx.anchorRegion!;
-    const counties = await expandToCounties(codes);
+    const counties = await expandToCounties(ctx.sparql, codes);
     // Name each slice after its county. When one of these fails the user sees
     // "York County, Maine could not be answered" rather than "1 too large",
     // which is the difference between a fact and a puzzle — the county is the
     // one thing they can act on.
     if (counties.length >= 2) {
-      const names = countyNames(side === 'target' ? ctx.targetBlock : ctx.anchorBlock);
+      const names = countyNames(ctx.sparql, side === 'target' ? ctx.targetBlock : ctx.anchorBlock);
       return chunk(counties, REGION_CHUNK).map((group) => ({
         label: group.map((code) => names.get(code) ?? code).join(', '),
         regionCodes: group,
@@ -127,7 +130,7 @@ export async function chooseAxis(ctx: AxisContext): Promise<Scope[] | null> {
   for (const s of ['anchor', 'target'] as const) {
     const block = s === 'anchor' ? ctx.anchorBlock : ctx.targetBlock;
     const region = s === 'anchor' ? ctx.anchorRegion : ctx.targetRegion;
-    const iris = await probeSide(block, region, ctx.endpoint, BULK_PROBE_LIMIT);
+    const iris = await probeSide(ctx.sparql, block, region, ctx.endpoint, BULK_PROBE_LIMIT);
     if (!iris) continue;
     return chunk(iris, ENTITY_CHUNK).map((slice, i) => ({
       label: `${block.type} batch ${i + 1}`,
@@ -150,7 +153,7 @@ export async function refineRegionScope(
   scope: Scope,
 ): Promise<Scope[] | null> {
   if (!scope.regionCodes?.length || scope.regionSide !== 'target') return null;
-  const targets = await probeSide(ctx.targetBlock, scope.regionCodes, ctx.endpoint);
+  const targets = await probeSide(ctx.sparql, ctx.targetBlock, scope.regionCodes, ctx.endpoint);
   if (!targets) return null;
   return chunk(targets, ENTITY_CHUNK).map((iris, i) => ({
     ...scope,
@@ -164,17 +167,29 @@ export async function refineRegionScope(
 // use for labelling. Falls back to the names `expandToCounties` collects, then
 // to the code itself — a question built from a URL or the warm-cache script has
 // no labels.
-function countyNames(block: EntityBlock): Map<string, string> {
-  const named = new Map(discoveredCountyNames);
+function countyNames(sparql: SparqlRunner, block: EntityBlock): Map<string, string> {
+  const named = new Map(discoveredCountyNamesFor(sparql));
   const labels = block.region?.countyLabels;
   if (labels) for (const [code, label] of Object.entries(labels)) named.set(code, label);
   return named;
 }
 
-// Filled in by expandToCounties, which already fetches the names.
-const discoveredCountyNames = new Map<string, string>();
+// Filled in by expandToCounties, which already fetches the names. Kept per
+// runner, like the executor's refusal memo: names one endpoint reported must not
+// label another's slices (a test's fake would otherwise inherit the last one's).
+const discoveredCountyNamesByRunner = new WeakMap<SparqlRunner, Map<string, string>>();
+
+function discoveredCountyNamesFor(sparql: SparqlRunner): Map<string, string> {
+  let names = discoveredCountyNamesByRunner.get(sparql);
+  if (!names) {
+    names = new Map<string, string>();
+    discoveredCountyNamesByRunner.set(sparql, names);
+  }
+  return names;
+}
 
 async function probeSide(
+  sparql: SparqlRunner,
   block: EntityBlock,
   regionCodes: string[] | undefined,
   endpoint: EndpointKey,
@@ -184,7 +199,7 @@ async function probeSide(
   // certainly past the probe limit, and the probe itself would scan nationwide.
   if (!regionCodes?.length && !blockIsFiltered(block)) return null;
 
-  const rows = await executeSparql(
+  const rows = await sparql(
     endpoint,
     buildEntityProbeQuery(block, regionCodes, limit),
     { cache: true },
@@ -197,21 +212,21 @@ async function probeSide(
 
 // Turns state FIPS codes into their county FIPS codes. County codes are already
 // county-level, so they pass through unchanged.
-async function expandToCounties(regionCodes: string[]): Promise<string[]> {
+async function expandToCounties(sparql: SparqlRunner, regionCodes: string[]): Promise<string[]> {
   const out: string[] = [];
   for (const code of regionCodes) {
     if (code.length > 2) {
       out.push(code);
       continue;
     }
-    const rows = await executeSparql('spatialkg', buildDiscoverCountiesQuery(code), {
+    const rows = await sparql('spatialkg', buildDiscoverCountiesQuery(code), {
       cache: true,
     });
     for (const row of rows) {
       const fips = row.county?.match(/administrativeRegion\.USA\.(\d+)$/)?.[1];
       if (fips && fips.length > 2) {
         out.push(fips);
-        if (row.countyName) discoveredCountyNames.set(fips, row.countyName);
+        if (row.countyName) discoveredCountyNamesFor(sparql).set(fips, row.countyName);
       }
     }
   }

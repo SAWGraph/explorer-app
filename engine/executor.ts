@@ -3,7 +3,7 @@ import type { SparqlRow } from './types/sparql';
 import type { EndpointKey } from './constants/endpoints';
 import type { PipelineStep, PipelineContext } from './planner';
 import type { Scope } from './scope';
-import { executeSparql } from './sparqlClient';
+import { executeSparql, type SparqlRunner } from './sparqlClient';
 import { SparqlError, isSplittable } from './sparqlErrors';
 
 export interface PartialFailure {
@@ -80,8 +80,18 @@ const STEP_CEILING_MS = 300_000;
 
 // Queries that have already failed as a whole in this session. Re-running the
 // same question would otherwise pay the engine's full 30s timeout again before
-// reaching the same conclusion.
-const knownTooLarge = new Set<string>();
+// reaching the same conclusion. Kept per runner: a refusal is a fact about the
+// endpoint that refused, and a test's fake must not inherit another's.
+const knownTooLargeByRunner = new WeakMap<SparqlRunner, Set<string>>();
+
+function knownTooLargeFor(sparql: SparqlRunner): Set<string> {
+  let known = knownTooLargeByRunner.get(sparql);
+  if (!known) {
+    known = new Set<string>();
+    knownTooLargeByRunner.set(sparql, known);
+  }
+  return known;
+}
 
 interface StepOutcome {
   rows: SparqlRow[];
@@ -102,7 +112,9 @@ async function runStep(
   report: (chunksDone: number, chunksTotal: number) => void,
   record: (sent: Omit<SentQuery, 'step' | 'description' | 'endpoint'>) => void,
   signal: AbortSignal | undefined,
+  sparql: SparqlRunner,
 ): Promise<StepOutcome> {
+  const knownTooLarge = knownTooLargeFor(sparql);
   const startedAt = Date.now();
   const queue: (Scope | undefined)[] = step.initialScopes?.(context) ?? [undefined];
   const rows: SparqlRow[] = [];
@@ -131,7 +143,7 @@ async function runStep(
     const query = step.buildQuery(context, scope);
 
     if (!scope && knownTooLarge.has(query) && step.divide) {
-      const smaller = await step.divide(context, undefined);
+      const smaller = await step.divide(context, undefined, sparql);
       if (smaller?.length) {
         queue.unshift(...smaller);
         continue;
@@ -139,7 +151,7 @@ async function runStep(
     }
 
     try {
-      const result = await executeSparql(step.endpoint, query, { cache: step.cache, signal });
+      const result = await sparql(step.endpoint, query, { cache: step.cache, signal });
       record({ scope: scope?.label, query });
       // Slices can overlap — the same river reach is reached from several
       // anchors — so merge as a set. Whole-row identity is the right key: for
@@ -160,7 +172,7 @@ async function runStep(
       record({ scope: scope?.label, query, error: error.message });
       const splittable = error instanceof SparqlError && isSplittable(error.kind);
       if (splittable && !scope) knownTooLarge.add(query);
-      const smaller = splittable ? await step.divide?.(context, scope) : null;
+      const smaller = splittable ? await step.divide?.(context, scope, sparql) : null;
 
       if (smaller?.length) {
         queue.unshift(...smaller);
@@ -183,6 +195,9 @@ export async function executePipeline(
   // Cancels the run. It then rejects with the abort reason instead of
   // resolving, so a cancelled run never produces a result to show.
   signal?: AbortSignal,
+  // Where every request goes. QLever over HTTP unless a caller (a test) swaps
+  // in its own.
+  sparql: SparqlRunner = executeSparql,
 ): Promise<PipelineResult> {
   const context: PipelineContext = {
     question,
@@ -210,6 +225,7 @@ export async function executePipeline(
         },
         (sent) => queries.push({ step: i, description: step.description, endpoint: step.endpoint, ...sent }),
         signal,
+        sparql,
       );
     } catch (err) {
       signal?.throwIfAborted();

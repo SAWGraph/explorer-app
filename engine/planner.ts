@@ -16,6 +16,7 @@ import {
 } from './templates/hydrate';
 import { buildAquifersByIri } from './templates/aquifers';
 import { buildRegionBoundaryQuery } from './templates/spatial';
+import type { SparqlRunner } from './sparqlClient';
 import {
   chooseAxis,
   refineRegionScope,
@@ -54,8 +55,13 @@ export interface PipelineStep {
   // exceed the gateway's body limit.
   initialScopes?: (context: PipelineContext) => Scope[] | undefined;
   // Called when a scope fails with a splittable error. Returns smaller scopes,
-  // or null when this step cannot be divided any further.
-  divide?: (context: PipelineContext, scope: Scope | undefined) => Promise<Scope[] | null>;
+  // or null when this step cannot be divided any further. `sparql` is the
+  // executor's runner, for divisions that have to ask the graph first (probes).
+  divide?: (
+    context: PipelineContext,
+    scope: Scope | undefined,
+    sparql: SparqlRunner,
+  ) => Promise<Scope[] | null>;
   // Losing this step degrades the map but still leaves a usable answer.
   optional?: boolean;
   // Reuse the response for the rest of the session (immutable reference data).
@@ -283,11 +289,16 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     endpoint: 'federation' as const,
   };
 
-  const divideDiscovery = async (_ctx: PipelineContext, scope: Scope | undefined) => {
-    if (!scope) return chooseAxis(axisContext);
+  const divideDiscovery = async (
+    _ctx: PipelineContext,
+    scope: Scope | undefined,
+    sparql: SparqlRunner,
+  ) => {
+    const axis = { ...axisContext, sparql };
+    if (!scope) return chooseAxis(axis);
     // Halve what we have; when a region slice is down to one county and still
     // fails, switch axis and chunk the targets inside it.
-    return halve(scope) ?? refineRegionScope(axisContext, scope);
+    return halve(scope) ?? refineRegionScope(axis, scope);
   };
 
   // Both discovery steps are one fused query that resolves block A and block C

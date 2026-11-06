@@ -16,7 +16,13 @@
 import assert from 'node:assert/strict';
 import { it } from 'vitest';
 import { planPipeline, type PipelineContext } from '../planner';
+import type { SparqlRunner } from '../sparqlClient';
 import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../types/query';
+
+// Dividing must not need the graph here; a probe would fail the test.
+const noNetwork: SparqlRunner = async (endpoint) => {
+  throw new Error(`unexpected request to ${endpoint}`);
+};
 
 const ENTITY_TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers', 'streams'];
 // 'within' is in the type union but is never selectable and never planned for.
@@ -51,7 +57,7 @@ it('every divisible step builds a different query for each slice', async () => {
           const scope = step.type.startsWith('FIND_')
             ? { label: 'slice', anchorIris: ctx.anchorIris }
             : undefined;
-          const slices = await step.divide(ctx, scope);
+          const slices = await step.divide(ctx, scope, noNetwork);
           if (!slices) continue;
           divisions++;
           const whole = step.buildQuery(ctx, scope);
