@@ -8,6 +8,17 @@
 This is the reference sheet. Every claim here is a measurement, not an estimate.
 Where something is an estimate, it says so.
 
+> **How sweeps run from 2026-11.** The harness now runs every shape through the
+> real engine, one CSV row per request sent, with `QUERY_SWEEP_CHUNKING=off`
+> (default) or `on`. Off sends each query once, whole: no retry, no splitting,
+> no 300s step limit, and each request capped at 60s (the old raw mode used its
+> own loop and 45s). On is what the app does, so its extra rows are the probes
+> and slices the rescue added. Error kinds are the engine's (`timeout`,
+> `out-of-memory`, `payload-too-large`, `sibling-failure`, `network`), not the
+> older names below (`timeout-30s`, `engine-oom`, `client-timeout-45s`). The
+> first chunking-off sweep on the new harness is the new baseline; the 2026-09
+> sweeps stay as history and do not diff row for row against it.
+
 > **Reading the baseline (Part 3):** those numbers are the *pre-Phase-1/2*
 > behaviour, kept as the benchmark to measure against. They are no longer what
 > the app does today — see **Part 6** for what changed and what did not.

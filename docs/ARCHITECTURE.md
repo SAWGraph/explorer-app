@@ -1014,9 +1014,10 @@ the correct answer — confirm the data exists before treating it as a bug.
 
 ### 6. Run the whole sweep
 
-`npm run query-sweep` re-measures every query shape and writes
-`docs/query-sweep/2026-09-14-raw-baseline.csv`. Slow, but it is how a regression gets proven rather
-than suspected.
+`npm run query-sweep` re-measures every query shape through the engine and
+writes one CSV per sweep into `docs/query-sweep/`, one row per request. Compare
+against the newest chunking-off sweep (the index in `docs/query-sweep/README.md`
+lists them). Slow, but it is how a regression gets proven rather than suspected.
 
 ---
 

@@ -5,14 +5,17 @@ for the day it ran, so `ls` answers "when was this last run", and comparing
 two sweeps is a `diff` of two paths.
 
 ```
-QUERY_SWEEP_MODE=engine npx tsx engine/scripts/query-sweep.mts M1 init   # start a sweep
-QUERY_SWEEP_MODE=engine npx tsx engine/scripts/query-sweep.mts M2        # each later phase
-npx tsx engine/scripts/query-sweep.mts --index                            # rebuild this file
+npx tsx engine/scripts/query-sweep.mts M1 init                          # start a sweep (chunking off)
+npx tsx engine/scripts/query-sweep.mts M2                               # each later phase
+QUERY_SWEEP_CHUNKING=on npx tsx engine/scripts/query-sweep.mts M1 init  # the same, as the app runs
+npx tsx engine/scripts/query-sweep.mts --index                          # rebuild this file
 ```
 
-`raw` posts each step's SPARQL directly and writes one row per step; `engine`
-runs the real pipeline, one row per query, and is the mode to use after an
-engine change. The two are not comparable row for row.
+Both modes run the real engine and write one row per request. `chunking-off`
+sends each query once, whole, and is the baseline; `chunking-on` runs it as the
+app does (retry, splitting, 300s per step), so its extra rows are the probes and
+slices the rescue added. The two diff row for row. Older sweeps (`raw`,
+`engine`, and `raw-baseline`) used other formats and are kept as history.
 
 Phases: M1 near, M2 downstream, M3 upstream (all entity pairs), M4 near-hop
 distance, M5 dashboard questions, M6 six states, M7 no region, M8 filters,
