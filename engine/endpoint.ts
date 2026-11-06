@@ -36,6 +36,49 @@ export type SparqlRunner = (
   options?: SparqlOptions,
 ) => Promise<SparqlRow[]>;
 
+// One request as the endpoint saw it. The query sweep records these to write
+// one CSV row per request (engine/scripts/query-sweep.mts).
+export interface RequestRecord {
+  endpoint: EndpointKey;
+  query: string;
+  // Size of the query sent, which is what a request-size refusal (413) is about.
+  requestBytes: number;
+  ms: number;
+  rows: number;
+  // 200 when it answered; the HTTP status of a refusal; 0 when nothing came back.
+  status: number;
+  // 'ok', or the classified kind of the failure (timeout, out-of-memory, ...).
+  kind: string;
+  message: string;
+  // Asked for a cached response (probes, boundaries): may not have reached the server.
+  cached: boolean;
+}
+
+// Wraps a runner so every request it sends is reported. The run itself is
+// unchanged: rows and errors pass straight through.
+export function recordingEndpoint(inner: SparqlRunner, onRequest: (record: RequestRecord) => void): SparqlRunner {
+  return async (endpoint, query, options = {}) => {
+    const base = { endpoint, query, requestBytes: new TextEncoder().encode(query).length, cached: Boolean(options.cache) };
+    const startedAt = Date.now();
+    try {
+      const rows = await inner(endpoint, query, options);
+      onRequest({ ...base, ms: Date.now() - startedAt, rows: rows.length, status: 200, kind: 'ok', message: '' });
+      return rows;
+    } catch (err) {
+      const sparql = err instanceof SparqlError ? err : undefined;
+      onRequest({
+        ...base,
+        ms: Date.now() - startedAt,
+        rows: 0,
+        status: sparql?.status ?? 0,
+        kind: sparql?.kind ?? (err instanceof Error && err.name === 'AbortError' ? 'cancelled' : 'unknown'),
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
+  };
+}
+
 // ponytail: a plain Map, not an LRU. Entries are per-session and few (one per
 // distinct cacheable query); nothing here justifies eviction logic yet.
 const responseCache = new Map<string, SparqlRow[]>();

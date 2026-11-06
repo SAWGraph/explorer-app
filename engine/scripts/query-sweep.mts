@@ -1,9 +1,10 @@
-// Query-sweep harness: runs every question shape the editor can build against
-// the live endpoints and writes one CSV row per query.
+// Query sweep: runs every question shape the editor can build against the live
+// endpoints, through the real engine, and writes one CSV row per request sent.
 //
-// This is the tool behind docs/QUERY-SWEEP.md. Re-run it after any change to
-// the query engine and diff the output against docs/query-sweep/2026-09-14-raw-baseline.csv — no shape
-// may regress from working to failing.
+// This is the tool behind docs/QUERY-SWEEP.md. Re-run it after any change to the
+// query engine and diff the output against the newest sweep with chunking off
+// (docs/query-sweep/README.md lists them): no shape may regress from working to
+// failing.
 //
 //   npx tsx engine/scripts/query-sweep.mts M1 init   # first phase truncates the CSV
 //   npx tsx engine/scripts/query-sweep.mts M2        # subsequent phases append
@@ -17,39 +18,49 @@
 // hydrology relationship's flow-distance bound (km), which is a different
 // control and was swept by nothing until MD existed.
 //
-// How long it takes depends entirely on MODE, and the difference is large:
+// QUERY_SWEEP_CHUNKING picks how the engine runs:
 //
-//   raw    ~156 step-queries, ~37 min   (measured 2026-09-14)
-//   engine  124 full pipelines, ~95 min (measured 2026-09-14 at 144 min, but
-//           48 of those were two requests that hung for 1918s and 959s before
-//           sparqlClient gained its 60s cap — those shapes now fail fast)
+//   off (default)  each query sent once, whole: no retry, no splitting, no 300s
+//                  step limit, and a run stops at its first error. This measures
+//                  the query shapes themselves, and is the baseline.
+//   on             what the app does: retry, split refused queries, 300s per
+//                  step. The rows then also show the probes and slices it added.
 //
-// Nearly all of it is M2 and M3: the downstream and upstream sweeps are 50 of
-// the 124 queries and about two thirds of the wall time. M1, M7 and M9 together
-// finish in under four minutes.
+// Both write the same columns, so an off and an on sweep of one commit diff
+// line by line. Request-size batches (1,000 IRIs a request) apply either way.
+// Each request is capped at 60s (engine/endpoint.ts).
 //
-// Run phases one at a time and sequentially — running them in parallel distorts
+// Nearly all of the time is M2 and M3: the downstream and upstream sweeps are
+// 50 of the 124 shapes and about two thirds of the wall time. M1, M7 and M9
+// together finish in under four minutes.
+//
+// Run phases one at a time and sequentially. Running them in parallel distorts
 // timings and provokes failures that are artefacts of your own load. If you run
 // this while a GitHub workflow is querying, you will measure the contention.
-// Each query is capped at 45s client-side per request.
 //
 // Results are cache-sensitive: the engine answers the same query 10-20x faster
 // when warm, so run a sweep twice (cold, then warm) before trusting a number.
 
 import { execSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { planPipeline } from '../planner';
-import { executePipeline, type StepProgress } from '../executor';
-import { runQuestion } from '../run';
-import { ENDPOINTS } from '../constants/endpoints';
+import { planPipeline, type PipelineStep } from '../planner';
+import { executePipeline, type PipelineResult } from '../executor';
+import { executeSparql, recordingEndpoint, type RequestRecord } from '../endpoint';
+import { sweepRows } from './sweepRows';
 import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
 import type { AnalysisQuestion, EntityType } from '../types/query';
 
-// 'raw' posts each step's SPARQL directly — measures the endpoint, not us, and
-// is how the pre-Phase-2 baseline was recorded. 'engine' runs the real pipeline
-// so splitting, merging, partial results and the step budget are all exercised;
-// that is the mode to use for an after-the-change sweep.
-const MODE = (process.env.QUERY_SWEEP_MODE ?? 'raw') as 'raw' | 'engine';
+// The old QUERY_SWEEP_MODE (raw | engine) is gone: both now run the engine.
+if (process.env.QUERY_SWEEP_MODE) {
+  console.error('QUERY_SWEEP_MODE is gone. Set QUERY_SWEEP_CHUNKING=off (was raw) or on (was engine).');
+  process.exit(1);
+}
+const CHUNKING = process.env.QUERY_SWEEP_CHUNKING ?? 'off';
+if (CHUNKING !== 'off' && CHUNKING !== 'on') {
+  console.error(`QUERY_SWEEP_CHUNKING must be off or on, not ${CHUNKING}.`);
+  process.exit(1);
+}
+const MODE = `chunking-${CHUNKING}`;
 
 // Stamp every row with when it ran and which commit it ran against. A snapshot
 // is only useful later if you can tell what code produced it — the 2026-09-14
@@ -95,119 +106,37 @@ if (process.argv[3] === 'init' && existsSync(OUT) && readFileSync(OUT, 'utf8').s
 if (process.argv[3] === 'init') {
   writeFileSync(
     OUT,
-    MODE === 'engine'
-      ? 'runAt,commit,matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg,chunksFailed,chunksSkipped,chunksMax\n'
-      : 'runAt,commit,matrix,label,blockA,rel,hops,blockC,region,filters,step,endpoint,status,ms,rows,bytes,errorClass,errorMsg\n',
+    'runAt,commit,phase,label,blockA,rel,hops,blockC,region,filters,step,slice,endpoint,status,ms,rows,requestBytes,errorKind,errorMsg\n',
   );
 }
-
-const classify = (status: number, ex: string): string => {
-  if (status === 200) return 'ok';
-  if (status === 413) return 'payload-too-large';
-  if (/Tried to allocate/.test(ex)) return 'engine-oom';
-  if (/Operation timed out/.test(ex)) return 'timeout-30s';
-  if (/Sort operation was canceled/.test(ex)) return 'timeout-sort-estimate';
-  if (/Waited for a result from another thread/.test(ex)) return 'sibling-failure';
-  if (status === 0) return 'client-timeout-45s';
-  return `other-${status}`;
-};
 
 const csv = (s: unknown) => `"${String(s).replace(/"/g, "'").replace(/\s+/g, ' ').slice(0, 180)}"`;
 
-// Runs through the real engine. For phases that measured only the discovery
-// step in the baseline, the step list is truncated to that step so the two
-// sweeps compare like with like — discovery is where almost every failure was.
-async function runViaEngine(
-  matrix: string,
-  label: string,
-  q: AnalysisQuestion,
-  meta: Record<string, unknown>,
-  stepIdx: number | 'all',
-) {
-  let chunksMax = 0;
-  const onProgress = (p: StepProgress) => {
-    if ((p.chunksTotal ?? 0) > chunksMax) chunksMax = p.chunksTotal ?? 0;
-  };
-  const t0 = Date.now();
-  // A whole question runs the way the app runs it; a step on its own needs the
-  // plan, cut after that step.
-  const result =
-    stepIdx === 'all'
-      ? await runQuestion(q, { onProgress })
-      : await executePipeline(planPipeline(q).slice(0, stepIdx + 1), q, { onProgress });
-  const ms = Date.now() - t0;
-
-  const rows =
-    result.status === 'success'
-      ? Object.values(result.data).reduce((n, r) => Math.max(n, r.length), 0)
-      : 0;
-  const chunksFailed =
-    result.status === 'success' ? (result.partial ?? []).reduce((n, p) => n + p.failed.length, 0) : 0;
-  const chunksSkipped =
-    result.status === 'success' ? (result.partial ?? []).reduce((n, p) => n + p.skipped.length, 0) : 0;
-  const errorClass =
-    result.status === 'success'
-      ? chunksFailed + chunksSkipped > 0
-        ? 'ok-partial'
-        : 'ok'
-      : result.status === 'empty'
-        ? 'empty'
-        : 'failed';
-  const detail =
-    result.status === 'error' ? result.error.message : result.status === 'empty' ? result.message : '';
-
-  appendFileSync(
-    OUT,
-    [RUN_AT, COMMIT, matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters),
-     stepIdx === 'all' ? 'PIPELINE' : planPipeline(q)[stepIdx].type, 'engine',
-     result.status, ms, rows, 0, errorClass, csv(detail), chunksFailed, chunksSkipped, chunksMax].join(',') + '\n',
-  );
-  console.log(
-    `${matrix} ${label.padEnd(44).slice(0, 44)} ${result.status.padEnd(8)} ${String(ms).padStart(7)}ms rows=${String(rows).padStart(5)} chunks=${chunksMax} failed=${chunksFailed} skipped=${chunksSkipped}`,
-  );
-}
-
-async function run(matrix: string, label: string, q: AnalysisQuestion, meta: Record<string, unknown>, stepIdx: number | 'all') {
-  if (MODE === 'engine') return runViaEngine(matrix, label, q, meta, stepIdx);
-  const steps = planPipeline(q);
-  const ctx: any = { question: q, targetIris: [], anchorIris: [], results: {} };
-  const idxs = stepIdx === 'all' ? steps.map((_, i) => i) : [stepIdx];
-  for (const i of idxs) {
-    if (i >= steps.length) break;
-    const step = steps[i];
-    let body: string;
-    try { body = step.buildQuery(ctx); } catch (e: any) { 
-      appendFileSync(OUT, [RUN_AT, COMMIT, matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters), step.type, step.endpoint, 'BUILD_FAIL', 0, 0, 0, 'build-error', csv(e.message)].join(',') + '\n');
-      return;
-    }
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 45000);
-    const t0 = Date.now();
-    let status = 0, ex = '', rows: any[] = [], bytes = 0;
-    try {
-      const r = await fetch(ENDPOINTS[step.endpoint], {
-        method: 'POST', signal: ac.signal,
-        headers: { 'Content-Type': 'application/sparql-query', Accept: 'application/sparql-results+json' },
-        body,
-      });
-      status = r.status;
-      const t = await r.text();
-      bytes = t.length;
-      try { const j = JSON.parse(t); ex = j.exception ?? ''; rows = j.results?.bindings ?? []; } catch { ex = 'unparseable-json'; }
-    } catch (e: any) { ex = e.name === 'AbortError' ? 'client abort at 45s' : e.message; }
-    clearTimeout(timer);
-    const ms = Date.now() - t0;
-    const cls = classify(status, ex);
-    appendFileSync(OUT, [RUN_AT, COMMIT, matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters), step.type, step.endpoint, status, ms, rows.length, bytes, cls, csv(ex)].join(',') + '\n');
-    console.log(`${matrix} ${label.padEnd(44).slice(0,44)} ${step.type.padEnd(24)} ${String(status).padStart(3)} ${String(ms).padStart(6)}ms rows=${String(rows.length).padStart(5)} ${cls}`);
-    // thread context for full-pipeline runs
-    if (status === 200) {
-      ctx.results[step.type] = rows.map((b: any) => Object.fromEntries(Object.entries(b).map(([k, v]: any) => [k, v.value])));
-      if (step.type === 'FIND_TARGET_IRIS') ctx.targetIris = [...new Set(ctx.results[step.type].map((r: any) => r.iri).filter(Boolean))];
-      if (step.type === 'FIND_ANCHOR_IRIS') ctx.anchorIris = [...new Set(ctx.results[step.type].map((r: any) => r.iri).filter(Boolean))];
-      if (step.type === 'HYDRATE_TARGET_BY_IRI') ctx.results['FIND_TARGET_ENTITIES'] = ctx.results[step.type];
-      if (stepIdx === 'all' && (step.type === 'FIND_TARGET_IRIS') && ctx.targetIris.length === 0) return; // early exit like executor
-    } else if (stepIdx === 'all') return; // pipeline aborts on failure
+// Runs one question, or one step of it, through the engine and writes a row
+// for every request it sent. Most phases measure step 0 alone (discovery,
+// where almost every failure is); M5 runs the whole question; MD measures
+// steps 0 and 1 each on their own, since the two projections fail apart.
+async function run(phase: string, label: string, q: AnalysisQuestion, meta: Record<string, unknown>, stepIdx: number | 'all') {
+  const prefix = [RUN_AT, COMMIT, phase, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters)];
+  const records: RequestRecord[] = [];
+  const endpoint = recordingEndpoint(executeSparql, (r) => records.push(r));
+  let steps: PipelineStep[] = [];
+  let result: PipelineResult;
+  try {
+    const plan = planPipeline(q);
+    steps = stepIdx === 'all' ? plan : plan.slice(stepIdx, stepIdx + 1);
+    result = await executePipeline(steps, q, { endpoint, chunkOnRefusal: CHUNKING === 'on' });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    appendFileSync(OUT, [...prefix, 'BUILD_FAIL', '', '', 0, 0, 0, 0, 'build-error', csv(message)].join(',') + '\n');
+    console.log(`${phase} ${label.padEnd(44).slice(0, 44)} BUILD_FAIL ${message}`);
+    return;
+  }
+  for (const r of sweepRows(steps, result.queries, records)) {
+    appendFileSync(OUT, [...prefix, r.step, csv(r.slice), r.endpoint, r.status, r.ms, r.rows, r.requestBytes, r.kind, csv(r.message)].join(',') + '\n');
+    console.log(
+      `${phase} ${label.padEnd(44).slice(0, 44)} ${r.step.padEnd(24)} ${r.slice.padEnd(16).slice(0, 16)} ${String(r.status).padStart(3)} ${String(r.ms).padStart(6)}ms rows=${String(r.rows).padStart(5)} ${r.kind}`,
+    );
   }
 }
 
@@ -360,8 +289,10 @@ function readSweeps(): Sweep[] {
       const iCommit = header.indexOf('commit');
       const iLabel = header.indexOf('label');
       const iStatus = header.indexOf('status');
-      const iClass = header.indexOf('errorClass');
-      const iMatrix = header.indexOf('matrix');
+      // Sweeps since chunking-off/on name these errorKind and phase; older ones
+      // errorClass and matrix.
+      const iClass = header.indexOf('errorKind') > -1 ? header.indexOf('errorKind') : header.indexOf('errorClass');
+      const iMatrix = header.indexOf('phase') > -1 ? header.indexOf('phase') : header.indexOf('matrix');
       const byLabel = new Map<string, string>();
       const phases = new Set<string>();
       let commit = '';
@@ -413,14 +344,17 @@ function writeIndex(): void {
     'two sweeps is a `diff` of two paths.',
     '',
     '```',
-    'QUERY_SWEEP_MODE=engine npx tsx engine/scripts/query-sweep.mts M1 init   # start a sweep',
-    'QUERY_SWEEP_MODE=engine npx tsx engine/scripts/query-sweep.mts M2        # each later phase',
-    'npx tsx engine/scripts/query-sweep.mts --index                            # rebuild this file',
+    'npx tsx engine/scripts/query-sweep.mts M1 init                          # start a sweep (chunking off)',
+    'npx tsx engine/scripts/query-sweep.mts M2                               # each later phase',
+    'QUERY_SWEEP_CHUNKING=on npx tsx engine/scripts/query-sweep.mts M1 init  # the same, as the app runs',
+    'npx tsx engine/scripts/query-sweep.mts --index                          # rebuild this file',
     '```',
     '',
-    '`raw` posts each step\'s SPARQL directly and writes one row per step; `engine`',
-    'runs the real pipeline, one row per query, and is the mode to use after an',
-    'engine change. The two are not comparable row for row.',
+    'Both modes run the real engine and write one row per request. `chunking-off`',
+    'sends each query once, whole, and is the baseline; `chunking-on` runs it as the',
+    'app does (retry, splitting, 300s per step), so its extra rows are the probes and',
+    'slices the rescue added. The two diff row for row. Older sweeps (`raw`,',
+    '`engine`, and `raw-baseline`) used other formats and are kept as history.',
     '',
     'Phases: M1 near, M2 downstream, M3 upstream (all entity pairs), M4 near-hop',
     'distance, M5 dashboard questions, M6 six states, M7 no region, M8 filters,',

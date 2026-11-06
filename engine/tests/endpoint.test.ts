@@ -5,7 +5,7 @@
 //
 // No network: fetch is stubbed.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { executeSparql } from '../endpoint';
+import { executeSparql, recordingEndpoint, type RequestRecord } from '../endpoint';
 import { SparqlError } from '../errors';
 
 const timedOut = () => new Response('{"exception":"Operation timed out"}', { status: 429 });
@@ -33,5 +33,30 @@ describe('the retry after a timeout', () => {
     expect(error).toBeInstanceOf(SparqlError);
     expect((error as SparqlError).kind).toBe('timeout');
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the recording endpoint', () => {
+  it('records each request: endpoint, size sent, time, rows, and ok', async () => {
+    const records: RequestRecord[] = [];
+    const run = recordingEndpoint(async () => [{ iri: 'a' }, { iri: 'b' }], (r) => records.push(r));
+
+    await expect(run('federation', 'SELECT ?é')).resolves.toHaveLength(2);
+    expect(records).toEqual([
+      expect.objectContaining({ endpoint: 'federation', query: 'SELECT ?é', requestBytes: 10, rows: 2, status: 200, kind: 'ok', cached: false }),
+    ]);
+    expect(records[0].ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it('records a refusal with its status and kind, and still throws it', async () => {
+    const records: RequestRecord[] = [];
+    const run = recordingEndpoint(async () => {
+      throw new SparqlError('timeout', 429, 'Operation timed out');
+    }, (r) => records.push(r));
+
+    await expect(run('federation', 'SELECT 1', { cache: true })).rejects.toBeInstanceOf(SparqlError);
+    expect(records).toEqual([
+      expect.objectContaining({ rows: 0, status: 429, kind: 'timeout', message: 'SPARQL timeout (429): Operation timed out', cached: true }),
+    ]);
   });
 });

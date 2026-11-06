@@ -30,6 +30,7 @@ import the engine; the engine never imports the UI.
 | Error messages for a run | `outcomeMessage(result, question)` (failed or empty, shown by the progress strip) and `partialNotice(result, question)` (incomplete) in `errors.ts`, which also classifies what the endpoint refused. The edit modal still words its Apply error itself (Phase 1) |
 | Warning for questions that reliably fail | `assessQueryBreadth(question)` in `queryBreadth.ts` |
 | One raw SPARQL request | `executeSparql(endpoint, query, options?)` in `endpoint.ts`, the production `SparqlRunner` |
+| Recording every request a run sends | `recordingEndpoint(runner, onRequest)` in `endpoint.ts` (used by `query-sweep`) |
 | What one entity type contributes to a query | `entityFor(type)` in `entities/`: IRI variable, cell bind with filters, region check, how its details load, whether it is a flowline, its label, and `describe(block, totals)` for the question sentence |
 | SPARQL builders, dropdown discovery queries | `templates/` |
 | The question, row and feature types | `types/` |
