@@ -3,7 +3,9 @@
 // one file changed nothing a user reads (engine redesign, Phase 0 item 2).
 import { describe, expect, it } from 'vitest';
 import {
+  RUN_AGAIN_LABEL,
   SparqlError,
+  canRunAgain,
   outcomeMessage,
   partialNotice,
   stepEmptyMessage,
@@ -158,5 +160,18 @@ describe('the message when chunking on refusal is off', () => {
     expect(outcomeMessage(off(new SparqlError('network', 0, 'fetch failed')), question())).toBe(
       'Could not reach the knowledge graph. Check your connection and try again.',
     );
+  });
+});
+
+describe('running a question again', () => {
+  it('is offered after a failure, labelled Run again', () => {
+    expect(canRunAgain(failed(new SparqlError('sibling-failure', 500, 'busy')))).toBe(true);
+    expect(RUN_AGAIN_LABEL).toBe('Run again');
+  });
+
+  it('is not offered after an empty or a complete run', () => {
+    expect(canRunAgain({ status: 'empty', failedAtStep: 0, message: stepEmptyMessage('x') })).toBe(false);
+    expect(canRunAgain({ status: 'success', data: {} })).toBe(false);
+    expect(canRunAgain(null)).toBe(false);
   });
 });

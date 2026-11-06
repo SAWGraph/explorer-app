@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
-import { outcomeMessage } from '../../../engine/errors';
+import { RUN_AGAIN_LABEL, canRunAgain, outcomeMessage } from '../../../engine/errors';
+import { useQueryPipeline } from '../../hooks/useQueryPipeline';
 
 const MESSAGES = [
   'Please wait while we prepare the data for you…',
@@ -16,6 +17,7 @@ export function PipelineProgressStrip() {
   const stepProgress = useQueryStore((s) => s.stepProgress);
   const question = useQueryStore((s) => s.question);
   const [msgIndex, setMsgIndex] = useState(0);
+  const { runPipeline } = useQueryPipeline();
 
   useEffect(() => {
     if (!isRunning) return;
@@ -86,6 +88,11 @@ export function PipelineProgressStrip() {
           </svg>
         )}
         <span className='pipeline-strip-label'>{message}</span>
+        {!isRunning && canRunAgain(pipelineResult) && (
+          <button type='button' className='pipeline-strip-action' onClick={() => void runPipeline({ skipCache: true })}>
+            {RUN_AGAIN_LABEL}
+          </button>
+        )}
       </div>
     </div>
   );

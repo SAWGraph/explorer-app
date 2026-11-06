@@ -151,6 +151,17 @@ export function stepEmptyMessage(stepDescription: string): string {
   return `No results at step: ${stepDescription}`;
 }
 
+// The button on a failed run's error strip that runs the question again,
+// fresh. With chunking off it is the only retry the run gets.
+export const RUN_AGAIN_LABEL = 'Run again';
+
+// Whether a run that did not answer is worth running again as it is. A failure
+// often is (a busy or slow server); a run that found nothing finds nothing
+// again until the question changes.
+export function canRunAgain(result: PipelineResult | null | undefined): boolean {
+  return result?.status === 'error';
+}
+
 // A refusal that splitting the query into smaller ones could have rescued: too
 // much work, too much memory, or too big a request. The executor splits these
 // (unless told not to); the messages below say when it was told not to.
@@ -164,8 +175,7 @@ function chunkingWouldHaveTried(error: unknown): boolean {
   return error instanceof SparqlError && (isSplittable(error.kind) || isRetryable(error.kind));
 }
 
-const CHUNKING_OFF =
-  'Chunking is turned off for this run, so the question was not retried or split into smaller queries. Use Run again to try it once more.';
+const CHUNKING_OFF = `Chunking is turned off for this run, so the question was not retried or split into smaller queries. Use ${RUN_AGAIN_LABEL} to try it once more.`;
 
 // The one line shown when a run did not answer: why it failed and what to try,
 // or that nothing matched. Null for a run that answered.
