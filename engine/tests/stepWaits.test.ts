@@ -79,6 +79,18 @@ it('every step waits only for what it reads, and decoration holds up nothing', (
           const boundaries = steps.find((s) => s.type === 'GET_REGION_BOUNDARIES');
           if (boundaries) assert.deepEqual(boundaries.after, [], where);
           assert.equal(Boolean(boundaries), withRegion, `boundaries planned iff a region is set: ${where}`);
+
+          // Both sides are counted first, together, and discovery waits for
+          // both: a side counted at 0 ends the run before any discovery query.
+          for (const count of ['COUNT_TARGET', 'COUNT_ANCHOR'] as const) {
+            assert.deepEqual(steps.find((s) => s.type === count)?.after, [], `${count} starts with the run: ${where}`);
+            assert.ok(all('FIND_TARGET_IRIS').has(count), `discovery before ${count}: ${where}`);
+          }
+
+          // Without counts (countSides: false) discovery starts the run.
+          const uncounted = planPipeline(question(a, rel, c, withRegion), { countSides: false });
+          assert.ok(!uncounted.some((s) => s.type.startsWith('COUNT_')), `counted with countSides off: ${where}`);
+          assert.deepEqual(uncounted.find((s) => s.type === 'FIND_TARGET_IRIS')?.after, [], where);
         }
       }
     }

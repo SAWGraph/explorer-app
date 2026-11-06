@@ -124,7 +124,10 @@ async function run(phase: string, label: string, q: AnalysisQuestion, meta: Reco
   let result: PipelineResult;
   try {
     const plan = planPipeline(q);
-    steps = stepIdx === 'all' ? plan : plan.slice(stepIdx, stepIdx + 1);
+    // Step 0 and 1 are the two discovery steps, picked by type: the plan opens
+    // with the two side counts, which these phases do not measure.
+    const discovery = plan.filter((s) => s.type === 'FIND_TARGET_IRIS' || s.type === 'FIND_ANCHOR_IRIS');
+    steps = stepIdx === 'all' ? plan : [discovery[stepIdx]];
     result = await executePipeline(steps, q, { endpoint, chunkOnRefusal: CHUNKING === 'on' });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

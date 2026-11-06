@@ -33,9 +33,11 @@ describe('one sweep row per request', () => {
       return [{ x: '1' }];
     }, false);
 
-    // Rows come in the order the requests finished. The boundaries run
-    // alongside the main steps, so where their row lands is not fixed.
-    const main = rows.filter((r) => r.step !== 'GET_REGION_BOUNDARIES');
+    // Rows come in the order the requests finished. The counts and the
+    // boundaries run alongside one another, so where their rows land is not fixed.
+    const alongside = ['GET_REGION_BOUNDARIES', 'COUNT_TARGET', 'COUNT_ANCHOR'];
+    expect(rows.filter((r) => r.step.startsWith('COUNT_')).map((r) => r.step).sort()).toEqual(['COUNT_ANCHOR', 'COUNT_TARGET']);
+    const main = rows.filter((r) => !alongside.includes(r.step));
     expect(main.map((r) => [r.step, r.slice, r.status, r.kind])).toEqual([
       ['FIND_TARGET_IRIS', '', 200, 'ok'],
       ['FIND_ANCHOR_IRIS', '', 200, 'ok'],
@@ -50,13 +52,13 @@ describe('one sweep row per request', () => {
   });
 
   it('records the refusal that stopped a run with chunking off', async () => {
-    const steps = planPipeline(QUESTION).slice(0, 1);
+    const steps = planPipeline(QUESTION).filter((s) => s.type === 'FIND_TARGET_IRIS');
     const rows = await sweep(() => refuse(), false, steps);
     expect(rows).toEqual([expect.objectContaining({ step: 'FIND_TARGET_IRIS', slice: '', status: 429, kind: 'timeout', rows: 0 })]);
   });
 
   it('shows the probes and slices chunking on added', async () => {
-    const steps = planPipeline(QUESTION).slice(0, 1);
+    const steps = planPipeline(QUESTION).filter((s) => s.type === 'FIND_TARGET_IRIS');
     const rows = await sweep(({ query }) => {
       if (projected(query) === 'facilityP') return iriRows(['http://ex.org/f/1', 'http://ex.org/f/2']);
       if (projected(query) === 'spP') return iriRows(samples(201));

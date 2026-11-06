@@ -12,7 +12,7 @@ import { executePipeline, type StepProgress } from '../executor';
 import { SparqlError } from '../errors';
 import { planPipeline } from '../planner';
 import type { AnalysisQuestion } from '../types/query';
-import { fakeEndpoint, iriRows, pinned, projected, refuse, type FakeCall, type FakeEndpoint } from './support/fakeEndpoint';
+import { counted, fakeEndpoint, iriRows, pinned, projected, refuse, type FakeCall, type FakeEndpoint } from './support/fakeEndpoint';
 import type { SparqlRow } from '../types/sparql';
 
 // "Samples in Maine near landfills": block A is the target, block C (the
@@ -32,7 +32,10 @@ const run = (
   signal?: AbortSignal,
   onProgress: (p: StepProgress) => void = () => {},
   chunkOnRefusal?: boolean,
-) => executePipeline(planPipeline(question), question, { onProgress, signal, endpoint: fake.run, chunkOnRefusal });
+) => executePipeline(planPipeline(question, { countSides: false }), question, { onProgress, signal, endpoint: fake.run, chunkOnRefusal });
+// Most tests here pin what discovery, details and decoration do, so they plan
+// without the counts; "counting both sides first" below plans with them, as
+// runQuestion does by default.
 
 // A graph where the question has an answer and nothing is refused.
 const answering = () =>
@@ -520,6 +523,107 @@ describe('decoration alongside the main steps', () => {
     });
 
     await expect(run(SAMPLES_NEAR_LANDFILLS, fake, controller.signal)).rejects.toThrow('cancelled by the user');
+  });
+});
+
+// Both sides are counted before discovery (COUNT_TARGET, COUNT_ANCHOR). A side
+// at 0 ends the run there; the counts go into the advice when a question is
+// too big; and a count that fails or is slow is dropped, never failing a run.
+describe('counting both sides first', () => {
+  const COUNTS = { spP: 3, facilityP: 2 };
+  // Answers the counts with `counts` (by counted variable), the rest as `answering` does.
+  const withCounts = (counts: Record<string, number | (() => never) | 'hang'> = COUNTS, base = answering()) =>
+    fakeEndpoint((call) => {
+      const side = counted(call.query);
+      if (!side) return base.run(call.endpoint, call.query, call.options);
+      const answer = counts[side];
+      if (typeof answer === 'function') return answer();
+      if (answer === 'hang') {
+        // Answers only when stopped, the way fetch does.
+        return new Promise<never>((_, reject) => {
+          call.options.signal?.addEventListener('abort', () => reject(call.options.signal?.reason));
+        });
+      }
+      return [{ count: String(answer) }];
+    });
+  const runCounted = (
+    fake: FakeEndpoint,
+    options: { chunkOnRefusal?: boolean; onProgress?: (p: StepProgress) => void; question?: AnalysisQuestion; countLimitMs?: number } = {},
+  ) => {
+    const question = options.question ?? SAMPLES_NEAR_LANDFILLS;
+    const steps = planPipeline(question).map((s) =>
+      options.countLimitMs && s.type.startsWith('COUNT_') ? { ...s, timeoutMs: options.countLimitMs } : s,
+    );
+    return executePipeline(steps, question, { endpoint: fake.run, chunkOnRefusal: options.chunkOnRefusal, onProgress: options.onProgress });
+  };
+
+  it('counts both sides together, before any discovery query, and keeps the counts by block', async () => {
+    const fake = withCounts();
+    const result = await runCounted(fake);
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') return;
+    const firstDiscovery = fake.calls.findIndex((c) => projected(c.query));
+    expect(fake.calls.slice(0, firstDiscovery).map((c) => counted(c.query)).filter(Boolean)).toEqual(['spP', 'facilityP']);
+    // Samples are block A (the target of a near question), landfills block C.
+    expect(result.counts).toEqual({ A: 3, C: 2 });
+  });
+
+  it('ends the run as empty when a side counts 0, before any discovery query, naming the block', async () => {
+    const fake = withCounts({ spP: 3, facilityP: 0 });
+    const result = await runCounted(fake);
+
+    expect(result.status).toBe('empty');
+    if (result.status !== 'empty') return;
+    expect(result.emptyBlock).toBe('C');
+    expect(result.failedAtStep).toBe(1);
+    expect(fake.calls.some((c) => projected(c.query))).toBe(false);
+  });
+
+  it('drops a count that fails and runs on, with chunking on and off', async () => {
+    for (const chunkOnRefusal of [true, false]) {
+      const events: StepProgress[] = [];
+      const result = await runCounted(withCounts({ spP: () => refuse(), facilityP: 2 }), { chunkOnRefusal, onProgress: (p) => events.push(p) });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') continue;
+      expect(result.counts).toEqual({ C: 2 });
+      expect(result.partial).toBeUndefined();
+      expect(events.filter((p) => p.stepIndex === 0).map((p) => p.status)).toEqual(['running', 'skipped']);
+      // The dropped count is still in the SPARQL list, with its error.
+      expect(result.queries?.find((q) => q.step === 0)?.error).toBeTruthy();
+    }
+  });
+
+  it('drops a count that takes longer than its limit, without a retry', async () => {
+    const fake = withCounts({ spP: 'hang', facilityP: 2 });
+    const result = await runCounted(fake, { countLimitMs: 20 });
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') return;
+    expect(result.counts).toEqual({ C: 2 });
+    expect(fake.calls.filter((c) => counted(c.query) === 'spP')).toHaveLength(1);
+    expect(fake.calls.filter((c) => counted(c.query)).every((c) => c.options.retry === false)).toBe(true);
+  });
+
+  it('carries the counts on a failed run, for the advice', async () => {
+    const base = answering();
+    const fake = withCounts(COUNTS, fakeEndpoint((call) => (projected(call.query) === 'spC' ? refuse() : base.run(call.endpoint, call.query, call.options))));
+    const result = await runCounted(fake, { chunkOnRefusal: false });
+
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') return;
+    expect(result.counts).toEqual({ A: 3, C: 2 });
+  });
+
+  it('does not probe a side its count says is too big to list, when splitting a refused question', async () => {
+    // 30 landfills (listable), more samples than a probe lists.
+    const fake = withCounts({ spP: 5000, facilityP: 30 }, refusingWhole(30));
+    const result = await runCounted(fake);
+
+    expect(result.status).toBe('success');
+    expect(fake.calls.some((c) => projected(c.query) === 'facilityP')).toBe(true);
+    expect(fake.calls.some((c) => projected(c.query) === 'spP')).toBe(false);
   });
 });
 

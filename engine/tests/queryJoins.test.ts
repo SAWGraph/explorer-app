@@ -223,7 +223,7 @@ describe('join order', () => {
 
   it.each(hydrologyPrebuilts.map((p) => [p.id, p] as const))('prebuilt %s leads with its narrower side', (_id, prebuilt) => {
     const question: AnalysisQuestion = prebuilt.question;
-    const step = planPipeline(question)[0];
+    const step = planPipeline(question).find((s) => s.type === 'FIND_TARGET_IRIS')!;
     const query = step.buildQuery({ question, targetIris: [], anchorIris: [], results: {} } as never, undefined);
     const expected = EXPECTED_REORDER.has(prebuilt.id) ? 'target' : 'anchor';
     assert.ok(

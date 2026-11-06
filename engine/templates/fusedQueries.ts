@@ -18,7 +18,7 @@ function pinValues(entityVar: string, iris: string[] | undefined): string {
 }
 
 // Lists a block's entities inside its region, capped at `limit`. Used to decide
-// whether a side is small enough to chunk over — a bounded LIMIT probe rather
+// whether a side is small enough to chunk over: a bounded LIMIT probe rather
 // than COUNT, because counting Maine's unfiltered facilities took 11.0s while
 // the same listing with a filter took 0.8s (docs/QUERY-SWEEP.md).
 export function buildEntityProbeQuery(
@@ -26,21 +26,38 @@ export function buildEntityProbeQuery(
   regionCodes: string[] | undefined,
   limit: number,
 ): string {
-  const entityVar = iriVarOf(block, 'P');
-  // `false`, like the IRI-finding queries: the probe lists entity IRIs, and the
-  // list it returns becomes the chunk membership (engine/slicing.ts). A
-  // narrowing join here removes entities from every slice, so the probe has to
-  // see exactly what discovery sees.
+  return `
+    ${PREFIXES}
+    SELECT DISTINCT (${iriVarOf(block, 'P')} AS ?iri) WHERE {${sideBody(block, regionCodes)}
+    } LIMIT ${limit}
+  `;
+}
+
+// How many entities a side has, before any relationship: the count the run
+// takes of each side before discovery (engine/planner.ts). The same body as the
+// probe, so a count of 0 means discovery finds nothing on that side. Measured
+// live on 2026-11-06: 57 of 58 cold counts took 1.1s or less (the other was
+// 20.5s, the first query against a cold server, and did not come back).
+export function buildEntityCountQuery(block: EntityBlock, regionCodes: string[] | undefined): string {
+  return `
+    ${PREFIXES}
+    SELECT (COUNT(DISTINCT ${iriVarOf(block, 'P')}) AS ?count) WHERE {${sideBody(block, regionCodes)}
+    }
+  `;
+}
+
+// One side on its own: its cells in its region, its entities in them, its
+// filters. `false`, like the IRI-finding queries: the probe lists entity IRIs,
+// and the list it returns becomes the chunk membership (engine/slicing.ts). A
+// narrowing join here removes entities from every slice, so the probe (and the
+// count) has to see exactly what discovery sees.
+function sideBody(block: EntityBlock, regionCodes: string[] | undefined): string {
   const bind = bindInCell(block, '?s2probe', 'P', false);
   const region = regionClause(block, regionCodes, '?s2probe', 'P');
   return `
-    ${PREFIXES}
-    SELECT DISTINCT (${entityVar} AS ?iri) WHERE {
       ?s2probe rdf:type kwg-ont:S2Cell_Level13 .
       ${region}
-      ${bind}
-    } LIMIT ${limit}
-  `;
+      ${bind}`;
 }
 
 // Restricts a block's cell to the region. A type whose entity can sit in a cell

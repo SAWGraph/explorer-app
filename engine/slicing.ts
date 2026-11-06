@@ -73,7 +73,15 @@ export interface AxisContext {
   // The runner the probes and county lookups go through: the executor's own,
   // so a test's fake endpoint sees every request.
   sparql: SparqlRunner;
+  // Each side's count, when the run took it. A probe the count says would come
+  // back full (or with fewer than 2) is not sent.
+  counts?: { anchor?: number; target?: number };
 }
+
+// Whether a probe capped at `limit` could list a side of `count` entities.
+// Unknown counts are probed, as before the counts existed.
+const couldList = (count: number | undefined, limit: number): boolean =>
+  count === undefined || (count >= 2 && count < limit);
 
 // Picks how to slice a question that was too big to run whole, preferring
 // whichever side we can actually enumerate. Probes are cached for the session.
@@ -81,8 +89,8 @@ export async function chooseAxis(ctx: AxisContext): Promise<Scope[] | null> {
   // Both probes are independent, and each can take seconds on an unfiltered
   // side, so overlap them rather than paying for them one after the other.
   const [anchor, target] = await Promise.all([
-    probeSide(ctx.sparql, ctx.anchorBlock, ctx.anchorRegion, ctx.endpoint),
-    probeSide(ctx.sparql, ctx.targetBlock, ctx.targetRegion, ctx.endpoint),
+    couldList(ctx.counts?.anchor, PROBE_LIMIT) ? probeSide(ctx.sparql, ctx.anchorBlock, ctx.anchorRegion, ctx.endpoint) : null,
+    couldList(ctx.counts?.target, PROBE_LIMIT) ? probeSide(ctx.sparql, ctx.targetBlock, ctx.targetRegion, ctx.endpoint) : null,
   ]);
 
   if (anchor) {
@@ -131,6 +139,7 @@ export async function chooseAxis(ctx: AxisContext): Promise<Scope[] | null> {
   for (const s of ['anchor', 'target'] as const) {
     const block = s === 'anchor' ? ctx.anchorBlock : ctx.targetBlock;
     const region = s === 'anchor' ? ctx.anchorRegion : ctx.targetRegion;
+    if (!couldList(ctx.counts?.[s], BULK_PROBE_LIMIT)) continue;
     const iris = await probeSide(ctx.sparql, block, region, ctx.endpoint, BULK_PROBE_LIMIT);
     if (!iris) continue;
     return chunk(iris, ENTITY_CHUNK).map((slice, i) => ({
@@ -290,10 +299,10 @@ export function scopedRegions(
 // out which side can be enumerated (chooseAxis). When a region slice is down to
 // one county and still fails, switch axis and chunk the targets inside it.
 export function divideDiscovery(
-  axis: Omit<AxisContext, 'sparql'>,
-): (ctx: unknown, scope: Scope | undefined, sparql: SparqlRunner) => Promise<Scope[] | null> {
-  return async (_ctx, scope, sparql) => {
-    const withRunner = { ...axis, sparql };
+  axis: Omit<AxisContext, 'sparql' | 'counts'>,
+): (ctx: { counts?: AxisContext['counts'] }, scope: Scope | undefined, sparql: SparqlRunner) => Promise<Scope[] | null> {
+  return async (ctx, scope, sparql) => {
+    const withRunner = { ...axis, sparql, counts: ctx.counts };
     if (!scope) return chooseAxis(withRunner);
     return halve(scope) ?? refineRegionScope(withRunner, scope);
   };

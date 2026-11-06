@@ -1,6 +1,7 @@
-import type { PipelineResult } from './executor';
+import type { PipelineResult, SideCounts } from './executor';
 import type { AnalysisQuestion, EntityBlock } from './types/query';
 import { normalise } from './question';
+import { entityFor } from './entities';
 
 // Every failure the engine can meet, and the words it shows a user about one:
 // a run that failed, found nothing, or answered only in part. The progress
@@ -86,17 +87,27 @@ export function isRetryable(kind: SparqlErrorKind): boolean {
 // and returned 145 samples in 25s at 10 km. Note that adding a filter can turn a
 // timeout into an *empty* result rather than a smaller one — it makes the query
 // cheaper by asking for less — so distance comes first when there is one.
-function adviceForOversizedQuestion(question?: AnalysisQuestion): string {
+//
+// When the run counted both sides, the advice gives the counts and names the
+// bigger block, which is the one to narrow on a near question.
+function adviceForOversizedQuestion(question?: AnalysisQuestion, counts?: SideCounts): string {
   if (!question) return 'Try a shorter distance, a smaller region, or one county at a time.';
 
   const { blockA, blockC, relationship } = question;
   const isTrace = normalise(question).kind === 'trace';
+  const both = counts?.A !== undefined && counts?.C !== undefined ? { A: counts.A, C: counts.C } : null;
+  const sizes = both
+    ? `The first block matches ${both.A.toLocaleString('en-US')} ${entityFor(blockA.type).label}, the second ${both.C.toLocaleString('en-US')} ${entityFor(blockC.type).label}. `
+    : '';
 
   if (isTrace && relationship.maxDistanceKm) {
-    return `Try a shorter distance than ${relationship.maxDistanceKm} km, or run those areas one at a time.`;
+    return `${sizes}Try a shorter distance than ${relationship.maxDistanceKm} km, or run those areas one at a time.`;
   }
   if (isTrace) {
-    return 'Setting a maximum distance on the relationship is the most effective change. An unbounded trace follows the river network to the sea.';
+    return `${sizes}Setting a maximum distance on the relationship is the most effective change. An unbounded trace follows the river network to the sea.`;
+  }
+  if (both) {
+    return `${sizes}Adding a filter or region to the ${both.C >= both.A ? 'second' : 'first'} block is the most effective change.`;
   }
 
   const wide = !isNarrowed(blockC) ? 'second' : !isNarrowed(blockA) ? 'first' : null;
@@ -106,29 +117,20 @@ function adviceForOversizedQuestion(question?: AnalysisQuestion): string {
   return 'Try a smaller region, or run one county at a time.';
 }
 
-// A second definition of "this block narrows the question", kept for the advice
-// only. It disagrees with the entity modules' isFiltered for samples: it counts
-// the default `includeNondetects: true` tick as a filter. Unifying them changes
-// the advice a user reads, so it is a Phase 1 fix (engine redesign plan).
+// Whether a block narrows the question at all: a region, or a filter its entity
+// module counts (the default non-detect tick on samples is not one). The same
+// test the engine ranks sides by (engine/sides.ts).
 function isNarrowed(block: EntityBlock): boolean {
   if (block.region?.stateCode || block.region?.countyCodes?.length) return true;
-  const filters = [
-    block.sampleFilters,
-    block.facilityFilters,
-    block.waterBodyFilters,
-    block.wellFilters,
-    block.aquiferFilters,
-    block.streamFilters,
-  ];
-  return filters.some((f) => f && Object.values(f).some((v) => (Array.isArray(v) ? v.length > 0 : v != null)));
+  return entityFor(block.type).isFiltered(block);
 }
 
-function userMessageFor(error: unknown, question?: AnalysisQuestion): string {
+function userMessageFor(error: unknown, question?: AnalysisQuestion, counts?: SideCounts): string {
   const kind = error instanceof SparqlError ? error.kind : 'unknown';
   switch (kind) {
     case 'timeout':
     case 'out-of-memory':
-      return `This question covers too much data for the knowledge graph to answer at once. ${adviceForOversizedQuestion(question)}`;
+      return `This question covers too much data for the knowledge graph to answer at once. ${adviceForOversizedQuestion(question, counts)}`;
     case 'payload-too-large':
       return 'This question produced too much data to send in one request. Try narrowing the area or adding a filter.';
     case 'sibling-failure':
@@ -180,9 +182,18 @@ const CHUNKING_OFF = `Chunking is turned off for this run, so the question was n
 // The one line shown when a run did not answer: why it failed and what to try,
 // or that nothing matched. Null for a run that answered.
 export function outcomeMessage(result: PipelineResult | null | undefined, question?: AnalysisQuestion): string | null {
-  if (result?.status === 'empty') return 'No results found for this query. Try adjusting the filters.';
+  if (result?.status === 'empty') {
+    // A count found a block with nothing in it: name it, since that block is
+    // the one to change.
+    if (result.emptyBlock && question) {
+      const block = result.emptyBlock === 'A' ? question.blockA : question.blockC;
+      const which = result.emptyBlock === 'A' ? 'first' : 'second';
+      return `No ${entityFor(block.type).label} match the ${which} block, so the question has no answer. Try a wider region or fewer filters.`;
+    }
+    return 'No results found for this query. Try adjusting the filters.';
+  }
   if (result?.status === 'error') {
-    const message = userMessageFor(result.error, question);
+    const message = userMessageFor(result.error, question, result.counts);
     // The run was told not to retry or split, so say what it did not try:
     // otherwise the advice reads as though it had. Only after a failure that
     // chunking on would have retried or split.
@@ -211,7 +222,7 @@ export function partialNotice(result: PipelineResult | null | undefined, questio
   return [
     `Showing incomplete results: ${reasons.join(', ')}.`,
     skipped.length > 0 ? 'Running the question again picks up where this left off.' : null,
-    failed.length > 0 ? adviceForOversizedQuestion(question) : null,
+    failed.length > 0 ? adviceForOversizedQuestion(question, result.counts) : null,
   ]
     .filter((s): s is string => s !== null)
     .join(' ');

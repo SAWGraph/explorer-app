@@ -7,6 +7,7 @@ import {
   buildFusedHydrologyQuery,
   buildFusedFlowlineQuery,
   buildFusedWellQuery,
+  buildEntityCountQuery,
 } from './templates/fusedQueries';
 import { buildRegionBoundaryQuery } from './templates/spatial';
 import type { SparqlRunner } from './endpoint';
@@ -24,6 +25,8 @@ const RELATIONSHIP_PREPOSITION: Record<AnalysisQuestion['relationship']['type'],
 };
 
 export type PipelineStepType =
+  | 'COUNT_TARGET'
+  | 'COUNT_ANCHOR'
   | 'FIND_TARGET_IRIS'
   | 'FIND_ANCHOR_IRIS'
   | 'HYDRATE_TARGET_BY_IRI'
@@ -58,6 +61,20 @@ export interface PipelineStep {
   optional?: boolean;
   // Reuse the response for the rest of the session (immutable reference data).
   cache?: boolean;
+  // Advice, not part of the answer: a failure is dropped (the step reports
+  // skipped) and never fails the run or makes it partial, with chunking on or
+  // off. Sent once, never retried or split. The counts.
+  advisory?: boolean;
+  // Stop waiting for this step's request after this long (the endpoint's own
+  // limit is 60s). An advisory step that runs out is dropped.
+  timeoutMs?: number;
+  // A count step: which side it counts, and which block that side is.
+  counts?: { side: 'target' | 'anchor'; block: 'A' | 'C' };
+}
+
+export interface PlanOptions {
+  // Count both sides before discovery (plan decision 6). Default on.
+  countSides?: boolean;
 }
 
 export interface PipelineContext {
@@ -65,7 +82,14 @@ export interface PipelineContext {
   targetIris: string[];
   anchorIris: string[];
   results: Record<string, SparqlRow[]>;
+  // What the count steps found, by side. Missing when a count was dropped or
+  // not planned.
+  counts?: { target?: number; anchor?: number };
 }
+
+// A count is advice: past this, the run goes on without it (decision 21).
+// Measured live on 2026-11-06: 57 of 58 cold counts took 1.1s or less.
+const COUNT_TIMEOUT_MS = 10_000;
 
 interface FusedContext {
   anchorBlock: EntityBlock;
@@ -132,7 +156,7 @@ function hydrateStep(
   };
 }
 
-function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
+function buildFusedSteps(question: AnalysisQuestion, { countSides = true }: PlanOptions): PipelineStep[] {
   const { blockA, blockC } = question;
 
   // Which block is the anchor (where the trace starts) and which the target is
@@ -189,11 +213,38 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   // The main steps (find, find, details, details) still run one at a time, in
   // this order: only decoration runs alongside (plan decision 12). Whether the
   // main steps can share the endpoint is for a sweep to measure first.
+  // Both sides counted first, together. A side at 0 ends the run before any
+  // discovery query (it has no answer), and the counts go into the advice when
+  // the question is too big and into how a refused query is split.
+  const counts: PipelineStepType[] = [];
+  if (countSides) {
+    const targetBlockName = oriented.targetIs;
+    const anchorBlockName = oriented.targetIs === 'A' ? 'C' : 'A';
+    const sides = [
+      { side: 'target', type: 'COUNT_TARGET', block: targetBlock, region: targetRegion, name: targetBlockName },
+      { side: 'anchor', type: 'COUNT_ANCHOR', block: anchorBlock, region: anchorRegion, name: anchorBlockName },
+    ] as const;
+    for (const { side, type, block, region, name } of sides) {
+      steps.push({
+        type,
+        endpoint: 'federation',
+        description: `Counting ${entityFor(block.type).label} in the ${name === 'A' ? 'first' : 'second'} block`,
+        after: [],
+        buildQuery: () => buildEntityCountQuery(block, region),
+        cache: true,
+        advisory: true,
+        timeoutMs: COUNT_TIMEOUT_MS,
+        counts: { side, block: name },
+      });
+      counts.push(type);
+    }
+  }
+
   steps.push({
     type: 'FIND_TARGET_IRIS',
     endpoint: 'federation',
     description: oriented.targetIs === 'A' ? findingA : findingC,
-    after: [],
+    after: counts,
     buildQuery: (_ctx, scope) => buildIriQuery('target', scope),
     divide: divideFound,
   });
@@ -274,6 +325,6 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   return steps;
 }
 
-export function planPipeline(question: AnalysisQuestion): PipelineStep[] {
-  return buildFusedSteps(question);
+export function planPipeline(question: AnalysisQuestion, options: PlanOptions = {}): PipelineStep[] {
+  return buildFusedSteps(question, options);
 }
