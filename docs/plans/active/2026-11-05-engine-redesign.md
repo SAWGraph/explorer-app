@@ -117,9 +117,9 @@ byte-identical in every PR.
 - [x] `.github/workflows/query-sweep.yml`: sweeps run in CI (push `sweep/chunking-off` or `sweep/chunking-on`), opening a PR with the CSV; two laptop attempts were ruined by the Mac sleeping
 - [x] Record the new baseline: a full chunking-off sweep (M1 to M9, MD) on `development`, from the workflow (PR #118: 156 shapes, 110 passed, 46 failed)
 - [x] Decoration alongside, with the dependency-driven loop: each step names what it waits for (`after`); boundaries start with the run, stream lines once both sides are found. The main steps still run one at a time
-- [ ] Live counts: early empty, advice, slice axis
+- [x] Live counts: early empty, advice, slice axis. Two count steps (`COUNT_TARGET`, `COUNT_ANCHOR`) open every plan, 10s cap, dropped on failure in both chunking modes; a side at 0 ends the run naming the block; the advice gives both counts and names the bigger block; slicing skips probes a count says would be full, order unchanged
 - [ ] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills)
-- [ ] Fixes: combine facility industry codes; leftover filter slots; the non-detect tick counted as a filter in the advice
+- [ ] Fixes: combine facility industry codes; leftover filter slots. (The non-detect tick counted as a filter in the advice: fixed with the live counts)
 - [ ] Result by block, `WIRE_VERSION` bump, `warm-cache`
 - [ ] Structured failures (code, step, block, slices, raw text) in `errors.ts`, and the edit modal's Apply error worded there instead of in the UI
 - [ ] Question wording: more than three picks reads "4 stream types streams" and "4 industries facilities" (the noun is said twice). Found by the P0.4b fixtures; changes copy, so needs sign-off

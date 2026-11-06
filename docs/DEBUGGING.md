@@ -995,3 +995,41 @@ The "decoration alongside the main steps" block in
 `engine/tests/executor.test.ts` fails if the boundaries or stream lines wait
 their turn again. `ui/tests/pipelineTimeline.test.tsx` keeps step numbers by
 plan position now that steps report out of order.
+
+## 2026-11-06: Counting both sides before a run
+
+**Why.** Three things the engine could not say without knowing how big each
+side is: that a block matches nothing (it ran discovery to find out, then said
+"No results found"), how big the sides of a refused question are (the advice
+guessed from whether a filter was set), and whether a side is worth probing
+before splitting a refused query (it probed both, then threw a full probe away).
+
+**What.** Every plan opens with `COUNT_TARGET` and `COUNT_ANCHOR`: the side's
+body from the probe query, counted (`buildEntityCountQuery`,
+`engine/templates/fusedQueries.ts`). Both start with the run; discovery waits for
+both.
+
+- A side at 0 ends the run as empty, before any discovery query: "No wells
+  match the first block, so the question has no answer."
+- A refused question's advice gives both counts and names the bigger block.
+  Without both counts it falls back to the old advice, which no longer counts
+  the default non-detect tick as a filter.
+- Splitting skips a 201-probe for a side counted over 200, and a bulk probe for
+  one counted over 5,000. The order (anchor first) is unchanged.
+- A count is advice: it is sent once with a 10s limit, and a count that fails
+  or runs out is dropped (the step reports skipped), with chunking on or off.
+  `countSides: false` plans without the counts.
+
+**Measured** (live, 2026-11-06). 57 of 58 cold counts took 1.1s or less, across
+the 8 dashboard questions' sides, every type with nothing set and in Maine, and
+4 types in 8 counties nobody had asked about. Wells in Marion County, Indiana
+near landfills now ends empty in 0.4s on one request. Under load the counts slow
+down with everything else: one run saw both hit the 10s limit (the boundaries
+took 60s in the same run) and went on without them. The first request of a
+process twice took 20s to 30s and the same query 0.2s right after, so expect
+the occasional dropped count.
+
+**Tests.** "counting both sides first" in `engine/tests/executor.test.ts`, the
+count-based advice and the empty-block message in `engine/tests/errors.test.ts`,
+the bulk-probe skip in `engine/tests/slicing.test.ts`, and the count steps'
+waits in `engine/tests/stepWaits.test.ts`.

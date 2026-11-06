@@ -273,6 +273,14 @@ the flag, because three separate builders trace and they all have to agree.
 
 ### 3. Executor Runs the Steps
 
+Every plan opens with two count steps, one per side (`COUNT_TARGET`,
+`COUNT_ANCHOR`): the same body as discovery's side, counted. They run together,
+and discovery waits for both. A side at 0 ends the run as empty, naming the
+block. The counts go into the advice when a question is too big, and into how a
+refused query is split (a probe the count says would come back full is not
+sent). A count is advice: one that fails or takes over 10s is dropped, in
+either chunking mode. `countSides: false` plans without them.
+
 Each step names the steps it waits for (`after` in `planner.ts`), and
 `executor.ts` starts every step whose wait is over. The main steps (find, find,
 details, details) still wait for one another, so they run one at a time in plan
