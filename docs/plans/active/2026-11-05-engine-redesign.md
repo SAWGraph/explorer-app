@@ -111,7 +111,7 @@ byte-identical in every PR.
 **Phase 1: behaviour changes.** Each with a regression test, a
 `docs/DEBUGGING.md` entry, and `npm run health-check` before merge.
 
-- [x] Chunking flag: `chunkOnRefusal` run option (default on), `VITE_CHUNK_ON_REFUSAL=false` in the app; off, a refused query is reported and its message says so
+- [x] Chunking flag: `chunkOnRefusal` run option (default on), `VITE_CHUNK_ON_REFUSAL=false` in the app; off, a refusal in a step the answer needs fails the run (even one batch of several), a refused optional step shows in the incomplete notice, and either message says so
 - [ ] Recording endpoint replaces `query-matrix`'s raw mode (its own copy of the run loop) with the real engine and the flag off (moved from P0.5: without the flag, routing raw mode through the engine would make it split shapes it measures whole today)
 - [ ] Decoration alongside, with the dependency-driven loop
 - [ ] Live counts: early empty, advice, slice axis

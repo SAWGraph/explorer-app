@@ -437,7 +437,7 @@ describe('with chunking on refusal turned off', () => {
     expect(result.chunkingOff).toBe(true);
   });
 
-  it('reports a refused request-size batch as missing, and says chunking was off', async () => {
+  it('fails the run when one request-size batch of a required step is refused', async () => {
     const samples = Array.from({ length: 1500 }, (_, i) => `http://ex.org/sp/${i}`);
     const base = answering();
     const fake = fakeEndpoint((call) => {
@@ -447,10 +447,13 @@ describe('with chunking on refusal turned off', () => {
     });
     const result = await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, fake);
 
-    expect(result.status).toBe('success');
-    if (result.status !== 'success') return;
-    expect(result.partial).toEqual([{ step: 'Loading details for samples', failed: ['batch 2'], skipped: [] }]);
+    // The other batch answered, but with chunking off a refusal is shown, not
+    // worked around: the whole run fails at that step.
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') return;
+    expect(result.failedAtStep).toBe(2);
     expect(result.chunkingOff).toBe(true);
+    expect((result.error as SparqlError).kind).toBe('timeout');
   });
 
   it('keeps the chunking-off note when a later slice fails for another reason', async () => {
@@ -469,6 +472,8 @@ describe('with chunking on refusal turned off', () => {
     expect(result.status).toBe('error');
     if (result.status !== 'error') return;
     expect(result.chunkingOff).toBe(true);
+    // The error shown is the refusal, not the network failure that came after.
+    expect((result.error as SparqlError).kind).toBe('timeout');
   });
 
   it('still sends a long IRI list in request-size batches', async () => {

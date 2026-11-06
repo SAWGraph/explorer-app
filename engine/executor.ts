@@ -105,8 +105,8 @@ interface StepOutcome {
   failedScopes: string[];
   skippedScopes: string[];
   lastError?: SparqlError | Error;
-  // A refusal splitting could have rescued was left as it was (chunking off).
-  notSplit: boolean;
+  // A refusal splitting could have rescued, left as it was (chunking off).
+  unsplitRefusal?: SparqlError | Error;
 }
 
 // Runs one step, slicing it up if the engine refuses the whole thing.
@@ -131,7 +131,7 @@ async function runStep(
   const failedScopes: string[] = [];
   const skippedScopes: string[] = [];
   let lastError: SparqlError | Error | undefined;
-  let notSplit = false;
+  let unsplitRefusal: SparqlError | Error | undefined;
   let done = 0;
 
   while (queue.length > 0) {
@@ -172,7 +172,7 @@ async function runStep(
       lastError = error;
       record({ scope: scope?.label, query, error: error.message });
       const splittable = splittingWouldHelp(error);
-      if (splittable && !chunkOnRefusal) notSplit = true;
+      if (splittable && !chunkOnRefusal) unsplitRefusal ??= error;
       if (splittable && !scope) knownTooLarge.add(query);
       // With chunking on refusal off, a refusal is reported as it is: no probes,
       // no smaller slices. Request-size batches (initialScopes) are unaffected.
@@ -189,7 +189,7 @@ async function runStep(
   }
 
   report(done, done);
-  return { rows: merged.rows, failedScopes, skippedScopes, lastError, notSplit };
+  return { rows: merged.rows, failedScopes, skippedScopes, lastError, unsplitRefusal };
 }
 
 export interface ExecuteOptions {
@@ -254,6 +254,22 @@ export async function executePipeline(
       };
     }
 
+    // With chunking off, a refused slice of a step the answer needs fails the
+    // run, even when other slices answered: the refusal is shown, not worked
+    // around. Optional steps (stream lines, boundaries) still keep the answer
+    // and list what is missing.
+    if (outcome.unsplitRefusal && !step.optional) {
+      onProgress({ ...base, status: 'failed' });
+      return {
+        status: 'error',
+        failedAtStep: i,
+        message: stepFailedMessage(step.description),
+        error: outcome.unsplitRefusal,
+        queries,
+        chunkingOff: true,
+      };
+    }
+
     // Nothing came back at all: this step has no answer to give.
     const missing = [...outcome.failedScopes, ...outcome.skippedScopes];
     if (missing.length > 0 && outcome.rows.length === 0 && !step.optional) {
@@ -263,7 +279,6 @@ export async function executePipeline(
         failedAtStep: i,
         message: stepFailedMessage(step.description),
         error: outcome.lastError ?? new Error('Query failed'),
-        ...(outcome.notSplit ? { chunkingOff: true as const } : {}),
         queries,
       };
     }
@@ -273,7 +288,7 @@ export async function executePipeline(
         failed: outcome.failedScopes,
         skipped: outcome.skippedScopes,
       });
-      if (outcome.notSplit) leftUnsplit = true;
+      if (outcome.unsplitRefusal) leftUnsplit = true;
     }
 
     const results = outcome.rows;

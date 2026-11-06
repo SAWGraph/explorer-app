@@ -520,9 +520,10 @@ not rate limiting, and backing off does not help.
 
 Splitting after a refusal can be turned off with the run option
 `chunkOnRefusal: false`; the app reads it from `VITE_CHUNK_ON_REFUSAL=false` at
-build time. A refused query is then reported as it is: a required step fails,
-and anything else shows in the incomplete-results notice; either message says
-chunking was off. Request-size batches (1,000 IRIs a request) and the one retry
+build time. A refused query is then reported as it is: a refusal anywhere in a
+step the answer needs fails the run (even one 1,000-IRI batch of several), and a
+refused optional step shows in the incomplete-results notice; either message
+says chunking was off. Request-size batches (1,000 IRIs a request) and the one retry
 stay on either way: they are transport limits, not a rescue.
 
 Two guards sit around every request: a **60 s client-side timeout**

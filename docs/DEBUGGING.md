@@ -936,13 +936,13 @@ which step was refused and why, turn the rescue off.
 
 **How.** Run option `chunkOnRefusal: false` (`runQuestion` or
 `executePipeline`), or build the app with `VITE_CHUNK_ON_REFUSAL=false` (the
-Railway development environment, say). A refused required step then fails at
-once with the classified error, and the message ends "Chunking is turned off
-for this run, so the question was not split into smaller queries." A refused
-optional step (stream lines, boundaries), or one refused batch of a long IRI
-list, leaves the rest of the answer on the map, and the incomplete-results
-notice ends with the same sentence. Request-size batches and the one retry
-after a timeout stay on.
+Railway development environment, say). A refusal in a step the answer needs
+then fails the whole run with the classified error, even when the step's other
+1,000-IRI batches answered, and the message ends "Chunking is turned off for
+this run, so the question was not split into smaller queries." A refused
+optional step (stream lines, boundaries) leaves the answer on the map, and the
+incomplete-results notice ends with the same sentence. Request-size batches and
+the one retry after a timeout stay on.
 
 Cached and published results do not keep the "chunking was off" note
 (engine/wire.ts stores only the rows, the incomplete-results list and the
