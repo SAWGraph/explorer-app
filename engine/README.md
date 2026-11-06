@@ -20,7 +20,8 @@ import the engine; the engine never imports the UI.
 | How narrow a side is, and which side a trace starts from | `sideRank(side)`, `leadSide(anchor, target)` in `sides.ts` |
 | Splitting a step | `slicing.ts`: `iriScopes`, `divideIriList`, `irisFor` (by-IRI steps), `divideDiscovery`, `chooseAxis`, `refineRegionScope`, `halve` (discovery) |
 | Combining what the slices returned | `sliceMerger()`, `foundIris(rows)` in `merge.ts` |
-| Question to pipeline steps | `planPipeline(question)` in `planner.ts` |
+| Run a question | `runQuestion(question, { endpoint?, signal?, onProgress? })` in `run.ts`. The app and the scripts call this; `executor.test.ts` calls the executor directly, since that is what it tests |
+| Question to pipeline steps | `planPipeline(question)` in `planner.ts` (for the SPARQL snapshot and `query-matrix`, which runs part of a plan) |
 | Run the steps | `executePipeline(steps, question, onProgress, signal?, sparql?)` in `executor.ts`. `sparql` is where every request goes, probes included: `executeSparql` unless a test passes its own |
 | Rows to map features | `transform*ToFeatures(rows)` in `shape.ts` |
 | The question as a sentence | `generateQuestion(question, totals?)` in `questionGenerator.ts` |
@@ -40,15 +41,14 @@ This is what `scripts/ops/warm-cache.mts` and `engine/scripts/health-check.mts` 
 
 ```ts
 import { PREBUILT_QUERIES } from '../engine/constants/prebuiltQueries';
-import { planPipeline } from '../engine/planner';
-import { executePipeline } from '../engine/executor';
+import { runQuestion } from '../engine/run';
 import { generateQuestion } from '../engine/questionGenerator';
 
 const { question } = PREBUILT_QUERIES[0];
 console.log(generateQuestion(question));
-const result = await executePipeline(planPipeline(question), question, (p) =>
-  console.log(p.description, p.status),
-);
+const result = await runQuestion(question, {
+  onProgress: (p) => console.log(p.description, p.status),
+});
 ```
 
 Run a file like that with `npx tsx <file>.mts`.

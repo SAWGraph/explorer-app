@@ -39,7 +39,8 @@
 import { execSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { planPipeline } from '../planner';
-import { executePipeline } from '../executor';
+import { executePipeline, type StepProgress } from '../executor';
+import { runQuestion } from '../run';
 import { ENDPOINTS } from '../constants/endpoints';
 import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
 import type { AnalysisQuestion, EntityType } from '../types/query';
@@ -123,13 +124,17 @@ async function runViaEngine(
   meta: Record<string, unknown>,
   stepIdx: number | 'all',
 ) {
-  const all = planPipeline(q);
-  const steps = stepIdx === 'all' ? all : all.slice(0, (stepIdx as number) + 1);
   let chunksMax = 0;
-  const t0 = Date.now();
-  const result = await executePipeline(steps, q, (p) => {
+  const onProgress = (p: StepProgress) => {
     if ((p.chunksTotal ?? 0) > chunksMax) chunksMax = p.chunksTotal ?? 0;
-  });
+  };
+  const t0 = Date.now();
+  // A whole question runs the way the app runs it; a step on its own needs the
+  // plan, cut after that step.
+  const result =
+    stepIdx === 'all'
+      ? await runQuestion(q, { onProgress })
+      : await executePipeline(planPipeline(q).slice(0, stepIdx + 1), q, onProgress);
   const ms = Date.now() - t0;
 
   const rows =
@@ -154,7 +159,7 @@ async function runViaEngine(
   appendFileSync(
     OUT,
     [RUN_AT, COMMIT, matrix, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters),
-     stepIdx === 'all' ? 'PIPELINE' : steps[steps.length - 1].type, 'engine',
+     stepIdx === 'all' ? 'PIPELINE' : planPipeline(q)[stepIdx].type, 'engine',
      result.status, ms, rows, 0, errorClass, csv(detail), chunksFailed, chunksSkipped, chunksMax].join(',') + '\n',
   );
   console.log(

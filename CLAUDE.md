@@ -42,7 +42,7 @@ The app builds an **AnalysisQuestion** (`src/types/query.ts`) composed of three 
 
 ### Query Pipeline (`src/engine/`)
 
-Questions execute through a pipeline:
+Questions execute through a pipeline, run by `runQuestion` (`engine/run.ts`), the one entry point the app and scripts call:
 
 1. **Planner** (`planner.ts`) — converts AnalysisQuestion → array of PipelineStep
 2. **Executor** (`executor.ts`) — runs steps sequentially, threading the entity IRIs the discovery steps found (`targetIris` / `anchorIris`) between steps. Early-exits if any step yields empty results. S2 cells are not carried between steps: they used to be, but since the fused-query refactor they are variables inside a single query (see `explorer/docs/ARCHITECTURE.md`, Key Design Decision 2).

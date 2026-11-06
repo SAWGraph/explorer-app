@@ -6,8 +6,7 @@
 // The file is a JSON array of { title, question }. Same trusted-writer path as
 // warm-cache.mts: the real pipeline runs here, and only the result is uploaded.
 import { readFileSync } from 'node:fs';
-import { planPipeline } from '../../engine/planner';
-import { executePipeline } from '../../engine/executor';
+import { runQuestion } from '../../engine/run';
 import { cacheKey } from '../../engine/cacheKey';
 import { toWire } from '../../engine/wire';
 import type { AnalysisQuestion } from '../../engine/types/query';
@@ -28,7 +27,7 @@ for (const item of items) {
   const started = Date.now();
   process.stdout.write(`  ${item.title.slice(0, 52).padEnd(54)}`);
   try {
-    const result = await executePipeline(planPipeline(item.question), item.question, () => {});
+    const result = await runQuestion(item.question);
     const elapsed = ((Date.now() - started) / 1000).toFixed(0);
     if (result.status !== 'success') { console.log(`skipped after ${elapsed}s (${result.status})`); skipped++; continue; }
 

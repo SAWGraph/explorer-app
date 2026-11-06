@@ -10,8 +10,7 @@
 //
 // This is a trusted writer — it runs the real pipeline and uploads what it got,
 // so nothing untrusted ever reaches another user's map.
-import { planPipeline } from '../../engine/planner';
-import { executePipeline } from '../../engine/executor';
+import { runQuestion } from '../../engine/run';
 import { cacheKey } from '../../engine/cacheKey';
 import { toWire } from '../../engine/wire';
 import { PREBUILT_QUERIES } from '../../engine/constants/prebuiltQueries';
@@ -41,7 +40,7 @@ for (const prebuilt of targets) {
   process.stdout.write(`  ${label.padEnd(60)} `);
 
   try {
-    const result = await executePipeline(planPipeline(prebuilt.question), prebuilt.question, () => {});
+    const result = await runQuestion(prebuilt.question);
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(0);
 
     if (result.status !== 'success') {

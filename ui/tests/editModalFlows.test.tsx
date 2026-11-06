@@ -17,12 +17,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { PipelineResult } from '../../engine/executor';
+import type { RunOptions } from '../../engine/run';
 
-const engine = vi.hoisted(() => ({ executePipeline: vi.fn() }));
+const engine = vi.hoisted(() => ({ runQuestion: vi.fn() }));
 
-vi.mock('../../engine/executor', async (orig) => ({
-  ...(await orig<typeof import('../../engine/executor')>()),
-  executePipeline: engine.executePipeline,
+vi.mock('../../engine/run', async (orig) => ({
+  ...(await orig<typeof import('../../engine/run')>()),
+  runQuestion: engine.runQuestion,
 }));
 vi.mock('../api/resultCacheClient', () => ({
   cacheDisabled: () => true,
@@ -65,8 +66,8 @@ let nextRun: (signal?: AbortSignal) => Promise<PipelineResult>;
 beforeEach(() => {
   useQueryStore.setState(initialStore, true);
   localStorage.clear();
-  engine.executePipeline.mockReset();
-  engine.executePipeline.mockImplementation((_steps, _q, _progress, signal?: AbortSignal) => nextRun(signal));
+  engine.runQuestion.mockReset();
+  engine.runQuestion.mockImplementation((_q, options?: RunOptions) => nextRun(options?.signal));
   nextRun = async () => ok('first');
   vi.stubEnv('VITE_API_BASE_URL', API);
 });
@@ -110,7 +111,7 @@ function renderAt(path: string) {
 const store = () => useQueryStore.getState();
 const modalOpen = () => document.querySelector('.modal-content h2')?.textContent === 'Edit Analysis Question';
 const barText = () => document.querySelector('.question-bar-text')?.textContent;
-const runs = () => engine.executePipeline.mock.calls.length;
+const runs = () => engine.runQuestion.mock.calls.length;
 const button = (name: string) => screen.getByRole('button', { name });
 
 // Stands in for picking filters in the editor; the widgets are not under test.
