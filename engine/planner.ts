@@ -1,22 +1,16 @@
 import type { AnalysisQuestion, EntityBlock } from './types/query';
 import type { EndpointKey } from './constants/endpoints';
 import type { SparqlRow } from './types/sparql';
-import { entityTypeLabel } from './questionGenerator';
+import { entityFor } from './entities';
 import {
   buildFusedNearQuery,
   buildFusedHydrologyQuery,
   buildFusedFlowlineQuery,
   buildFusedWellQuery,
 } from './templates/fusedQueries';
-import {
-  buildFacilitiesByIri,
-  buildStreamsByIri,
-  buildWaterBodiesByIri,
-  buildSamplesByIri,
-} from './templates/hydrate';
-import { buildAquifersByIri } from './templates/aquifers';
 import { buildRegionBoundaryQuery } from './templates/spatial';
 import type { SparqlRunner } from './sparqlClient';
+import { normalise } from './question';
 import {
   chooseAxis,
   refineRegionScope,
@@ -75,33 +69,10 @@ export interface PipelineContext {
   results: Record<string, SparqlRow[]>;
 }
 
-function getRegionCodes(block: EntityBlock): string[] {
-  const region = block.region;
-  if (!region) return [];
-  if (region.countyCodes?.length) return region.countyCodes;
-  if (region.stateCode) return [region.stateCode];
-  return [];
-}
-
-function entityEndpoint(block: EntityBlock): EndpointKey {
-  switch (block.type) {
-    case 'facilities':
-      return 'federation';
-    case 'samples':
-      return 'sawgraph';
-    case 'waterBodies':
-    case 'wells':
-    case 'aquifers':
-    case 'streams':
-      return 'hydrologykg';
-  }
-}
-
 interface FusedContext {
   anchorBlock: EntityBlock;
   targetBlock: EntityBlock;
   relationship: AnalysisQuestion['relationship'];
-  direction: 'downstream' | 'upstream';
   anchorRegion?: string[];
   targetRegion?: string[];
 }
@@ -112,71 +83,48 @@ function hydrateStep(
   fused: FusedContext,
 ): PipelineStep {
   const type = side === 'target' ? 'HYDRATE_TARGET_BY_IRI' : 'HYDRATE_ANCHOR_BY_IRI';
-  // Samples and wells are server-fused (re-derive their entity set inside one
-  // federated query) — statewide sets are thousands of IRIs and inlining them
-  // as VALUES makes the request body exceed the gateway limit (502/413). Other
-  // entity types stay on IRI-based hydration where the IRI list is small.
-  const endpoint =
-    block.type === 'samples' || block.type === 'wells'
-      ? 'federation'
-      : entityEndpoint(block);
+  // How a type's details load, and from where, is the entity module's to say
+  // (engine/entities/). Most load the IRIs discovery found, in request-size
+  // chunks; wells re-derive their set server-side.
+  const entity = entityFor(block.type);
+  const { details } = entity;
   // "target"/"anchor" are planner concepts, and which block they name flips
   // between relationship types, so they have no business in a user-facing
   // label. Wells are the one case where this understates the work: their step
-  // re-derives the whole set server-side (see above) rather than loading
-  // details of what discovery found. The label describes what the step
-  // delivers, which is what the progress strip is for.
-  const description = `Loading details for ${entityTypeLabel(block.type)}`;
+  // re-derives the whole set server-side rather than loading details of what
+  // discovery found. The label describes what the step delivers, which is what
+  // the progress strip is for.
+  const description = `Loading details for ${entity.label}`;
 
-  return {
-    type,
-    endpoint,
-    description,
-    buildQuery: (ctx, scope) => {
-      if (block.type === 'samples') {
-        // Hydrate from the IRIs the previous step already resolved. Re-deriving
-        // the spatial/hydrology trace here is what used to time out; chunking
-        // (see initialScopes below) removes the size limit that made the old
-        // by-IRI path conditional.
-        return buildSamplesByIri(irisFor(ctx, scope, side), block.sampleFilters);
-      }
-      if (block.type === 'wells') {
-        return buildFusedWellQuery({
+  if (details.kind === 'rederive') {
+    return {
+      type,
+      endpoint: details.endpoint,
+      description,
+      buildQuery: () =>
+        buildFusedWellQuery({
           anchor: fused.anchorBlock,
           target: fused.targetBlock,
           relationship: fused.relationship,
-          direction: fused.direction,
           anchorRegion: fused.anchorRegion,
           targetRegion: fused.targetRegion,
           wellSide: side === 'target' ? 'target' : 'anchor',
-        });
-      }
-      const iris = irisFor(ctx, scope, side);
-      switch (block.type) {
-        case 'facilities':
-          return buildFacilitiesByIri(iris, block.facilityFilters);
-        case 'waterBodies':
-          return buildWaterBodiesByIri(iris, block.waterBodyFilters);
-        case 'aquifers':
-          return buildAquifersByIri(iris);
-        case 'streams':
-          return buildStreamsByIri(iris, block.streamFilters);
-      }
-    },
-    // Wells re-derive their set server-side (they can run to 80k+ IRIs), so
-    // there is no IRI list to pre-split for them, and nothing to divide: their
-    // query ignores the scope, so every "half" re-sent the identical query
-    // until the 300s step budget ran out. #82's wells step spent 533s that way
-    // before failing. A failed wells step now fails on its first refusal.
-    initialScopes:
-      block.type === 'wells'
-        ? undefined
-        : (ctx) => iriScopes(side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
-    divide:
-      block.type === 'wells'
-        ? undefined
-        : async (ctx, scope) =>
-            divideIriList(scope, side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
+        }),
+      // A re-derived set has no IRI list to pre-split, and nothing to divide:
+      // the query ignores the scope, so every "half" re-sent the identical
+      // query until the 300s step budget ran out. #82's wells step spent 533s
+      // that way before failing. It now fails on its first refusal.
+    };
+  }
+
+  return {
+    type,
+    endpoint: details.endpoint,
+    description,
+    buildQuery: (ctx, scope) => details.buildQuery(irisFor(ctx, scope, side), block),
+    initialScopes: (ctx) => iriScopes(side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
+    divide: async (ctx, scope) =>
+      divideIriList(scope, side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
   };
 }
 
@@ -216,38 +164,14 @@ function iriScopes(iris: string[], side: 'target' | 'anchor'): Scope[] | undefin
 }
 
 function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
-  const { blockA, relationship, blockC } = question;
+  const { blockA, blockC } = question;
 
-  // Map the question's anchor/target semantics consistently:
-  //   - near:       anchor=blockC, target=blockA
-  //   - downstream: anchor=blockC, target=blockA (samples downstream of facilities)
-  //   - upstream:   anchor=blockA, target=blockC
-  //
-  // The anchor is the side the fused templates seed from, and seeding an
-  // unfiltered side (every stream in the country) times out — so the anchor is
-  // the side the question filtered, which for an upstream question is block A.
-  let anchorBlock: EntityBlock;
-  let targetBlock: EntityBlock;
-  if (relationship.type === 'upstream') {
-    anchorBlock = blockA;
-    targetBlock = blockC;
-  } else {
-    anchorBlock = blockC;
-    targetBlock = blockA;
-  }
-
-  // The templates only trace one way: the target comes out `direction` of the
-  // anchor. With the anchor always on the upstream side of the question — C for
-  // "A downstream from C", A for "A upstream from C" — the trace is always
-  // downstream from it. Passing 'upstream' here alongside anchor=blockA, as
-  // this did, answered the mirror question: streams upstream of the facilities
-  // instead of the facilities upstream of the streams.
-  const traceDirection = 'downstream' as const;
-
-  const anchorRegion = getRegionCodes(anchorBlock);
-  const targetRegion = getRegionCodes(targetBlock);
-  const anchorRegionOpt = anchorRegion.length ? anchorRegion : undefined;
-  const targetRegionOpt = targetRegion.length ? targetRegion : undefined;
+  // Which block is the anchor (where the trace starts) and which the target is
+  // decided once, in engine/question.ts. Every trace runs downstream from the
+  // anchor, so nothing here needs a direction.
+  const oriented = normalise(question);
+  const { relationship, anchor: anchorBlock, target: targetBlock } = oriented;
+  const { anchorRegion, targetRegion } = oriented;
 
   const steps: PipelineStep[] = [];
 
@@ -255,9 +179,9 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   // a subset of the region that side was already filtered to.
   const scopedRegions = (scope?: Scope) => ({
     anchorRegion:
-      scope?.regionSide === 'anchor' ? scope.regionCodes : anchorRegionOpt,
+      scope?.regionSide === 'anchor' ? scope.regionCodes : anchorRegion,
     targetRegion:
-      scope?.regionSide === 'target' ? scope.regionCodes : targetRegionOpt,
+      scope?.regionSide === 'target' ? scope.regionCodes : targetRegion,
   });
 
   const buildIriQuery = (project: 'target' | 'anchor', scope?: Scope): string => {
@@ -274,7 +198,6 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     }
     return buildFusedHydrologyQuery({
       ...shared,
-      direction: traceDirection,
       maxDistanceKm: relationship.maxDistanceKm,
     });
   };
@@ -284,8 +207,8 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   const axisContext = {
     anchorBlock,
     targetBlock,
-    anchorRegion: anchorRegionOpt,
-    targetRegion: targetRegionOpt,
+    anchorRegion,
+    targetRegion,
     endpoint: 'federation' as const,
   };
 
@@ -306,28 +229,27 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   // been queried yet — which is exactly how it was reported. Name both, in the
   // words of the question the user asked ("What <A> are <rel> <C>?").
   //
-  // Which step returns which block is not fixed: the anchor/target mapping
-  // above puts block A on the target side for near and downstream, and on the
-  // anchor side for upstream. Key the label off the block the step returns, not
+  // Which step returns which block is not fixed: normalise() (engine/question.ts)
+  // puts block A on the target side for near and downstream, and on the anchor
+  // side for upstream. Key the label off the block the step returns, not
   // off its target/anchor role, or the upstream labels come out swapped.
   const prep = RELATIONSHIP_PREPOSITION[relationship.type];
-  const aLabel = entityTypeLabel(blockA.type);
-  const cLabel = entityTypeLabel(blockC.type);
+  const aLabel = entityFor(blockA.type).label;
+  const cLabel = entityFor(blockC.type).label;
   const findingA = `Finding ${aLabel} ${prep} ${cLabel}`;
   const findingC = `Finding ${cLabel} with ${aLabel} ${prep} them`;
-  const targetIsBlockA = relationship.type !== 'upstream';
-
+  
   steps.push({
     type: 'FIND_TARGET_IRIS',
     endpoint: 'federation',
-    description: targetIsBlockA ? findingA : findingC,
+    description: oriented.targetIs === 'A' ? findingA : findingC,
     buildQuery: (_ctx, scope) => buildIriQuery('target', scope),
     divide: divideDiscovery,
   });
   steps.push({
     type: 'FIND_ANCHOR_IRIS',
     endpoint: 'federation',
-    description: targetIsBlockA ? findingC : findingA,
+    description: oriented.targetIs === 'A' ? findingC : findingA,
     buildQuery: (_ctx, scope) => buildIriQuery('anchor', scope),
     divide: divideDiscovery,
   });
@@ -335,7 +257,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   // Supporting stream layer. Skipped when a side is already streams — those
   // flowlines come back as the answer set and would be drawn twice.
   const streamsAreAnswer =
-    targetBlock.type === 'streams' || anchorBlock.type === 'streams';
+    entityFor(targetBlock.type).isFlowline || entityFor(anchorBlock.type).isFlowline;
   if (relationship.type !== 'near' && !streamsAreAnswer) {
     steps.push({
       type: 'GET_FLOWLINE_GEOMETRIES',
@@ -346,7 +268,6 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
         buildFusedFlowlineQuery({
           anchor: anchorBlock,
           target: targetBlock,
-          direction: traceDirection,
           anchorIris: scope?.anchorIris ?? ctx.anchorIris,
           // Never sliced: the target set bounds the trace, so a partial list
           // would silently shrink the drawn network rather than split it.
@@ -365,9 +286,8 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     anchorBlock,
     targetBlock,
     relationship,
-    direction: traceDirection,
-    anchorRegion: anchorRegionOpt,
-    targetRegion: targetRegionOpt,
+    anchorRegion,
+    targetRegion,
   };
 
   steps.push(hydrateStep(targetBlock, 'target', fusedCtx));
@@ -378,7 +298,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   // useSampleDetails fetches it per sample when a popup opens.
   // Region boundaries
   const stateCode = blockA.region?.stateCode || blockC.region?.stateCode;
-  const hasRegion = anchorRegion.length > 0 || targetRegion.length > 0;
+  const hasRegion = Boolean(anchorRegion || targetRegion);
   if (hasRegion && stateCode) {
     steps.push({
       type: 'GET_REGION_BOUNDARIES',

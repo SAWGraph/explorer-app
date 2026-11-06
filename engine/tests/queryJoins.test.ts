@@ -74,7 +74,6 @@ describe('join order', () => {
             target: { type: targetType, ...filtersFor(targetType) },
             targetRegion: ['23005'],
             project,
-            direction: 'downstream',
           });
           assert.ok(
             leadsWith(scopedTarget) === 'target',
@@ -86,7 +85,6 @@ describe('join order', () => {
             target: { type: targetType },
             anchorRegion: ['23005'],
             project,
-            direction: 'downstream',
           });
           assert.ok(
             leadsWith(scopedAnchor) === 'anchor',
@@ -101,7 +99,6 @@ describe('join order', () => {
             targetRegion: ['23005'],
             anchorIris: ['http://example.org/facility/1'],
             project,
-            direction: 'downstream',
           });
           assert.ok(
             leadsWith(pinned) !== 'target',
@@ -130,7 +127,6 @@ describe('join order', () => {
           target: { type: targetType, ...filtersFor(targetType) },
           targetRegion: ['23005'],
           project: 'target',
-          direction: 'downstream',
           maxDistanceKm,
         });
         assert.ok(
@@ -147,7 +143,6 @@ describe('join order', () => {
           target: { type: targetType },
           anchorRegion: ['23005'],
           project: 'target',
-          direction: 'downstream',
           maxDistanceKm,
         });
         assert.ok(
@@ -172,7 +167,7 @@ describe('join order', () => {
   it('a region outranks a bare entity filter', () => {
     for (const targetType of ENTITY_TYPES) {
       for (const maxDistanceKm of [undefined, 30]) {
-        const base = { project: 'target' as const, direction: 'downstream' as const, ...(maxDistanceKm ? { maxDistanceKm } : {}) };
+        const base = { project: 'target' as const, ...(maxDistanceKm ? { maxDistanceKm } : {}) };
         const label = `${targetType} <- facilities${maxDistanceKm ? `, bounded ${maxDistanceKm}km` : ''}`;
 
         // Anchor filtered but unscoped, target scoped: the region wins.
@@ -276,7 +271,6 @@ describe('observation joins', () => {
           target: { type: 'samples', sampleFilters: c.filters },
           anchorRegion: ['23005'],
           project: 'target',
-          direction: 'downstream',
         }),
       ],
       [

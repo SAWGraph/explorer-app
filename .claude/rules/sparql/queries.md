@@ -1,8 +1,6 @@
 ---
 paths:
-  - "src/engine/**"
-  - "src/constants/endpoints.ts"
-  - "src/constants/prefixes.ts"
+  - "engine/**"
   - "scripts/**"
   - "docs/wiki/**"
 ---
@@ -10,10 +8,12 @@ paths:
 
 ## Building queries
 
-- Prefixes come from `PREFIXES` in `src/constants/prefixes.ts`. Never inline
+- Prefixes come from `PREFIXES` in `engine/constants/prefixes.ts`. Never inline
   `PREFIX` lines in a template.
-- Templates are plain functions returning SPARQL strings, one file per entity
-  in `src/engine/templates/`. No query builder library.
+- Templates are plain functions returning SPARQL strings. Query shapes live in
+  `engine/templates/`; what one entity type contributes (its IRI variable, cell
+  bind, filters, region check, details query) lives in its module in
+  `engine/entities/`. No query builder library.
 - Never interpolate user or endpoint values raw. Go through the helpers:
   `wrapUri`, `buildIndustryValues`, `buildSampleFilterClauses`.
 - The planner decides the strategy, the executor runs it. Between steps only
@@ -21,7 +21,7 @@ paths:
   variables inside one fused query (`fusedQueries.ts`), not step outputs. See
   `docs/ARCHITECTURE.md`, Key Design Decision 2.
 
-## Endpoints (`src/constants/endpoints.ts`)
+## Endpoints (`engine/constants/endpoints.ts`)
 
 | Need | Endpoint |
 | --- | --- |
@@ -38,7 +38,7 @@ paths:
 
 QLever reports its 30s timeout as `429 Too Many Requests`. It is a query that
 did too much work, not rate limiting, so the fix is a smaller query, not
-backoff. `src/engine/sparqlErrors.ts` already classifies it and decides retry
+backoff. `engine/errors.ts` already classifies it and decides retry
 or split (`isRetryable`, `isSplittable`); reuse that. `docs/QUERY-MATRIX.md`
 Part 4 is the full catalogue.
 

@@ -76,10 +76,10 @@ it('every hydrology shape that draws flowlines bounds the layer at both ends', (
           // The reach clause must be a bare TC. hyf:downstreamFlowPathTC is
           // already reflexive, so `TC?` is the same relation spelled more
           // expensively: measured at 0 extra flowlines and +8s.
-          // Bare `includes`, not the downstream spelling: the form is
-          // `?flowline TC? ?_flTarget` downstream and `?_flTarget TC? ?flowline`
-          // upstream, and matching only the first left the upstream shape
-          // unguarded by a check whose whole point is the `TC?` regression.
+          // Bare `includes`, not one spelling of the clause, so a reach clause
+          // written either way round is still caught. (There used to be an
+          // upstream spelling; orientation now lives in engine/question.ts and
+          // every reach is written the downstream way.)
           assert.ok(
             !sparql.includes('downstreamFlowPathTC?'),
             `${where}: reflexive target reach, measured to add nothing`,

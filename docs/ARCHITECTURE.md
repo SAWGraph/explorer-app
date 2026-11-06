@@ -117,16 +117,18 @@ engine; never the other way round. Each folder has its own README and tests.
 explorer/
 ├── engine/                  # Headless: question in, SPARQL out, rows in, features out
 │   ├── README.md            # Entry points and how to call the engine from Node
+│   ├── question.ts          # Which block is the anchor and which the target, decided once
 │   ├── planner.ts           # Question to pipeline steps
 │   ├── executor.ts          # Runs steps, splits what the endpoint refuses
 │   ├── scope.ts             # How to slice a step that was too big
 │   ├── sparqlClient.ts      # Sends SPARQL, retries, 60s request timeout
-│   ├── sparqlErrors.ts      # Classifies failures (a 429 is usually a timeout)
+│   ├── errors.ts            # Classifies failures (a 429 is usually a timeout), words every error message
 │   ├── queryBreadth.ts      # Pre-flight warning for questions that reliably fail
 │   ├── cacheKey.ts          # Canonical question to cache key
 │   ├── wire.ts              # What a cached result looks like on the wire
 │   ├── resultTransformer.ts # SPARQL rows to map features
 │   ├── questionGenerator.ts # The question as an English sentence
+│   ├── entities/            # One module per entity type: IRI variable, cell bind, filters, region check, how details load
 │   ├── templates/           # SPARQL builders (fusedQueries is the main one)
 │   ├── types/               # AnalysisQuestion, MapFeature, SPARQL rows
 │   ├── constants/           # Endpoints, prefixes, regions, substances, prebuilt queries
@@ -501,7 +503,7 @@ it. The most important thing to know about this: **it reports that timeout as
 HTTP 429 "Too Many Requests"**, with the real cause only in the JSON body. It is
 not rate limiting, and backing off does not help.
 
-`sparqlErrors.ts` classifies what comes back:
+`errors.ts` classifies what comes back:
 
 | Kind | How it arrives | Splitting helps? |
 | --- | --- | --- |
