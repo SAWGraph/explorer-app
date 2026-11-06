@@ -1,7 +1,7 @@
 // The direction of every hydrology trace the planner can build
 // (engine/planner.ts, engine/templates/fusedQueries.ts).
 //
-// The templates trace one way only: the target comes out `direction` of the
+// The templates trace one way only: the target comes out downstream of the
 // anchor, seeded from the anchor's S2 cells. The planner puts the anchor on the
 // upstream side of the question (block C for "A downstream from C", block A
 // for "A upstream from C"), so every trace it builds must run *downstream from
@@ -13,7 +13,8 @@
 // Three builders trace, and a question can use all three at once (discovery,
 // the supporting flowline layer, and well hydration, which re-derives the trace
 // server-side instead of hydrating by IRI). They have to agree, so this checks
-// the SPARQL they emit rather than the direction flag they were handed.
+// the SPARQL they emit. (The templates took a direction flag until the engine
+// redesign moved orientation into engine/question.ts; the rule is unchanged.)
 //
 // Inputs are the full shape space rather than tests/questions/ on purpose: the
 // upstream bug lived in shapes no hand-picked question exercised.

@@ -42,15 +42,23 @@ describe('a region on wells checks the well', () => {
     expect(checksWell(near(undefined, ['23']), '?wellC')).toBe(true);
   });
 
-  for (const direction of ['downstream', 'upstream'] as const) {
-    for (const maxDistanceKm of [undefined, 10]) {
-      it(`${direction}${maxDistanceKm ? ', bounded' : ''}`, () => {
-        const q = buildFusedHydrologyQuery({
-          anchor: facilities, target: wells, targetRegion: HANCOCK, direction, maxDistanceKm, project: 'target',
-        });
-        expect(checksWell(q, '?wellC')).toBe(true);
+  // A trace always runs downstream from the anchor (engine/question.ts). Wells
+  // are the target in "wells downstream of facilities" and the anchor in "wells
+  // upstream of facilities", so both roles are checked, bounded and not.
+  for (const maxDistanceKm of [undefined, 10]) {
+    const bounded = maxDistanceKm ? ', bounded' : '';
+    it(`a trace, wells as the target${bounded}`, () => {
+      const q = buildFusedHydrologyQuery({
+        anchor: facilities, target: wells, targetRegion: HANCOCK, maxDistanceKm, project: 'target',
       });
-    }
+      expect(checksWell(q, '?wellC')).toBe(true);
+    });
+    it(`a trace, wells as the anchor${bounded}`, () => {
+      const q = buildFusedHydrologyQuery({
+        anchor: wells, target: facilities, anchorRegion: HANCOCK, maxDistanceKm, project: 'anchor',
+      });
+      expect(checksWell(q, '?wellA')).toBe(true);
+    });
   }
 
   it('in the chunk probe, so slices match discovery', () => {
@@ -60,7 +68,7 @@ describe('a region on wells checks the well', () => {
   it('in well hydration', () => {
     const q = buildFusedWellQuery({
       anchor: waterBodies, target: wells, targetRegion: HANCOCK,
-      relationship: { type: 'near', hops: 0 }, direction: 'downstream', wellSide: 'target',
+      relationship: { type: 'near', hops: 0 }, wellSide: 'target',
     });
     expect(checksWell(q, '?wellC')).toBe(true);
   });

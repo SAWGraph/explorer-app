@@ -117,6 +117,7 @@ engine; never the other way round. Each folder has its own README and tests.
 explorer/
 ├── engine/                  # Headless: question in, SPARQL out, rows in, features out
 │   ├── README.md            # Entry points and how to call the engine from Node
+│   ├── question.ts          # Which block is the anchor and which the target, decided once
 │   ├── planner.ts           # Question to pipeline steps
 │   ├── executor.ts          # Runs steps, splits what the endpoint refuses
 │   ├── scope.ts             # How to slice a step that was too big
