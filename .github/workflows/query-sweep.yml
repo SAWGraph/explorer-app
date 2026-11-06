@@ -1,0 +1,148 @@
+name: Query sweep (live)
+run-name: "Query sweep: chunking ${{ inputs.chunking || (github.ref_name == 'sweep/chunking-on' && 'on' || 'off') }} on ${{ github.ref_name }}"
+
+# Runs every question shape the editor can build against the live endpoints,
+# through the real engine, and opens a PR into development with the sweep CSV
+# (docs/query-sweep/) and the regenerated index. See docs/QUERY-SWEEP.md.
+#
+# A sweep needs a machine that stays awake for 1 to 2 hours. A laptop sleeping
+# overnight stretched the request timeouts and ruined two attempts at the
+# 2026-11 baseline, which is why this runs here.
+#
+# Two ways to start it:
+#
+#   - Push a trigger branch at the commit to measure:
+#       git push origin development:sweep/chunking-off   # the baseline
+#       git push origin development:sweep/chunking-on    # as the app runs
+#     The branch is deleted when the run ends, so the next push starts afresh.
+#     This works from any branch; it is the way to run it today.
+#   - Actions tab, "Run workflow" (choose chunking and phases). GitHub only offers
+#     this once the file is on the default branch (main), so from the next
+#     release to main.
+#
+# No secrets. Never reads or writes the result cache.
+
+on:
+  push:
+    branches:
+      - 'sweep/chunking-off'
+      - 'sweep/chunking-on'
+  workflow_dispatch:
+    inputs:
+      chunking:
+        description: 'Chunking on refusal: off (the baseline) or on (as the app runs)'
+        type: choice
+        options: ['off', 'on']
+        default: 'off'
+      phases:
+        description: 'Phases to run, in order'
+        type: string
+        default: 'M1 M2 M3 M4 M5 M6 M7 M8 M9 MD'
+
+# One job at a time across every workflow that queries the graph (shared with
+# health-check.yml and warm-cache.yml): a sweep measured alongside another job
+# records the contention, not the query.
+concurrency:
+  group: sawgraph-endpoint
+  cancel-in-progress: false
+
+permissions:
+  contents: write # push the results branch, delete the trigger branch
+  pull-requests: write # open the results PR
+
+jobs:
+  sweep:
+    name: Sweep every query shape
+    runs-on: ubuntu-latest
+    # About 80 minutes measured with nothing refused for long; each request is
+    # capped at 60s, so the worst case is bounded well under this.
+    timeout-minutes: 180
+    env:
+      QUERY_SWEEP_CHUNKING: ${{ inputs.chunking || (github.ref_name == 'sweep/chunking-on' && 'on' || 'off') }}
+      PHASES: ${{ inputs.phases || 'M1 M2 M3 M4 M5 M6 M7 M8 M9 MD' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # react-leaflet's peer range does not include React 19 (see CLAUDE.md)
+      - run: npm ci --legacy-peer-deps
+
+      - name: Run the sweep, one phase at a time
+        id: sweep
+        shell: bash
+        run: |
+          first=init
+          for p in $PHASES; do
+            echo "::group::$p"
+            if ! npx tsx engine/scripts/query-sweep.mts "$p" $first; then
+              echo "$p" >> failed-phases.txt
+            fi
+            first=
+            echo "::endgroup::"
+          done
+          echo "csv=$(ls docs/query-sweep/*-chunking-${QUERY_SWEEP_CHUNKING}-$(git rev-parse --short HEAD).csv)" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the CSV as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: query-sweep-${{ env.QUERY_SWEEP_CHUNKING }}-${{ github.sha }}
+          path: docs/query-sweep/*.csv
+          if-no-files-found: warn
+
+      # The results go on a branch cut from development, so the PR carries the
+      # CSV and the index and nothing else, whichever commit was measured.
+      - name: Open a PR with the results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CSV: ${{ steps.sweep.outputs.csv }}
+        shell: bash
+        run: |
+          name="$(basename "$CSV" .csv)"
+          cp "$CSV" "$RUNNER_TEMP/"
+          git fetch origin development
+          git switch -c "sweep-results/$name" origin/development
+          cp "$RUNNER_TEMP/$(basename "$CSV")" docs/query-sweep/
+          npx tsx engine/scripts/query-sweep.mts --index
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs/query-sweep/
+          git commit -m "docs(sweep): $name"
+          git push origin "sweep-results/$name"
+          row="$(grep -F "./$(basename "$CSV")" docs/query-sweep/README.md || true)"
+          {
+            echo "A query sweep with chunking ${QUERY_SWEEP_CHUNKING}, measured on \`${GITHUB_SHA::7}\` from \`${GITHUB_REF_NAME}\` ([the run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}))."
+            echo
+            echo "| Sweep | Mode | Commit | Phases | Shapes | Pass | Fail | Since the previous sweep |"
+            echo "| --- | --- | --- | --- | ---: | ---: | ---: | --- |"
+            echo "$row"
+            if [ -f failed-phases.txt ]; then echo; echo "Phases that exited with an error: $(tr '\n' ' ' < failed-phases.txt)"; fi
+          } > pr.md
+          # Opening a PR from Actions needs the repository setting "Allow GitHub
+          # Actions to create and approve pull requests". Without it the branch
+          # is still pushed; the summary links to opening the PR by hand.
+          if ! gh pr create --base development --head "sweep-results/$name" --title "docs(sweep): $name" --body-file pr.md; then
+            url="${{ github.server_url }}/${{ github.repository }}/compare/development...sweep-results/$name?expand=1"
+            echo "::warning::Could not open the PR from Actions. Open it here: $url"
+            echo "Open the results PR by hand: $url" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Query sweep, chunking ${QUERY_SWEEP_CHUNKING}"
+            echo
+            sed -n '/^| Sweep/,/^$/p' docs/query-sweep/README.md | head -6
+            [ -f failed-phases.txt ] && echo && echo "Phases that exited with an error: $(tr '\n' ' ' < failed-phases.txt)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete the trigger branch
+        if: always() && github.event_name == 'push'
+        run: git push origin --delete "$GITHUB_REF_NAME" || true
