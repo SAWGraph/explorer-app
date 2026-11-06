@@ -15,7 +15,7 @@ export function PipelineTimeline({ steps, isRunning }: PipelineTimelineProps) {
         {steps.filter(Boolean).map((step, i, arr) => {
           const isLast = i === arr.length - 1;
           return (
-            <div key={i} className={`timeline-step timeline-step--${step.status}`}>
+            <div key={step.stepIndex} className={`timeline-step timeline-step--${step.status}`}>
               <div className="timeline-indicator">
                 <div className={`timeline-dot timeline-dot--${step.status}`} />
                 {!isLast && (
@@ -28,7 +28,7 @@ export function PipelineTimeline({ steps, isRunning }: PipelineTimelineProps) {
                 className={`timeline-content${step.status === 'running' ? ' timeline-content--running' : ''}`}
               >
                 <span className="timeline-desc">
-                  Step {i + 1}/{step.totalSteps}: {step.description}
+                  Step {step.stepIndex + 1}/{step.totalSteps}: {step.description}
                 </span>
                 {step.resultCount !== undefined && step.status === 'done' && (
                   <span className="timeline-count">({step.resultCount} results)</span>

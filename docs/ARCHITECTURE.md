@@ -273,7 +273,16 @@ the flag, because three separate builders trace and they all have to agree.
 
 ### 3. Executor Runs the Steps
 
-`executor.ts` runs steps in order, but each step is more than one request.
+Each step names the steps it waits for (`after` in `planner.ts`), and
+`executor.ts` starts every step whose wait is over. The main steps (find, find,
+details, details) still wait for one another, so they run one at a time in plan
+order. Decoration waits only for what it reads: the region boundaries need only
+the state and start with the run; the stream lines start once both sides are
+found, alongside the details. When the run has its outcome (an empty side, a
+failed step) the steps still running are stopped and reported skipped.
+`engine/tests/stepWaits.test.ts` checks every shape's waits.
+
+Each step is more than one request.
 
 ```typescript
 // Simplified from executor.ts runStep()

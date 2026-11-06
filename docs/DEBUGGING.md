@@ -955,3 +955,43 @@ chunking.
 **Tests.** The "with chunking on refusal turned off" block in
 `engine/tests/executor.test.ts`, the retry in `engine/tests/endpoint.test.ts`,
 and the chunking-off messages in `engine/tests/errors.test.ts`.
+
+## 2026-11-06: Decoration waited behind the answer (FIXED)
+
+**Symptom.** A run's last seconds went on things drawn around the answer, not
+the answer itself. The executor ran every step in plan order, so the region
+boundaries (they need only the state) waited for both discovery steps and both
+details steps, and the stream lines waited for the details they never read.
+Measured on 2026-11-05: boundaries were 24.8s of a 39.1s run on a cold cache.
+
+**Root cause.** The plan was a list, and the list order was the schedule. No
+step said what it read, so nothing could start early.
+
+**Fix.** Each step names the steps it waits for (`after` in `planner.ts`), and
+the executor starts every step whose wait is over. Boundaries start with the
+run; stream lines start once both sides are found, alongside the details. The
+main steps still wait for one another, one at a time. When the run has its
+outcome (an empty side, a failed step) the steps still running are stopped and
+reported skipped, and the SPARQL list stays in step order.
+
+**Measured** (8 dashboard questions, before and after alternated, 2 rounds,
+2026-11-06). Wall times are dominated by QLever's cache (whichever run went
+first in a pair paid it), so compare the decoration time left after the last
+main step:
+
+| Question | Before | After |
+| --- | --- | --- |
+| Facilities upstream, Cumberland (stream lines 7.5s to 25.9s) | 7.8s, 26.2s | 0.7s, 2.3s |
+| Samples downstream, Indiana (stream lines 1.6s to 14.4s) | 2.0s, 14.7s | 0s, 0s |
+| The 6 near and streams questions (boundaries only) | 0.3s to 0.4s | 0s |
+
+Boundaries now take 0.3s to 0.7s on a warm server cache, so the 24.8s saving
+shows only when that query is cold.
+
+**Prevention.** `engine/tests/stepWaits.test.ts` checks every shape's waits:
+only steps planned earlier, details after their side's discovery, stream lines
+after both, boundaries after nothing, and no main step waiting on decoration.
+The "decoration alongside the main steps" block in
+`engine/tests/executor.test.ts` fails if the boundaries or stream lines wait
+their turn again. `ui/tests/pipelineTimeline.test.tsx` keeps step numbers by
+plan position now that steps report out of order.

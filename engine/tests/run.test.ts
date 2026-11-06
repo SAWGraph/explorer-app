@@ -30,13 +30,16 @@ describe('runQuestion', () => {
     const result = await runQuestion(QUESTION, { endpoint: fake.run });
 
     expect(result.status).toBe('success');
-    expect(fake.calls.map((c) => c.endpoint)).toEqual(['federation', 'federation', 'federation', 'federation', 'spatialkg']);
+    // The boundaries (spatialkg) go out alongside the first discovery query.
+    expect(fake.calls.map((c) => c.endpoint)).toEqual(['federation', 'spatialkg', 'federation', 'federation', 'federation']);
   });
 
   it('reports each step as it runs', async () => {
-    const seen: StepProgress['status'][] = [];
-    await runQuestion(QUESTION, { endpoint: answering().run, onProgress: (p) => seen.push(p.status) });
-    expect(seen).toEqual(['running', 'done', 'running', 'done', 'running', 'done', 'running', 'done', 'running', 'done']);
+    const seen: Pick<StepProgress, 'stepIndex' | 'status'>[] = [];
+    await runQuestion(QUESTION, { endpoint: answering().run, onProgress: ({ stepIndex, status }) => seen.push({ stepIndex, status }) });
+    for (const stepIndex of [0, 1, 2, 3, 4]) {
+      expect(seen.filter((p) => p.stepIndex === stepIndex).map((p) => p.status)).toEqual(['running', 'done']);
+    }
   });
 
   it('rejects when cancelled, sending nothing after', async () => {

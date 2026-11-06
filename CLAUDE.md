@@ -45,7 +45,7 @@ The app builds an **AnalysisQuestion** (`src/types/query.ts`) composed of three 
 Questions execute through a pipeline, run by `runQuestion` (`engine/run.ts`), the one entry point the app and scripts call:
 
 1. **Planner** (`planner.ts`) — converts AnalysisQuestion → array of PipelineStep
-2. **Executor** (`executor.ts`) — runs steps sequentially, threading the entity IRIs the discovery steps found (`targetIris` / `anchorIris`) between steps. Early-exits if any step yields empty results. S2 cells are not carried between steps: they used to be, but since the fused-query refactor they are variables inside a single query (see `explorer/docs/ARCHITECTURE.md`, Key Design Decision 2).
+2. **Executor** (`executor.ts`) — starts each step once the steps it waits for are done (`after` in `planner.ts`): the main steps one at a time, decoration (boundaries, stream lines) alongside them. It threads the entity IRIs the discovery steps found (`targetIris` / `anchorIris`) between steps, and stops as empty when the target side finds nothing. S2 cells are not carried between steps: they used to be, but since the fused-query refactor they are variables inside a single query (see `explorer/docs/ARCHITECTURE.md`, Key Design Decision 2).
 3. **Templates** (`templates/`): SPARQL query builders per spatial operation; what each entity type contributes (its IRI variable, cell bind, filters, region check, how its details load) lives in `entities/`, one module per type. All spatial joins use **S2 Level 13 cells** as the bucketing mechanism.
 4. **endpoint.ts**: executes SPARQL against remote endpoints, transforms bindings to flat rows
 5. **shape.ts**: converts SPARQL rows to `MapFeature[]` by parsing WKT geometries; deduplicates by URI
