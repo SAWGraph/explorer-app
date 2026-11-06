@@ -16,6 +16,7 @@ import the engine; the engine never imports the UI.
 
 | What | Where |
 |---|---|
+| Which block is the anchor (trace start) and which the target | `normalise(question)` in `question.ts`. Every trace runs downstream from the anchor |
 | Question to pipeline steps | `planPipeline(question)` in `planner.ts` |
 | Run the steps | `executePipeline(steps, question, onProgress, signal?, sparql?)` in `executor.ts`. `sparql` is where every request goes, probes included: `executeSparql` unless a test passes its own |
 | Rows to map features | `transform*ToFeatures(rows)` in `resultTransformer.ts` |

@@ -255,7 +255,9 @@ function neighborPath(hops: number, fromVar: string, toVar: string): string {
 }
 
 interface FusedBodyOpts extends FusedBaseOpts {
-  mode: 'near' | 'downstream' | 'upstream';
+  // A trace always runs downstream from the anchor (engine/question.ts), so a
+  // trace needs no direction.
+  mode: 'near' | 'downstream';
   hops?: number;
   // Chunk pins (engine/scope.ts). Restricting one side to a known slice of
   // IRIs is what makes a too-large query fit inside the engine's 30s budget.
@@ -309,29 +311,23 @@ function fringePath(direction: 'downstream' | 'upstream', endVar: string, outVar
 // before, not a new one: flipping the seed flips the fringe with it.
 function boundedTrace(
   seed: string,
-  direction: 'downstream' | 'upstream',
   maxDistanceKm: number,
   seedSide: 'anchor' | 'target' = 'anchor',
 ): string {
   // Which variable the seed binds, and which one the trace has to reach.
   const seedVar = seedSide === 'anchor' ? '?upstream_flowline' : '?ds_flowline';
   const farVar = seedSide === 'anchor' ? '?ds_flowline' : '?upstream_flowline';
-  // Walking away from the seed. For an anchor seed that is the direction of the
-  // question; for a target seed it is the reverse, since the target sits at the
-  // far end of the same trace.
-  const walk = seedSide === 'anchor' ? direction : direction === 'downstream' ? 'upstream' : 'downstream';
+  // Walking away from the seed. The anchor is the upstream end, so an anchor
+  // seed walks downstream; a target seed sits at the far end of the same trace
+  // and walks upstream.
+  const walk = seedSide === 'anchor' ? 'downstream' : 'upstream';
   // Both forms write the seed-adjacent triple first and differ only in which
-  // way the chain runs. The anchor form's text is unchanged from before this
-  // parameter existed, so every query that kept the anchor-first order is
-  // byte-identical.
+  // way the chain runs.
   const trace =
     walk === 'downstream'
       ? `${seedVar} hyf:downstreamFlowPathTC ?_flMid .
                 ?_flMid hyf:downstreamFlowPathTC ?_flEnd .`
-      : seedSide === 'anchor'
-        ? `?_flEnd hyf:downstreamFlowPathTC ?_flMid .
-                ?_flMid hyf:downstreamFlowPathTC ${seedVar} .`
-        : `?_flMid hyf:downstreamFlowPathTC ${seedVar} .
+      : `?_flMid hyf:downstreamFlowPathTC ${seedVar} .
                 ?_flEnd hyf:downstreamFlowPathTC ?_flMid .`;
 
   return `{
@@ -388,10 +384,8 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       ?upstream_flowline rdf:type hyf:HY_FlowPath .`;
 
   const trace = opts.maxDistanceKm
-    ? boundedTrace(seed, opts.mode, opts.maxDistanceKm)
-    : opts.mode === 'downstream'
-      ? `?upstream_flowline hyf:downstreamFlowPathTC ?ds_flowline .`
-      : `?ds_flowline hyf:downstreamFlowPathTC ?upstream_flowline .`;
+    ? boundedTrace(seed, opts.maxDistanceKm)
+    : `?upstream_flowline hyf:downstreamFlowPathTC ?ds_flowline .`;
 
   // When the target *is* a flowline, the traced ?ds_flowline already is the
   // answer — the s2target hop would find any flowline sharing a cell with it.
@@ -442,7 +436,7 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
     // seeded from the anchor, which is the right choice only for the
     // anchor-first order below.
     const targetTrace = opts.maxDistanceKm
-      ? boundedTrace(targetHead, opts.mode, opts.maxDistanceKm, 'target')
+      ? boundedTrace(targetHead, opts.maxDistanceKm, 'target')
       : trace;
 
     // spatial:connectedTo is stored both ways between cells and flowlines
@@ -565,21 +559,21 @@ export function buildFusedNearQuery(opts: FusedNearOpts): string {
 }
 
 export interface FusedHydrologyOpts extends FusedBaseOpts {
-  direction: 'downstream' | 'upstream';
   project: 'anchor' | 'target';
   anchorIris?: string[];
   targetIris?: string[];
   maxDistanceKm?: number;
 }
 
-// Server-side downstream/upstream query.
+// Server-side trace query: the target downstream of the anchor. An "upstream"
+// question arrives with its roles swapped (engine/question.ts), not a direction.
 export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
   const body = buildFusedWhereBody({
     anchor: opts.anchor,
     target: opts.target,
     anchorRegion: opts.anchorRegion,
     targetRegion: opts.targetRegion,
-    mode: opts.direction,
+    mode: 'downstream',
     anchorIris: opts.anchorIris,
     targetIris: opts.targetIris,
     maxDistanceKm: opts.maxDistanceKm,
@@ -617,11 +611,11 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
 // templates/downstreamSamples.ts, and in bindEntityInCell above.
 
 export interface FusedWellSideOpts extends FusedBaseOpts {
+  // Only near vs trace and the trace's hops or distance are read. The roles are
+  // already oriented, so a trace runs downstream from the anchor like discovery
+  // (re-deriving the direction here is what once made the well layer disagree
+  // with the IRIs discovery had found).
   relationship: SpatialRelationship;
-  // Which way the discovery steps traced. This step re-derives the same trace,
-  // so it has to be told, not re-derive it from relationship.type — that is
-  // what made the well layer disagree with the IRIs discovery had found.
-  direction: 'downstream' | 'upstream';
   wellSide: 'anchor' | 'target';
 }
 
@@ -637,7 +631,7 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
     target: opts.target,
     anchorRegion: opts.anchorRegion,
     targetRegion: opts.targetRegion,
-    mode: opts.relationship.type === 'near' ? 'near' : opts.direction,
+    mode: opts.relationship.type === 'near' ? 'near' : 'downstream',
     hops: opts.relationship.hops,
     maxDistanceKm: opts.relationship.maxDistanceKm,
   });
@@ -672,7 +666,6 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
 export interface FusedFlowlineOpts {
   anchor: EntityBlock;
   target: EntityBlock;
-  direction: 'downstream' | 'upstream';
   anchorIris: string[];
   targetIris: string[];
   maxDistanceKm?: number;
@@ -708,10 +701,8 @@ function targetReachClause(opts: FusedFlowlineOpts): string {
   // clauses. Measured on the York question: re-deriving the substance filter
   // cost 1s of the 8 and changed nothing.
   const targetBind = bindEntityInCell({ type: opts.target.type }, '?s2celltarget', 'C', false);
-  const reach =
-    opts.direction === 'downstream'
-      ? `?flowline hyf:downstreamFlowPathTC ?_flTarget .`
-      : `?_flTarget hyf:downstreamFlowPathTC ?flowline .`;
+  // The target is downstream of the anchor, so a drawn flowline flows into it.
+  const reach = `?flowline hyf:downstreamFlowPathTC ?_flTarget .`;
 
   return `{
         SELECT DISTINCT ?flowline WHERE {
@@ -761,14 +752,9 @@ export function buildFusedFlowlineQuery(opts: FusedFlowlineOpts): string {
         }
       }`;
 
-  const flowlinePattern =
-    opts.direction === 'downstream'
-      ? `?upstream_flowline rdf:type hyf:HY_FlowPath ;
+  const flowlinePattern = `?upstream_flowline rdf:type hyf:HY_FlowPath ;
             spatial:connectedTo ?s2cellus ;
-            hyf:downstreamFlowPathTC ?flowline .`
-      : `?downstream_flowline rdf:type hyf:HY_FlowPath ;
-            spatial:connectedTo ?s2cellus .
-        ?flowline hyf:downstreamFlowPathTC ?downstream_flowline .`;
+            hyf:downstreamFlowPathTC ?flowline .`;
 
   const reachesTarget = targetReachClause(opts);
 
@@ -793,12 +779,8 @@ export function buildFusedFlowlineQuery(opts: FusedFlowlineOpts): string {
 
   // Bounded: sum the lengths of the segments between seed and candidate, then
   // MIN across seeds so each flowline carries one distance for its popup.
-  const boundedTraceInner =
-    opts.direction === 'downstream'
-      ? `?_flSeed hyf:downstreamFlowPathTC ?_flMid .
-                  ?_flMid hyf:downstreamFlowPathTC ?_flEnd .`
-      : `?_flEnd hyf:downstreamFlowPathTC ?_flMid .
-                  ?_flMid hyf:downstreamFlowPathTC ?_flSeed .`;
+  const boundedTraceInner = `?_flSeed hyf:downstreamFlowPathTC ?_flMid .
+                  ?_flMid hyf:downstreamFlowPathTC ?_flEnd .`;
 
   // The "+1" segment lies past the cutoff, so it can't reuse its parent's
   // distance — that would report a number under the threshold for a flowline
@@ -830,7 +812,7 @@ export function buildFusedFlowlineQuery(opts: FusedFlowlineOpts): string {
           }
           FILTER (xsd:float(?_plen) < xsd:float(${opts.maxDistanceKm}))
           ?_flEnd nhdplusv2:hasFlowPathLength/qudt:quantityValue/qudt:numericValue ?_endLen .
-          ${fringePath(opts.direction, '?_flEnd', '?flowline')}
+          ${fringePath('downstream', '?_flEnd', '?flowline')}
           BIND(IF(?flowline = ?_flEnd, 0.0, ?_endLen) AS ?_extra)
           BIND(xsd:float(?_plen) + xsd:float(?_extra) AS ?_ptotal)
         } GROUP BY ?flowline
