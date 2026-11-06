@@ -99,6 +99,10 @@
   What facilities are within 30 km upstream from DTXSID3031864 samples (detections only) in Maine?
 ## CRITICAL: facilities within 5km upstream from PFOS samples in York, industry filter, no region on facilities
   What 562212 facilities are within 5 km upstream from DTXSID3031864 samples (detections only) in Maine?
+## CRITICAL: samples ≥ 4 ng/L in Penobscot and Knox near wells in the same counties
+  What samples (above 4 ng/L) in Maine are within at most 3 miles of wells in Maine?
+## CRITICAL: samples ≥ 4 ng/L anywhere near wells in Somerset
+  What samples (above 4 ng/L) are within at most 3 miles of wells in Maine?
 ## FILTER A: samples: state
   What samples in Maine are within at most 2 miles of facilities?
 ## FILTER C: samples: state

@@ -31,7 +31,8 @@ const YORK = { stateCode: '23', countyCodes: ['23031'] };
 // A filter that makes each type's bind read a multi-valued field where it has one.
 const FILTERED: Partial<Record<EntityType, Partial<EntityBlock>>> = {
   samples: { sampleFilters: { substances: [PFOS], minConcentration: 4 } },
-  facilities: { facilityFilters: { industryCodes: ['562212'] } },
+  // A prefix matches every code under it, so a facility can match twice.
+  facilities: { facilityFilters: { industryCodes: ['5622'] } },
 };
 
 const block = (type: EntityType, filtered: boolean): EntityBlock => ({
@@ -120,6 +121,21 @@ it('every fused query joins one row per entity and cell', () => {
   // 36 type pairs x (1 near + 2 traces x 2 distances) x 2 filter settings, each
   // with two discovery steps, plus a wells step wherever wells appear.
   assert.ok(checked > 36 * 5 * 2 * 2, `checked only ${checked} queries`);
+});
+
+it('leaves a facilities side with only full 6-digit codes as it was', () => {
+  // A 6-digit code matches itself only: one row per facility already
+  // (landfills and DoD sites nationwide: 5,922 rows for 5,908), and
+  // collapsing it tripled the Maine wells questions' discovery time.
+  const question: AnalysisQuestion = {
+    blockA: { type: 'wells', region: YORK },
+    relationship: { type: 'near', hops: 1 },
+    blockC: { type: 'facilities', facilityFilters: { industryCodes: ['562212', '928110'] } },
+  };
+  for (const step of planPipeline(question, { countSides: false }).filter((s) => s.type.startsWith('FIND_'))) {
+    const query = step.buildQuery(context(question), undefined);
+    assert.ok(!collapsedBlocks(query).has('?facilityA'), `${step.type}: a 6-digit facilities side was collapsed`);
+  }
 });
 
 it('the wells step no longer carries every measurement of a samples side', () => {

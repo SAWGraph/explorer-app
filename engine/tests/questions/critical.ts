@@ -82,4 +82,26 @@ export const CRITICAL: CriticalQuestion[] = [
       blockC: { type: 'samples', region: YORK, sampleFilters: { substances: [PFOS], includeNondetects: false } },
     },
   },
+  // A filtered samples side joined one row per matching measurement, and the
+  // wells step attached its columns to the whole fan-out: 626s, then failed.
+  {
+    name: 'samples ≥ 4 ng/L in Penobscot and Knox near wells in the same counties',
+    source: 'docs/DEBUGGING.md 2026-11-06: A filtered samples side joined one row per measurement (issue #82)',
+    question: {
+      blockA: { type: 'samples', region: { stateCode: '23', countyCodes: ['23019', '23013'] }, sampleFilters: { minConcentration: 4 } },
+      relationship: { type: 'near', hops: 2 },
+      blockC: { type: 'wells', region: { stateCode: '23', countyCodes: ['23019', '23013'] } },
+    },
+  },
+  // The same fan-out with no region on the samples side: the collapsed
+  // subquery then lists matching samples graph-wide.
+  {
+    name: 'samples ≥ 4 ng/L anywhere near wells in Somerset',
+    source: 'docs/DEBUGGING.md 2026-11-06: A filtered samples side joined one row per measurement (issue #82)',
+    question: {
+      blockA: { type: 'samples', sampleFilters: { minConcentration: 4 } },
+      relationship: { type: 'near', hops: 2 },
+      blockC: { type: 'wells', region: { stateCode: '23', countyCodes: ['23025'] } },
+    },
+  },
 ];
