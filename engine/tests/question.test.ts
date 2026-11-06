@@ -20,14 +20,15 @@ const ask = (relationship: AnalysisQuestion['relationship']): AnalysisQuestion =
 
 describe('which block each role is', () => {
   it.each([
-    ['near', { type: 'near', hops: 1 }],
-    ['downstream', { type: 'downstream' }],
-    ['downstream, bounded', { type: 'downstream', maxDistanceKm: 30 }],
-  ] as const)('%s: the trace starts from block C and reaches block A', (_name, relationship) => {
+    ['near', { type: 'near', hops: 1 }, 'near'],
+    ['downstream', { type: 'downstream' }, 'trace'],
+    ['downstream, bounded', { type: 'downstream', maxDistanceKm: 30 }, 'trace'],
+  ] as const)('%s: the trace starts from block C and reaches block A', (_name, relationship, kind) => {
     const q = normalise(ask(relationship));
     expect(q.anchor).toBe(LANDFILLS);
     expect(q.target).toBe(SAMPLES);
     expect(q.targetIs).toBe('A');
+    expect(q.kind).toBe(kind);
   });
 
   it.each([
@@ -38,7 +39,12 @@ describe('which block each role is', () => {
     expect(q.anchor).toBe(SAMPLES);
     expect(q.target).toBe(LANDFILLS);
     expect(q.targetIs).toBe('C');
+    expect(q.kind).toBe('trace');
   });
+});
+
+it('counts within (never offered) as a trace, the way the planner has always built it', () => {
+  expect(normalise(ask({ type: 'within' })).kind).toBe('trace');
 });
 
 describe('the region each role carries', () => {

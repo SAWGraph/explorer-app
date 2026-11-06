@@ -65,7 +65,7 @@ When you click Apply, the query engine:
 
 1. **Plans** the question (`engine/planner.ts`) → array of `PipelineStep`
 2. **Executes** steps sequentially (`engine/executor.ts`), threading S2 cell sets between steps
-3. **Renders** results as map layers (`resultTransformer.ts` → `MapFeature[]`)
+3. **Renders** results as map layers (`engine/shape.ts` → `MapFeature[]`)
 
 Supported entity types: **samples**, **facilities**, **water bodies**, **wells**, **streams**
 Supported relationships: **near** (~1–2 km), **downstream**, **upstream**

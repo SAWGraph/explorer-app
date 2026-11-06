@@ -1,6 +1,6 @@
 import type { EntityBlock } from './types/query';
 import type { EndpointKey } from './constants/endpoints';
-import type { SparqlRunner } from './sparqlClient';
+import type { SparqlRunner } from './endpoint';
 import { buildEntityProbeQuery } from './templates/fusedQueries';
 import { entityFor } from './entities';
 import { buildDiscoverCountiesQuery } from './templates/regions';
@@ -232,4 +232,69 @@ async function expandToCounties(sparql: SparqlRunner, regionCodes: string[]): Pr
     }
   }
   return [...new Set(out)];
+}
+
+// Slicing a by-IRI step (the details and stream-lines steps).
+
+// Splitting a by-IRI step. With a scope in hand we halve it; without one the
+// step ran the full list in a single request (under IRI_CHUNK), so halve that
+// list instead of giving up.
+export function divideIriList(
+  scope: Scope | undefined,
+  allIris: string[],
+  side: 'target' | 'anchor',
+): Scope[] | null {
+  if (scope) return halve(scope);
+  if (allIris.length < 2) return null;
+  return halve({
+    label: 'all',
+    ...(side === 'target' ? { targetIris: allIris } : { anchorIris: allIris }),
+  });
+}
+
+// The IRIs a by-IRI step should hydrate: the chunk's slice when running a chunk,
+// otherwise everything the discovery step found.
+export function irisFor(
+  ctx: { targetIris: string[]; anchorIris: string[] },
+  scope: Scope | undefined,
+  side: 'target' | 'anchor',
+): string[] {
+  const scoped = side === 'target' ? scope?.targetIris : scope?.anchorIris;
+  return scoped ?? (side === 'target' ? ctx.targetIris : ctx.anchorIris);
+}
+
+export function iriScopes(iris: string[], side: 'target' | 'anchor'): Scope[] | undefined {
+  if (iris.length <= IRI_CHUNK) return undefined;
+  return chunk(iris, IRI_CHUNK).map((slice, i) => ({
+    label: `batch ${i + 1}`,
+    ...(side === 'target' ? { targetIris: slice } : { anchorIris: slice }),
+  }));
+}
+
+// Slicing a discovery step.
+
+// A scope narrows one side of the question: either to a slice of IRIs, or to a
+// subset of the region that side was already filtered to.
+export function scopedRegions(
+  scope: Scope | undefined,
+  anchorRegion: string[] | undefined,
+  targetRegion: string[] | undefined,
+): { anchorRegion?: string[]; targetRegion?: string[] } {
+  return {
+    anchorRegion: scope?.regionSide === 'anchor' ? scope.regionCodes : anchorRegion,
+    targetRegion: scope?.regionSide === 'target' ? scope.regionCodes : targetRegion,
+  };
+}
+
+// Splitting a discovery query: halve a slice we already have, otherwise work
+// out which side can be enumerated (chooseAxis). When a region slice is down to
+// one county and still fails, switch axis and chunk the targets inside it.
+export function divideDiscovery(
+  axis: Omit<AxisContext, 'sparql'>,
+): (ctx: unknown, scope: Scope | undefined, sparql: SparqlRunner) => Promise<Scope[] | null> {
+  return async (_ctx, scope, sparql) => {
+    const withRunner = { ...axis, sparql };
+    if (!scope) return chooseAxis(withRunner);
+    return halve(scope) ?? refineRegionScope(withRunner, scope);
+  };
 }

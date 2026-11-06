@@ -1,5 +1,6 @@
 import type { PipelineResult } from './executor';
 import type { AnalysisQuestion, EntityBlock } from './types/query';
+import { normalise } from './question';
 
 // Every failure the engine can meet, and the words it shows a user about one:
 // a run that failed, found nothing, or answered only in part. The progress
@@ -89,7 +90,7 @@ function adviceForOversizedQuestion(question?: AnalysisQuestion): string {
   if (!question) return 'Try a shorter distance, a smaller region, or one county at a time.';
 
   const { blockA, blockC, relationship } = question;
-  const isTrace = relationship.type === 'downstream' || relationship.type === 'upstream';
+  const isTrace = normalise(question).kind === 'trace';
 
   if (isTrace && relationship.maxDistanceKm) {
     return `Try a shorter distance than ${relationship.maxDistanceKm} km, or run those areas one at a time.`;

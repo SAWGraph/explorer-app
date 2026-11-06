@@ -24,7 +24,7 @@ paths:
 
 - Anything calling `useMap()` must render inside `MapContainer`. Use the
   controller component pattern (see `MapCenterController`).
-- WKT is `lon lat`, Leaflet is `[lat, lon]`. Only `resultTransformer.ts`
+- WKT is `lon lat`, Leaflet is `[lat, lon]`. Only `engine/shape.ts`
   converts. Never flip coordinates anywhere else.
 - Result type is detected by row shape (`spWKT`, `facWKT`, `wbWKT`); each type
   has its own layer component.

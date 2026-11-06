@@ -32,7 +32,7 @@ All five follow the same shape. A hook in
 calls a query builder in
 [`templates/regions.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts)
 and runs it through
-[`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/sparqlClient.ts).
+[`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/engine/endpoint.ts).
 Results are cached by React Query with `staleTime: Infinity`, so each one fetches at most
 once per region per session.
 

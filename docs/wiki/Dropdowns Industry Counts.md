@@ -90,7 +90,7 @@ stop appearing.
 * The query text is built by
   [`buildIndustryCountsQuery()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts#L14).
 * It runs through
-  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/sparqlClient.ts#L4)
+  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/engine/endpoint.ts)
   against the `federation` URL in
   [`endpoints.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/endpoints.ts).
 * The rollup is

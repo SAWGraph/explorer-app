@@ -20,7 +20,7 @@ import { LAYER_REGISTRY } from '../components/Map/layerStyles';
 import { CachedResultNotice } from '../components/Pipeline/CachedResultNotice';
 import { useQueryStore } from '../store/queryStore';
 
-vi.mock('../../engine/sparqlClient', () => ({ executeSparql: () => new Promise(() => {}) }));
+vi.mock('../../engine/endpoint', () => ({ executeSparql: () => new Promise(() => {}) }));
 window.matchMedia = (() => ({ matches: false })) as unknown as typeof window.matchMedia;
 // jsdom has no ResizeObserver; keep each callback so a test can fire it.
 const resizeCallbacks: (() => void)[] = [];

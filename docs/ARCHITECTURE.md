@@ -117,16 +117,18 @@ engine; never the other way round. Each folder has its own README and tests.
 explorer/
 ├── engine/                  # Headless: question in, SPARQL out, rows in, features out
 │   ├── README.md            # Entry points and how to call the engine from Node
-│   ├── question.ts          # Which block is the anchor and which the target, decided once
-│   ├── planner.ts           # Question to pipeline steps
-│   ├── executor.ts          # Runs steps, splits what the endpoint refuses
-│   ├── scope.ts             # How to slice a step that was too big
-│   ├── sparqlClient.ts      # Sends SPARQL, retries, 60s request timeout
+│   ├── question.ts          # 1 Normalise: which block is the anchor and which the target, near or trace
+│   ├── sides.ts             # 2 Assess: how narrow each side is (the rank that picks the start side)
+│   ├── planner.ts           # 3 Strategy: question to pipeline steps
+│   ├── slicing.ts           # 4 Slice: request-size chunks, and splitting after a refusal
+│   ├── executor.ts          # 5 Run: runs steps, splits what the endpoint refuses
+│   ├── merge.ts             # 6 Merge: combine slices, pass found IRIs to later steps
+│   ├── endpoint.ts          # Sends SPARQL (the swappable SparqlRunner), retries, 60s request timeout
 │   ├── errors.ts            # Classifies failures (a 429 is usually a timeout), words every error message
 │   ├── queryBreadth.ts      # Pre-flight warning for questions that reliably fail
 │   ├── cacheKey.ts          # Canonical question to cache key
 │   ├── wire.ts              # What a cached result looks like on the wire
-│   ├── resultTransformer.ts # SPARQL rows to map features
+│   ├── shape.ts             # 7 Shape: SPARQL rows to map features
 │   ├── questionGenerator.ts # The question as an English sentence
 │   ├── entities/            # One module per entity type: IRI variable, cell bind, filters, region check, how details load
 │   ├── templates/           # SPARQL builders (fusedQueries is the main one)
@@ -299,7 +301,7 @@ while (queue.length) {
 the slices that actually fail get divided, so a question that fits pays nothing
 for the machinery.
 
-**The slice is chosen per question** (`scope.ts` `chooseAxis`). Which axis is
+**The slice is chosen per question** (`slicing.ts` `chooseAxis`). Which axis is
 right flips between states: Maine has 4,528 samples and 2,976 facilities,
 Illinois has 78 and 22,574 — so there is no fixed answer to "which side should
 we chunk". `chooseAxis` probes both sides in parallel (`LIMIT 201`, cheap), uses
@@ -327,7 +329,7 @@ Key Design Decision 2.)
 
 ### 4. Result Transformer → Map Features
 
-`resultTransformer.ts` converts SPARQL rows to GeoJSON-like features:
+`shape.ts` converts SPARQL rows to GeoJSON-like features:
 
 **Input (SPARQL row):**
 ```javascript
@@ -516,7 +518,7 @@ not rate limiting, and backing off does not help.
 `isSplittable(kind)` is what the executor consults before dividing a step.
 
 Two guards sit around every request: a **60 s client-side timeout**
-(`sparqlClient.ts`) so a hung request cannot stall a run, and one automatic
+(`endpoint.ts`) so a hung request cannot stall a run, and one automatic
 retry on retryable kinds — a repeat query starts warm, and 26.5 s cold vs 1.5 s
 warm has been measured on the same query.
 
@@ -726,7 +728,7 @@ requests.
 - Fewer requests, so fewer chances to hit the 30 s limit.
 
 **What it costs:** a fused query is one indivisible unit of work, so when it is
-too big there is no natural seam. That is exactly what `scope.ts` exists to
+too big there is no natural seam. That is exactly what `slicing.ts` exists to
 supply — see [Bounded Execution](#bounded-execution).
 
 ### 3. Why Zustand + React Query?
@@ -795,7 +797,7 @@ nothing else, and reach for `OPTIONAL` the moment a field is not universal.
 { id: '...', geometry: { type: 'Point', coordinates: [44.3, -69.7] }, properties: {...} }
 ```
 
-**Solution:** `resultTransformer.ts` parses WKT → coordinates, detects feature type from row shape, builds typed objects.
+**Solution:** `shape.ts` parses WKT → coordinates, detects feature type from row shape, builds typed objects.
 
 **Benefits:**
 - Decouples SPARQL from React components

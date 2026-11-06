@@ -104,12 +104,13 @@ byte-identical in every PR.
 - [x] Normalise: orientation in one place; delete the dead upstream branches (five were dead, not six: `fringePath`'s upstream arm is live for target-seeded bounded traces)
 - [x] Entity modules, query side (`engine/entities/`): IRI variable, cell bind, filters, region check, details, flowline, label. Not in this item: the one-row and drawable rules (Phase 1, they change SPARQL), rows to features (`resultTransformer.ts`, the Shape stage), the wells query builder (planner, until wells load by IRI) and the streams form of the trace (`fusedQueries.ts`)
 - [x] Entity modules, sentence wording: each module's `describe(block, totals)` (P0.4b). `questionGenerator.ts` keeps the sentence, the region and the relationship
-- [ ] Stage files and `runQuestion`, plus the recording wrapper so `query-matrix` runs the real engine, and "near or trace" as one kind from `normalise` (today `relationship.type` is still tested in the planner, the wells query and `errors.ts`)
+- [x] Stage files: `endpoint.ts`, `sides.ts`, `slicing.ts` (with the planner's by-IRI helpers), `merge.ts`, `shape.ts`, and "near or trace" as one `kind` from `normalise` (P0.5a)
+- [ ] `runQuestion(question, options)` as the one entry point; the app, scripts and UI test call it (P0.5b)
 
 **Phase 1: behaviour changes.** Each with a regression test, a
 `docs/DEBUGGING.md` entry, and `npm run health-check` before merge.
 
-- [ ] Chunking flag (default on)
+- [ ] Chunking flag (default on), then the recording endpoint replaces `query-matrix`'s raw mode (its own copy of the run loop) with the real engine and the flag off (moved from P0.5: without the flag, routing raw mode through the engine would make it split shapes it measures whole today)
 - [ ] Decoration alongside, with the dependency-driven loop
 - [ ] Live counts: early empty, advice, slice axis
 - [ ] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills)

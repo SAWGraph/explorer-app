@@ -584,7 +584,7 @@ capture:
 | Shape in the CSV | Why it is stale |
 | --- | --- |
 | `samples ↓ facilities [17]` (Illinois) | the budget fix; 7.4 records it completing in 248s |
-| five `upstream` shapes | two of them hung for 1918s and 959s, which the 60s client cap in `sparqlClient.ts` now prevents |
+| five `upstream` shapes | two of them hung for 1918s and 959s, which the 60s client cap in `endpoint.ts` now prevents |
 
 The `partialSlices` numbers are pessimistic for the same reason: they count
 slices skipped by a rule that has since been replaced. `wells near(4)` went from
@@ -789,7 +789,7 @@ unfiltered block C is close to a vacuous question with a very expensive answer.
 The corrected query timed out at 64s and the run errored, because
 `chooseAxis` had nothing left to slice: both probes were past `PROBE_LIMIT`
 (411 facilities, and streams are unbounded), and the question was already scoped
-to a single county, which cannot be split. `scope.ts` now probes the filtered
+to a single county, which cannot be split. `slicing.ts` now probes the filtered
 side once more at a much higher limit and chunks it (25 per slice, 17 slices).
 That is what turns the 64s failure into the 214s answer above.
 
