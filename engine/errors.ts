@@ -158,7 +158,14 @@ export function splittingWouldHelp(error: unknown): boolean {
   return error instanceof SparqlError && isSplittable(error.kind);
 }
 
-const CHUNKING_OFF = 'Chunking is turned off for this run, so the question was not split into smaller queries.';
+// A failure chunking on would have retried (timeout, busy) or split (timeout,
+// out of memory, too large). A network error is neither.
+function chunkingWouldHaveTried(error: unknown): boolean {
+  return error instanceof SparqlError && (isSplittable(error.kind) || isRetryable(error.kind));
+}
+
+const CHUNKING_OFF =
+  'Chunking is turned off for this run, so the question was not retried or split into smaller queries. Use Run again to try it once more.';
 
 // The one line shown when a run did not answer: why it failed and what to try,
 // or that nothing matched. Null for a run that answered.
@@ -166,9 +173,10 @@ export function outcomeMessage(result: PipelineResult | null | undefined, questi
   if (result?.status === 'empty') return 'No results found for this query. Try adjusting the filters.';
   if (result?.status === 'error') {
     const message = userMessageFor(result.error, question);
-    // The run was told not to split refused queries, so say why it was not
-    // rescued: otherwise the advice reads as though splitting had been tried.
-    return result.chunkingOff && splittingWouldHelp(result.error) ? `${message} ${CHUNKING_OFF}` : message;
+    // The run was told not to retry or split, so say what it did not try:
+    // otherwise the advice reads as though it had. Only after a failure that
+    // chunking on would have retried or split.
+    return result.chunkingOff && chunkingWouldHaveTried(result.error) ? `${message} ${CHUNKING_OFF}` : message;
   }
   return null;
 }
@@ -194,7 +202,6 @@ export function partialNotice(result: PipelineResult | null | undefined, questio
     `Showing incomplete results: ${reasons.join(', ')}.`,
     skipped.length > 0 ? 'Running the question again picks up where this left off.' : null,
     failed.length > 0 ? adviceForOversizedQuestion(question) : null,
-    result.chunkingOff ? CHUNKING_OFF : null,
   ]
     .filter((s): s is string => s !== null)
     .join(' ');

@@ -34,9 +34,6 @@ export interface PipelineSuccess {
   // Set when some slices of the work failed but enough succeeded to show a map.
   partial?: PartialFailure[];
   queries?: SentQuery[];
-  // Set when chunking on refusal was off and a refusal it could have rescued
-  // left part of the answer out. Not stored with cached results (wire.ts).
-  chunkingOff?: true;
 }
 
 export interface PipelineEmpty {
@@ -52,8 +49,8 @@ export interface PipelineError {
   message: string;
   error: Error;
   queries?: SentQuery[];
-  // Set when chunking on refusal was off, so a refusal splitting could have
-  // rescued was reported instead (errors.ts says so).
+  // Set when the run had chunking on refusal off: it stopped at the first
+  // failure, without retrying or splitting (errors.ts says so).
   chunkingOff?: true;
 }
 
@@ -105,8 +102,8 @@ interface StepOutcome {
   failedScopes: string[];
   skippedScopes: string[];
   lastError?: SparqlError | Error;
-  // A refusal splitting could have rescued, left as it was (chunking off).
-  unsplitRefusal?: SparqlError | Error;
+  // With chunking off: the first failure, at which the step stopped.
+  stoppedAt?: SparqlError | Error;
 }
 
 // Runs one step, slicing it up if the engine refuses the whole thing.
@@ -131,7 +128,7 @@ async function runStep(
   const failedScopes: string[] = [];
   const skippedScopes: string[] = [];
   let lastError: SparqlError | Error | undefined;
-  let unsplitRefusal: SparqlError | Error | undefined;
+  let stoppedAt: SparqlError | Error | undefined;
   let done = 0;
 
   while (queue.length > 0) {
@@ -139,8 +136,9 @@ async function runStep(
     const scope = queue.shift()!;
 
     // Out of budget. Record the rest as skipped (not failed) and keep what we
-    // have — those slices were never refused, just never reached.
-    if (Date.now() - startedAt > STEP_CEILING_MS) {
+    // have: those slices were never refused, just never reached. With chunking
+    // off there is no budget: every batch is sent, each with its own 60s.
+    if (chunkOnRefusal && Date.now() - startedAt > STEP_CEILING_MS) {
       skippedScopes.push(
         ...[scope, ...queue].map((s, i) => s?.label ?? `remaining slice ${i + 1}`),
       );
@@ -161,7 +159,7 @@ async function runStep(
     }
 
     try {
-      const result = await sparql(step.endpoint, query, { cache: step.cache, signal });
+      const result = await sparql(step.endpoint, query, { cache: step.cache, signal, retry: chunkOnRefusal });
       record({ scope: scope?.label, query });
       merged.add(result);
       done++;
@@ -171,12 +169,16 @@ async function runStep(
       const error = err instanceof Error ? err : new Error(String(err));
       lastError = error;
       record({ scope: scope?.label, query, error: error.message });
+      // With chunking off the step stops at its first failure, whatever it is:
+      // the run shows that error instead of a partial answer.
+      if (!chunkOnRefusal) {
+        stoppedAt = error;
+        failedScopes.push(scope?.label ?? 'whole query');
+        break;
+      }
       const splittable = splittingWouldHelp(error);
-      if (splittable && !chunkOnRefusal) unsplitRefusal ??= error;
       if (splittable && !scope) knownTooLarge.add(query);
-      // With chunking on refusal off, a refusal is reported as it is: no probes,
-      // no smaller slices. Request-size batches (initialScopes) are unaffected.
-      const smaller = splittable && chunkOnRefusal ? await step.divide?.(context, scope, sparql) : null;
+      const smaller = splittable ? await step.divide?.(context, scope, sparql) : null;
 
       if (smaller?.length) {
         queue.unshift(...smaller);
@@ -189,7 +191,7 @@ async function runStep(
   }
 
   report(done, done);
-  return { rows: merged.rows, failedScopes, skippedScopes, lastError, unsplitRefusal };
+  return { rows: merged.rows, failedScopes, skippedScopes, lastError, stoppedAt };
 }
 
 export interface ExecuteOptions {
@@ -201,8 +203,10 @@ export interface ExecuteOptions {
   // Where every request goes. QLever over HTTP unless a caller (a test) swaps
   // in its own.
   endpoint?: SparqlRunner;
-  // Split a query the endpoint refuses (timeout, out of memory, too large)
-  // into smaller ones. Off: the refusal is reported as it is. Default on.
+  // Work around what the endpoint refuses: retry a timeout once, split a query
+  // that was too big, stop a step after 300s keeping what it has. Off: the run
+  // answers completely or shows the first error, from any step. Request-size
+  // batches stay on either way. Default on.
   chunkOnRefusal?: boolean;
 }
 
@@ -219,7 +223,6 @@ export async function executePipeline(
     results: {},
   };
   const partial: PartialFailure[] = [];
-  let leftUnsplit = false;
   const queries: SentQuery[] = [];
 
   for (let i = 0; i < steps.length; i++) {
@@ -254,17 +257,15 @@ export async function executePipeline(
       };
     }
 
-    // With chunking off, a refused slice of a step the answer needs fails the
-    // run, even when other slices answered: the refusal is shown, not worked
-    // around. Optional steps (stream lines, boundaries) still keep the answer
-    // and list what is missing.
-    if (outcome.unsplitRefusal && !step.optional) {
+    // With chunking off the run answers completely or shows the first error:
+    // any failure, in any step (optional ones too), fails it.
+    if (outcome.stoppedAt) {
       onProgress({ ...base, status: 'failed' });
       return {
         status: 'error',
         failedAtStep: i,
         message: stepFailedMessage(step.description),
-        error: outcome.unsplitRefusal,
+        error: outcome.stoppedAt,
         queries,
         chunkingOff: true,
       };
@@ -288,7 +289,6 @@ export async function executePipeline(
         failed: outcome.failedScopes,
         skipped: outcome.skippedScopes,
       });
-      if (outcome.unsplitRefusal) leftUnsplit = true;
     }
 
     const results = outcome.rows;
@@ -328,7 +328,6 @@ export async function executePipeline(
     status: 'success',
     data: context.results,
     ...(partial.length > 0 ? { partial } : {}),
-    ...(leftUnsplit ? { chunkingOff: true as const } : {}),
     queries,
   };
 }

@@ -20,7 +20,7 @@ import the engine; the engine never imports the UI.
 | How narrow a side is, and which side a trace starts from | `sideRank(side)`, `leadSide(anchor, target)` in `sides.ts` |
 | Splitting a step | `slicing.ts`: `iriScopes`, `divideIriList`, `irisFor` (by-IRI steps), `divideDiscovery`, `chooseAxis`, `refineRegionScope`, `halve` (discovery) |
 | Combining what the slices returned | `sliceMerger()`, `foundIris(rows)` in `merge.ts` |
-| Run a question | `runQuestion(question, { endpoint?, signal?, onProgress?, chunkOnRefusal? })` in `run.ts`. `chunkOnRefusal` (default on) splits a query the endpoint refuses; off, the refusal is reported. The app and the scripts call this; `executor.test.ts` calls the executor directly, since that is what it tests |
+| Run a question | `runQuestion(question, { endpoint?, signal?, onProgress?, chunkOnRefusal? })` in `run.ts`. `chunkOnRefusal` (default on) retries and splits what the endpoint refuses; off, the run answers completely or shows the first error. The app and the scripts call this; `executor.test.ts` calls the executor directly, since that is what it tests |
 | Question to pipeline steps | `planPipeline(question)` in `planner.ts` (for the SPARQL snapshot and `query-matrix`, which runs part of a plan) |
 | Run the steps | `executePipeline(steps, question, { onProgress?, signal?, endpoint?, chunkOnRefusal? })` in `executor.ts`. `endpoint` is where every request goes, probes included: `executeSparql` unless a test passes its own |
 | Rows to map features | `transform*ToFeatures(rows)` in `shape.ts` |

@@ -4,7 +4,7 @@ import type { PipelineResult } from '../../engine/executor';
 import { runQuestion } from '../../engine/run';
 import { fetchCachedResult } from '../api/resultCacheClient';
 
-// Split a query the endpoint refuses into smaller ones (default on). Set
+// Retry and split what the endpoint refuses (default on). Set
 // VITE_CHUNK_ON_REFUSAL=false at build time, e.g. in the Railway development
 // environment, to see refusals as errors instead. Read here because the engine
 // is headless and takes it as a run option; read per run so a test can set it.

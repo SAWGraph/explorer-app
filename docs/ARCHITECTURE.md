@@ -518,13 +518,12 @@ not rate limiting, and backing off does not help.
 
 `isSplittable(kind)` is what the executor consults before dividing a step.
 
-Splitting after a refusal can be turned off with the run option
-`chunkOnRefusal: false`; the app reads it from `VITE_CHUNK_ON_REFUSAL=false` at
-build time. A refused query is then reported as it is: a refusal anywhere in a
-step the answer needs fails the run (even one 1,000-IRI batch of several), and a
-refused optional step shows in the incomplete-results notice; either message
-says chunking was off. Request-size batches (1,000 IRIs a request) and the one retry
-stay on either way: they are transport limits, not a rescue.
+All of that rescue (the retry, splitting after a refusal, and the 300s step
+limit) can be turned off with the run option `chunkOnRefusal: false`; the app
+reads it from `VITE_CHUNK_ON_REFUSAL=false` at build time. The run then answers
+completely or shows the first error, from any step, and the message says it was
+not retried or split. Request-size batches (1,000 IRIs a request) and the 60s
+request limit stay on either way.
 
 Two guards sit around every request: a **60 s client-side timeout**
 (`endpoint.ts`) so a hung request cannot stall a run, and one automatic

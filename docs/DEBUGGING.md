@@ -929,26 +929,29 @@ scope. If the query cannot see the scope, splitting is a loop, not a rescue.
 
 ## 2026-11-06: Seeing a refused query as it is: chunking on refusal off
 
-**When to reach for it.** The engine splits a query the endpoint refuses
-(timeout, out of memory, too large) into smaller ones and merges them. That
-rescue hides the refusal: a slow or partial answer is the only sign. To see
-which step was refused and why, turn the rescue off.
+**When to reach for it.** With chunking on (the default) the engine works
+around what the endpoint refuses: it retries a timeout once, splits a query
+that was too big into smaller ones, and stops a step after 300s keeping what it
+has. That rescue hides the refusal: a slow or partial answer is the only sign.
+To see which query was refused and why, turn it off.
 
 **How.** Run option `chunkOnRefusal: false` (`runQuestion` or
 `executePipeline`), or build the app with `VITE_CHUNK_ON_REFUSAL=false` (the
-Railway development environment, say). A refusal in a step the answer needs
-then fails the whole run with the classified error, even when the step's other
-1,000-IRI batches answered, and the message ends "Chunking is turned off for
-this run, so the question was not split into smaller queries." A refused
-optional step (stream lines, boundaries) leaves the answer on the map, and the
-incomplete-results notice ends with the same sentence. Request-size batches and
-the one retry after a timeout stay on.
+Railway development environment, say). The run then either answers completely
+or shows the first error:
 
-Cached and published results do not keep the "chunking was off" note
-(engine/wire.ts stores only the rows, the incomplete-results list and the
-SPARQL), so a result published from a build with the flag off shows its
-incomplete notice without the note.
+- no retry: the endpoint is asked not to resend after a timeout or busy error
+- no splitting, and a query refused in an earlier run is sent whole anyway
+- no 300s step limit: every batch is sent, each with its own 60s request limit
+- any failure in any step, stream lines and boundaries included, fails the run
+  at once; no more batches are sent
+
+After a timeout, out of memory, too large or busy error, the message ends
+"Chunking is turned off for this run, so the question was not retried or split
+into smaller queries. Use Run again to try it once more." Request-size batches
+(1,000 IRIs a request) stay on: they are how detail steps send their IRIs, not
+chunking.
 
 **Tests.** The "with chunking on refusal turned off" block in
-`engine/tests/executor.test.ts`, and the chunking-off messages in
-`engine/tests/errors.test.ts`.
+`engine/tests/executor.test.ts`, the retry in `engine/tests/endpoint.test.ts`,
+and the chunking-off messages in `engine/tests/errors.test.ts`.
