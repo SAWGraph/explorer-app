@@ -51,6 +51,12 @@ export function projected(query: string): string | undefined {
   return query.match(/SELECT DISTINCT \(\?(\w+) AS \?iri\)/)?.[1];
 }
 
+// The variable a count query counts, e.g. "facilityP" (the count of a side the
+// run takes before discovery).
+export function counted(query: string): string | undefined {
+  return query.match(/SELECT \(COUNT\(DISTINCT \?(\w+)\) AS \?count\)/)?.[1];
+}
+
 // The IRIs a query pins with `VALUES ?<variable> { ... }`, in order.
 export function pinned(query: string, variable: string): string[] {
   const block = query.match(new RegExp(`VALUES \\?${variable} \\{([^}]*)\\}`))?.[1];

@@ -83,12 +83,74 @@ describe('the advice when a question is too big', () => {
   it('gives general advice with no question to look at', () => {
     expect(outcomeMessage(timedOut, undefined)).toBe(`${TOO_MUCH} Try a shorter distance, a smaller region, or one county at a time.`);
   });
+
+  it('does not count the default non-detect tick as a filter', () => {
+    const q = question({ blockA: { type: 'samples', sampleFilters: { includeNondetects: true } } });
+    expect(outcomeMessage(timedOut, q)).toBe(
+      `${TOO_MUCH} The first block has no filter or region set, which means "every one in the country". Adding a type, filter, or region there is the most effective change.`,
+    );
+  });
+});
+
+// The run counts both sides before discovery (engine/planner.ts). When both
+// counts came back, the advice gives them and names the bigger side.
+describe('the advice when a question is too big, with both sides counted', () => {
+  const counted = (A: number, C: number): PipelineResult => ({
+    ...failed(new SparqlError('timeout', 429, 'Operation timed out')),
+    counts: { A, C },
+  });
+
+  it('gives both counts and names the bigger block', () => {
+    expect(outcomeMessage(counted(4528, 459877), question())).toBe(
+      `${TOO_MUCH} The first block matches 4,528 samples, the second 459,877 facilities. Adding a filter or region to the second block is the most effective change.`,
+    );
+  });
+
+  it('names the first block when it is the bigger one', () => {
+    expect(outcomeMessage(counted(8738, 12), question())).toBe(
+      `${TOO_MUCH} The first block matches 8,738 samples, the second 12 facilities. Adding a filter or region to the first block is the most effective change.`,
+    );
+  });
+
+  it('gives the counts before the distance advice on a trace', () => {
+    const q = question({ relationship: { type: 'downstream', maxDistanceKm: 30 } });
+    expect(outcomeMessage(counted(70, 676), q)).toBe(
+      `${TOO_MUCH} The first block matches 70 samples, the second 676 facilities. Try a shorter distance than 30 km, or run those areas one at a time.`,
+    );
+  });
+
+  it('falls back to the advice without counts when one count is missing', () => {
+    const one: PipelineResult = { ...failed(new SparqlError('timeout', 429, 'Operation timed out')), counts: { C: 459877 } };
+    expect(outcomeMessage(one, question())).toBe(`${TOO_MUCH} Try a smaller region, or run one county at a time.`);
+  });
+
+  it('gives the counts in the notice for an incomplete answer too', () => {
+    const result: PipelineResult = {
+      status: 'success',
+      data: {},
+      partial: [{ step: 'Finding samples near facilities', failed: ['York County, Maine'], skipped: [] }],
+      counts: { A: 4528, C: 459877 },
+    };
+    expect(partialNotice(result, question())).toBe(
+      'Showing incomplete results: York County, Maine could not be answered. The first block matches 4,528 samples, the second 459,877 facilities. Adding a filter or region to the second block is the most effective change.',
+    );
+  });
 });
 
 describe('the message for a run with no answer', () => {
   it('says nothing matched', () => {
     const empty: PipelineResult = { status: 'empty', failedAtStep: 0, message: stepEmptyMessage('Finding samples near facilities') };
     expect(outcomeMessage(empty, question())).toBe('No results found for this query. Try adjusting the filters.');
+  });
+
+  it('names the block that matched nothing, when a count found it empty', () => {
+    const empty = (block: 'A' | 'C'): PipelineResult => ({ status: 'empty', failedAtStep: 0, message: stepEmptyMessage('Counting facilities in the second block'), emptyBlock: block });
+    expect(outcomeMessage(empty('C'), question())).toBe(
+      'No facilities match the second block, so the question has no answer. Try a wider region or fewer filters.',
+    );
+    expect(outcomeMessage(empty('A'), question())).toBe(
+      'No samples match the first block, so the question has no answer. Try a wider region or fewer filters.',
+    );
   });
 
   it('is absent for a run that answered', () => {

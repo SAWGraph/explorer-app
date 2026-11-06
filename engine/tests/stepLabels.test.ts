@@ -93,15 +93,17 @@ it('every question shape gets correct step labels and step set', () => {
         const wantsFlowlines = rel !== 'near' && a !== 'streams' && c !== 'streams';
         assert.equal(types.includes('GET_FLOWLINE_GEOMETRIES'), wantsFlowlines, `flowline step presence wrong: ${where}`);
         assert.ok(types.includes('GET_REGION_BOUNDARIES'), `region step missing: ${where}`);
-        assert.equal(steps.length, wantsFlowlines ? 6 : 5, `step count wrong: ${where}`);
+        // Two count steps open every plan, one per side.
+        assert.deepEqual(types.slice(0, 2), ['COUNT_TARGET', 'COUNT_ANCHOR'], `count steps missing: ${where}`);
+        assert.equal(steps.length, wantsFlowlines ? 8 : 7, `step count wrong: ${where}`);
 
-        // Without a region the boundary step goes away, and 4 is the floor.
+        // Without a region the boundary step goes away, and 6 is the floor.
         const noRegion = planPipeline(question(a, rel, c, false));
         assert.ok(
           !noRegion.some((s) => s.type === 'GET_REGION_BOUNDARIES'),
           `region step present without a region: ${where}`,
         );
-        assert.equal(noRegion.length, wantsFlowlines ? 5 : 4, `step count wrong, no region: ${where}`);
+        assert.equal(noRegion.length, wantsFlowlines ? 7 : 6, `step count wrong, no region: ${where}`);
       }
     }
   }
@@ -119,6 +121,8 @@ it('labels the reported downstream question', () => {
   assert.deepEqual(
     reported.map((s) => s.description),
     [
+      'Counting samples in the first block',
+      'Counting facilities in the second block',
       'Finding samples downstream of facilities',
       'Finding facilities with samples downstream of them',
       'Loading downstream stream geometries',

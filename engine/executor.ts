@@ -28,12 +28,20 @@ export interface SentQuery {
   error?: string;
 }
 
+// How many entities each block matched, from the counts the run took before
+// discovery. A block is missing when its count was dropped or not taken.
+export interface SideCounts {
+  A?: number;
+  C?: number;
+}
+
 export interface PipelineSuccess {
   status: 'success';
   data: Record<string, SparqlRow[]>;
   // Set when some slices of the work failed but enough succeeded to show a map.
   partial?: PartialFailure[];
   queries?: SentQuery[];
+  counts?: SideCounts;
 }
 
 export interface PipelineEmpty {
@@ -41,6 +49,9 @@ export interface PipelineEmpty {
   failedAtStep: number;
   message: string;
   queries?: SentQuery[];
+  counts?: SideCounts;
+  // Set when a count found a block with nothing in it, before any discovery.
+  emptyBlock?: 'A' | 'C';
 }
 
 export interface PipelineError {
@@ -49,6 +60,7 @@ export interface PipelineError {
   message: string;
   error: Error;
   queries?: SentQuery[];
+  counts?: SideCounts;
   // Set when the run had chunking on refusal off: it stopped at the first
   // failure, without retrying or splitting (errors.ts says so).
   chunkingOff?: true;
@@ -104,6 +116,8 @@ interface StepOutcome {
   lastError?: SparqlError | Error;
   // With chunking off: the first failure, at which the step stopped.
   stoppedAt?: SparqlError | Error;
+  // An advisory step's failure: dropped, the run goes on without it.
+  dropped?: SparqlError | Error;
 }
 
 // Runs one step, slicing it up if the engine refuses the whole thing.
@@ -129,6 +143,7 @@ async function runStep(
   const skippedScopes: string[] = [];
   let lastError: SparqlError | Error | undefined;
   let stoppedAt: SparqlError | Error | undefined;
+  let dropped: SparqlError | Error | undefined;
   let done = 0;
 
   while (queue.length > 0) {
@@ -158,17 +173,33 @@ async function runStep(
       }
     }
 
+    // A step with its own limit stops waiting after it, whatever the run does.
+    const limit = step.timeoutMs ? AbortSignal.timeout(step.timeoutMs) : undefined;
+    const requestSignal = limit ? (signal ? AbortSignal.any([signal, limit]) : limit) : signal;
     try {
-      const result = await sparql(step.endpoint, query, { cache: step.cache, signal, retry: chunkOnRefusal });
+      const result = await sparql(step.endpoint, query, {
+        cache: step.cache,
+        signal: requestSignal,
+        retry: chunkOnRefusal && !step.advisory,
+      });
       record({ scope: scope?.label, query });
       merged.add(result);
       done++;
     } catch (err) {
       // A cancelled run is not a failed slice: stop, record nothing.
       signal?.throwIfAborted();
-      const error = err instanceof Error ? err : new Error(String(err));
+      const error = limit?.aborted
+        ? new Error(`No answer within ${step.timeoutMs! / 1000}s`)
+        : err instanceof Error
+          ? err
+          : new Error(String(err));
       lastError = error;
       record({ scope: scope?.label, query, error: error.message });
+      // Advice, not answer: drop it and let the run go on, in either mode.
+      if (step.advisory) {
+        dropped = error;
+        break;
+      }
       // With chunking off the step stops at its first failure, whatever it is:
       // the run shows that error instead of a partial answer.
       if (!chunkOnRefusal) {
@@ -191,7 +222,7 @@ async function runStep(
   }
 
   report(done, done);
-  return { rows: merged.rows, failedScopes, skippedScopes, lastError, stoppedAt };
+  return { rows: merged.rows, failedScopes, skippedScopes, lastError, stoppedAt, dropped };
 }
 
 export interface ExecuteOptions {
@@ -226,9 +257,11 @@ export async function executePipeline(
     targetIris: [],
     anchorIris: [],
     results: {},
+    counts: {},
   };
   const partial: PartialFailure[] = [];
   const queries: SentQuery[] = [];
+  const counts: SideCounts = {};
 
   // Steps start as soon as what they wait for is done (`after`, planner.ts),
   // so decoration runs alongside the main steps. Once the run has its outcome
@@ -275,7 +308,7 @@ export async function executePipeline(
     ended.abort();
     for (const i of running.keys()) onProgress({ ...progressBase(i), status: 'skipped' });
     queries.sort((a, b) => a.step - b.step);
-    return result;
+    return Object.keys(counts).length > 0 ? { ...result, counts } : result;
   };
 
   while (waiting.size > 0 || running.size > 0) {
@@ -311,6 +344,13 @@ export async function executePipeline(
       });
     }
     const { outcome } = finished;
+
+    // A dropped count: the run goes on as if it had not been taken.
+    if (outcome.dropped) {
+      onProgress({ ...base, status: 'skipped' });
+      done.add(step.type);
+      continue;
+    }
 
     // With chunking off the run answers completely or shows the first error:
     // any failure, in any step (optional ones too), fails it.
@@ -349,6 +389,29 @@ export async function executePipeline(
     const results = outcome.rows;
     context.results[step.type] = results;
 
+    // A count step reports the count, not its one row.
+    let resultCount = results.length;
+    if (step.counts) {
+      const n = Number(results[0]?.count);
+      if (results.length === 1 && Number.isInteger(n) && n >= 0) {
+        context.counts = { ...context.counts, [step.counts.side]: n };
+        counts[step.counts.block] = n;
+        resultCount = n;
+        // A side with nothing in it: the question has no answer, so say which
+        // block matched nothing instead of running discovery to find out.
+        if (n === 0) {
+          onProgress({ ...base, status: 'done', resultCount: 0 });
+          return end({
+            status: 'empty',
+            failedAtStep: i,
+            message: stepEmptyMessage(step.description),
+            queries,
+            emptyBlock: step.counts.block,
+          });
+        }
+      }
+    }
+
     if (step.type === 'FIND_TARGET_IRIS') {
       context.targetIris = foundIris(results);
 
@@ -376,7 +439,7 @@ export async function executePipeline(
       context.results['GET_ANCHOR_DETAILS'] = results;
     }
 
-    onProgress({ ...base, status: 'done', resultCount: results.length });
+    onProgress({ ...base, status: 'done', resultCount });
     done.add(step.type);
   }
 
