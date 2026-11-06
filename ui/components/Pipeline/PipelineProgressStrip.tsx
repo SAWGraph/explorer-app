@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryStore } from '../../store/queryStore';
-import { userMessageFor } from '../../../engine/sparqlErrors';
+import { outcomeMessage } from '../../../engine/errors';
 
 const MESSAGES = [
   'Please wait while we prepare the data for you…',
@@ -45,14 +45,9 @@ export function PipelineProgressStrip() {
     message = `${chunked.description}: ${chunked.chunksDone ?? 0} of ${chunked.chunksTotal} areas done…`;
   } else if (isRunning) {
     message = MESSAGES[msgIndex];
-  } else if (pipelineResult?.status === 'empty') {
-    message = 'No results found for this query. Try adjusting the filters.';
   } else {
-    // Nine distinct failures used to share one message; tell the user which.
-    message = userMessageFor(
-      pipelineResult?.status === 'error' ? pipelineResult.error : undefined,
-      question,
-    );
+    // Empty or failed: engine/errors.ts says which, and what to try.
+    message = outcomeMessage(pipelineResult, question) ?? '';
   }
 
   // Running outside modal (initial load from dashboard) → full-screen blocking overlay

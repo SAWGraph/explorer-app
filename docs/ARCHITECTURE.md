@@ -121,7 +121,7 @@ explorer/
 │   ├── executor.ts          # Runs steps, splits what the endpoint refuses
 │   ├── scope.ts             # How to slice a step that was too big
 │   ├── sparqlClient.ts      # Sends SPARQL, retries, 60s request timeout
-│   ├── sparqlErrors.ts      # Classifies failures (a 429 is usually a timeout)
+│   ├── errors.ts            # Classifies failures (a 429 is usually a timeout), words every error message
 │   ├── queryBreadth.ts      # Pre-flight warning for questions that reliably fail
 │   ├── cacheKey.ts          # Canonical question to cache key
 │   ├── wire.ts              # What a cached result looks like on the wire
@@ -501,7 +501,7 @@ it. The most important thing to know about this: **it reports that timeout as
 HTTP 429 "Too Many Requests"**, with the real cause only in the JSON body. It is
 not rate limiting, and backing off does not help.
 
-`sparqlErrors.ts` classifies what comes back:
+`errors.ts` classifies what comes back:
 
 | Kind | How it arrives | Splitting helps? |
 | --- | --- | --- |

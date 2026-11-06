@@ -38,7 +38,7 @@ paths:
 
 QLever reports its 30s timeout as `429 Too Many Requests`. It is a query that
 did too much work, not rate limiting, so the fix is a smaller query, not
-backoff. `src/engine/sparqlErrors.ts` already classifies it and decides retry
+backoff. `engine/errors.ts` already classifies it and decides retry
 or split (`isRetryable`, `isSplittable`); reuse that. `docs/QUERY-MATRIX.md`
 Part 4 is the full catalogue.
 

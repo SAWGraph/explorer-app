@@ -7,7 +7,7 @@
 // so the executor reacts as it would in production.
 import type { EndpointKey } from '../../constants/endpoints';
 import type { SparqlOptions, SparqlRunner } from '../../sparqlClient';
-import { SparqlError, classifySparqlFailure, extractSparqlDetail } from '../../sparqlErrors';
+import { SparqlError, classifySparqlFailure, extractSparqlDetail } from '../../errors';
 import type { SparqlRow } from '../../types/sparql';
 
 export interface FakeCall {
