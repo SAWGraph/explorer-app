@@ -1033,3 +1033,63 @@ the occasional dropped count.
 count-based advice and the empty-block message in `engine/tests/errors.test.ts`,
 the bulk-probe skip in `engine/tests/slicing.test.ts`, and the count steps'
 waits in `engine/tests/stepWaits.test.ts`.
+
+## 2026-11-06: A filtered samples side joined one row per measurement (FIXED)
+
+**Symptom.** Questions with a sample filter took minutes or failed. Issue #82's
+question, samples above 4 ng/L in Penobscot and Knox near wells in the same
+counties, failed after 626s; "wells near samples above 4 ng/L" in the same
+counties failed every run.
+
+**Root cause.** A side's bind repeated each entity once per value of a
+multi-valued field, and the repeats only collapsed at the final `DISTINCT`, so
+the spatial join multiplied them. Measured in Maine on 2026-11-06:
+
+| Side | Rows | Entities and cells |
+| --- | --- | --- |
+| Samples, PFOS | 20,000 | 4,101 |
+| Samples, 4 ng/L or more | 78,369 | 2,207 |
+| Facilities, no code filter | 5,811 | 2,976 |
+| Facilities, code 5622, nationwide | 13,413 | 6,372 |
+| Facilities, 562212 and 928110, nationwide | 5,922 | 5,908 |
+| Wells, water bodies, aquifers, streams | same | same |
+
+The wells step also joined every measurement on a samples side (the old
+`sampleObservations` flag) and attached its columns to the whole fan-out.
+
+**Fix** (decision 23 of the engine redesign, after the closed #94).
+
+- Each entity module says whether its bind fans out (`fansOut`): a filtered
+  samples side, and a facilities side with no code filter or a code shorter
+  than 6 digits. Such a side is collapsed to `SELECT DISTINCT ?entity ?cell`,
+  with its region and pin inside, before it meets the other side
+  (`collapsedSide`, `engine/templates/fusedQueries.ts`).
+- The wells step uses the trimmed bind and collapses its join before the well
+  columns attach.
+- Discovery counts only drawable sample points, like the details step: a
+  location, and a filtered match that names a chemical (a sum row such as
+  SUM_PFOA_PFOS no longer counts).
+
+**Measured** (live, best of 2, `development` at `1c884a3` against this change):
+#82's question 41.7s to 23.7s; wells near samples above 4 ng/L, failed to
+52.6s; samples above 4 ng/L with no region near wells in Somerset 65.4s to
+8.7s; facilities upstream of PFOS samples in York 38.9s to 4.2s; the dashboard's
+Cumberland question 49.9s to 5.8s, Cook 11.1s to 3.9s, the two Maine wells
+questions 22.2s to 11.4s and 25.6s to 16.4s. Collapsing a 6-digit-coded
+facilities side only cost: it took the Maine wells questions' discovery from
+6.4s to 19.9s, which is why those sides are left as they were.
+
+**What changed in answers.** The map draws the same samples. Discovery drops
+points it could not draw, and what sat only next to them: #82 finds 201 sample
+points instead of 207 and 2,597 wells instead of 2,614; the York 30 km traces
+lose 2 facility rows and 13 stream segments. Every dashboard row count is
+unchanged.
+
+**Not fixed.** Water bodies downstream of wells in Maine still fails or answers
+slowly (948s, partial): its wells step loads 74,348 rows server-side. Wells by
+IRI (Phase 2) is the fix.
+
+**Prevention.** `engine/tests/oneRowPerCell.test.ts` checks every question
+shape: each side that fans out is collapsed with its region inside, a 6-digit
+facilities side is not, and the wells step reads no measurement. The two #82
+questions are in `engine/tests/questions/critical.ts`.
