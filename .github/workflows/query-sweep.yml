@@ -140,7 +140,12 @@ jobs:
             echo "### Query sweep, chunking ${QUERY_SWEEP_CHUNKING}"
             echo
             sed -n '/^| Sweep/,/^$/p' docs/query-sweep/README.md | head -6
-            [ -f failed-phases.txt ] && echo && echo "Phases that exited with an error: $(tr '\n' ' ' < failed-phases.txt)"
+            # if/fi, not `[ -f ] && ...`: with no failed phases the test is the
+            # block's last command, and its non-zero exit failed the step.
+            if [ -f failed-phases.txt ]; then
+              echo
+              echo "Phases that exited with an error: $(tr '\n' ' ' < failed-phases.txt)"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Delete the trigger branch
