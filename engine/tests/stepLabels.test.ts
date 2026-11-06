@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import { it } from 'vitest';
 import { planPipeline } from '../planner';
-import { entityTypeLabel } from '../questionGenerator';
+import { entityFor } from '../entities';
 import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../types/query';
 
 const ENTITY_TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers', 'streams'];
@@ -48,15 +48,15 @@ it('every question shape gets correct step labels and step set', () => {
         for (const label of steps.map((s) => s.description)) {
           assert.ok(label.trim().length > 0, `empty description: ${where}`);
           for (const type of ENTITY_TYPES) {
-            if (type !== entityTypeLabel(type)) {
+            if (type !== entityFor(type).label) {
               assert.ok(!label.includes(type), `raw type name "${type}" in "${label}": ${where}`);
             }
           }
         }
 
         // Both discovery labels name both blocks.
-        const aLabel = entityTypeLabel(a);
-        const cLabel = entityTypeLabel(c);
+        const aLabel = entityFor(a).label;
+        const cLabel = entityFor(c).label;
         const target = steps.find((s) => s.type === 'FIND_TARGET_IRIS')!;
         const anchor = steps.find((s) => s.type === 'FIND_ANCHOR_IRIS')!;
         for (const step of [target, anchor]) {

@@ -1,6 +1,10 @@
 import type { StreamFilters } from '../types/query';
 import { buildStreamsByIri } from '../templates/hydrate';
+import { STREAM_FTYPES } from '../constants/featureTypes';
 import { anyFilterSlotSet, type EntityModule } from './types';
+import { ftypeLabels, summarize } from './wording';
+
+const LABEL = 'streams';
 
 // FTYPE restriction for flowlines, shared by the cell bind below and by the
 // trace query, where a streams target is the traced flowline itself.
@@ -13,7 +17,7 @@ export function streamFtypeFilter(filters: StreamFilters | undefined, suffix: st
 
 export const streams: EntityModule = {
   type: 'streams',
-  label: 'streams',
+  label: LABEL,
   isFlowline: true,
   details: {
     kind: 'by-iri',
@@ -27,4 +31,10 @@ export const streams: EntityModule = {
       ${streamFtypeFilter(block.streamFilters, suffix)}`;
   },
   isFiltered: anyFilterSlotSet,
+  describe(block) {
+    const ftypes = block.streamFilters?.ftypes ?? [];
+    if (!ftypes.length) return LABEL;
+    const items = ftypeLabels(ftypes, STREAM_FTYPES);
+    return `${summarize(items, undefined, 'stream types', 'stream type', ', ', 'any')} ${LABEL}`;
+  },
 };

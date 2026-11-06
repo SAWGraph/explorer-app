@@ -2,6 +2,13 @@ import type { AquiferFilters } from '../types/query';
 import { AQUIFER_TYPE_VALUES, buildAquifersByIri } from '../templates/aquifers';
 import { anyFilterSlotSet, type EntityModule } from './types';
 
+const LABEL = 'aquifers';
+// One kind selected reads as an adjective ("bedrock aquifers").
+const KIND_WORDS: Record<string, string> = {
+  surficial: 'sand & gravel',
+  bedrock: 'bedrock',
+};
+
 function aquiferTypeFilter(filters: AquiferFilters | undefined, suffix: string): string {
   const kinds = filters?.aquiferTypes;
   if (!kinds?.length) return '';
@@ -15,7 +22,7 @@ function aquiferTypeFilter(filters: AquiferFilters | undefined, suffix: string):
 
 export const aquifers: EntityModule = {
   type: 'aquifers',
-  label: 'aquifers',
+  label: LABEL,
   isFlowline: false,
   details: {
     kind: 'by-iri',
@@ -30,4 +37,12 @@ export const aquifers: EntityModule = {
       ${typeFilter}`;
   },
   isFiltered: anyFilterSlotSet,
+  describe(block) {
+    const kinds = block.aquiferFilters?.aquiferTypes ?? [];
+    // None or both selected: the bare label.
+    if (kinds.length === 1 && KIND_WORDS[kinds[0]]) {
+      return `${KIND_WORDS[kinds[0]]} ${LABEL}`;
+    }
+    return LABEL;
+  },
 };
