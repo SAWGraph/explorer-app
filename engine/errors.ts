@@ -151,11 +151,33 @@ export function stepEmptyMessage(stepDescription: string): string {
   return `No results at step: ${stepDescription}`;
 }
 
+// A refusal that splitting the query into smaller ones could have rescued: too
+// much work, too much memory, or too big a request. The executor splits these
+// (unless told not to); the messages below say when it was told not to.
+export function splittingWouldHelp(error: unknown): boolean {
+  return error instanceof SparqlError && isSplittable(error.kind);
+}
+
+// A failure chunking on would have retried (timeout, busy) or split (timeout,
+// out of memory, too large). A network error is neither.
+function chunkingWouldHaveTried(error: unknown): boolean {
+  return error instanceof SparqlError && (isSplittable(error.kind) || isRetryable(error.kind));
+}
+
+const CHUNKING_OFF =
+  'Chunking is turned off for this run, so the question was not retried or split into smaller queries. Use Run again to try it once more.';
+
 // The one line shown when a run did not answer: why it failed and what to try,
 // or that nothing matched. Null for a run that answered.
 export function outcomeMessage(result: PipelineResult | null | undefined, question?: AnalysisQuestion): string | null {
   if (result?.status === 'empty') return 'No results found for this query. Try adjusting the filters.';
-  if (result?.status === 'error') return userMessageFor(result.error, question);
+  if (result?.status === 'error') {
+    const message = userMessageFor(result.error, question);
+    // The run was told not to retry or split, so say what it did not try:
+    // otherwise the advice reads as though it had. Only after a failure that
+    // chunking on would have retried or split.
+    return result.chunkingOff && chunkingWouldHaveTried(result.error) ? `${message} ${CHUNKING_OFF}` : message;
+  }
   return null;
 }
 

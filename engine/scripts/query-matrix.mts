@@ -134,7 +134,7 @@ async function runViaEngine(
   const result =
     stepIdx === 'all'
       ? await runQuestion(q, { onProgress })
-      : await executePipeline(planPipeline(q).slice(0, stepIdx + 1), q, onProgress);
+      : await executePipeline(planPipeline(q).slice(0, stepIdx + 1), q, { onProgress });
   const ms = Date.now() - t0;
 
   const rows =

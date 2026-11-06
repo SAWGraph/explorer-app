@@ -137,3 +137,26 @@ describe('the step messages a run carries', () => {
     expect(stepEmptyMessage('Finding wells near facilities')).toBe('No results at step: Finding wells near facilities');
   });
 });
+
+describe('the message when chunking on refusal is off', () => {
+  const off = (error: Error): PipelineResult => ({ status: 'error', failedAtStep: 0, message: stepFailedMessage('Finding samples near facilities'), error, chunkingOff: true });
+  const NOT_RETRIED = 'Chunking is turned off for this run, so the question was not retried or split into smaller queries. Use Run again to try it once more.';
+
+  it('says the question was not retried or split, after a timeout', () => {
+    expect(outcomeMessage(off(new SparqlError('timeout', 429, 'Operation timed out')), question())).toBe(
+      `${TOO_MUCH} Try a smaller region, or run one county at a time. ${NOT_RETRIED}`,
+    );
+  });
+
+  it('says so after a busy error, which chunking on would have retried', () => {
+    expect(outcomeMessage(off(new SparqlError('sibling-failure', 500, 'Waited for a result from another thread')), question())).toBe(
+      `The knowledge graph was busy and dropped this request. Running it again usually works. ${NOT_RETRIED}`,
+    );
+  });
+
+  it('adds nothing after a network error, which chunking never retried or split', () => {
+    expect(outcomeMessage(off(new SparqlError('network', 0, 'fetch failed')), question())).toBe(
+      'Could not reach the knowledge graph. Check your connection and try again.',
+    );
+  });
+});

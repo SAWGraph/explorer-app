@@ -22,6 +22,9 @@ export interface SparqlOptions {
   // rejects with the abort reason, never as a SparqlError, so the executor
   // cannot mistake it for a query to split or a slice that failed.
   signal?: AbortSignal;
+  // Send the query once more after a timeout or a busy error (default true).
+  // A run with chunking off passes false, so the first error is what it sees.
+  retry?: boolean;
 }
 
 // What the engine sends every request through. `executeSparql` (QLever over
@@ -48,7 +51,8 @@ export async function executeSparql(
     if (hit) return hit;
   }
 
-  const rows = await requestWithRetry(endpoint, query, 0, options.signal);
+  // Starting the count at the last attempt leaves no retry.
+  const rows = await requestWithRetry(endpoint, query, options.retry === false ? 1 : 0, options.signal);
   if (options.cache) responseCache.set(cacheKey, rows);
   return rows;
 }

@@ -518,6 +518,13 @@ not rate limiting, and backing off does not help.
 
 `isSplittable(kind)` is what the executor consults before dividing a step.
 
+All of that rescue (the retry, splitting after a refusal, and the 300s step
+limit) can be turned off with the run option `chunkOnRefusal: false`; the app
+reads it from `VITE_CHUNK_ON_REFUSAL=false` at build time. The run then answers
+completely or shows the first error, from any step, and the message says it was
+not retried or split. Request-size batches (1,000 IRIs a request) and the 60s
+request limit stay on either way.
+
 Two guards sit around every request: a **60 s client-side timeout**
 (`endpoint.ts`) so a hung request cannot stall a run, and one automatic
 retry on retryable kinds — a repeat query starts warm, and 26.5 s cold vs 1.5 s

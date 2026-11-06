@@ -12,7 +12,8 @@ import { executePipeline, type StepProgress } from '../executor';
 import { SparqlError } from '../errors';
 import { planPipeline } from '../planner';
 import type { AnalysisQuestion } from '../types/query';
-import { fakeEndpoint, iriRows, pinned, projected, refuse, type FakeEndpoint } from './support/fakeEndpoint';
+import { fakeEndpoint, iriRows, pinned, projected, refuse, type FakeCall, type FakeEndpoint } from './support/fakeEndpoint';
+import type { SparqlRow } from '../types/sparql';
 
 // "Samples in Maine near landfills": block A is the target, block C (the
 // facilities) the anchor the near-join starts from.
@@ -30,7 +31,8 @@ const run = (
   fake: FakeEndpoint,
   signal?: AbortSignal,
   onProgress: (p: StepProgress) => void = () => {},
-) => executePipeline(planPipeline(question), question, onProgress, signal, fake.run);
+  chunkOnRefusal?: boolean,
+) => executePipeline(planPipeline(question), question, { onProgress, signal, endpoint: fake.run, chunkOnRefusal });
 
 // A graph where the question has an answer and nothing is refused.
 const answering = () =>
@@ -393,5 +395,137 @@ describe('a trace question', () => {
     ]);
     expect(result.data['FIND_TARGET_ENTITIES']).toHaveLength(3);
     expect(result.data['GET_ANCHOR_DETAILS']).toHaveLength(2);
+  });
+});
+
+// With chunkOnRefusal off, a query the endpoint refuses is not split into
+// smaller ones: the run reports the refusal. Request-size batches (1,000 IRIs a
+// request) are a transport limit, not a rescue, and stay on.
+// With chunkOnRefusal off the run either answers completely or shows the first
+// error: no probes or slices, no retry, no 300s step limit, no partial answers.
+// Request-size batches (1,000 IRIs a request) are how detail steps send their
+// IRIs, not chunking, and stay on.
+describe('with chunking on refusal turned off', () => {
+  const runWithoutChunking = (question: AnalysisQuestion, fake: FakeEndpoint) =>
+    run(question, fake, undefined, undefined, false);
+  const manySamples = (n: number) => Array.from({ length: n }, (_, i) => `http://ex.org/sp/${i}`);
+  const withSamples = (samples: string[], detail: (call: FakeCall) => SparqlRow[] | undefined) => {
+    const base = answering();
+    return fakeEndpoint((call) => {
+      if (projected(call.query) === 'spC') return iriRows(samples);
+      if (call.query.includes('VALUES ?sp {')) {
+        const rows = detail(call);
+        if (rows) return rows;
+      }
+      return base.run(call.endpoint, call.query, call.options);
+    });
+  };
+
+  it('fails at the refused step instead of probing and splitting it', async () => {
+    const fake = refusingWhole(30);
+    const result = await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, fake);
+
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') return;
+    expect(result.failedAtStep).toBe(0);
+    expect(result.chunkingOff).toBe(true);
+    expect(result.error).toBeInstanceOf(SparqlError);
+    // The whole query, once. No probes, no slices.
+    expect(fake.calls.map((c) => projected(c.query))).toEqual(['spC']);
+  });
+
+  it('asks the endpoint not to retry', async () => {
+    const fake = answering();
+    await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, fake);
+    expect(fake.calls.every((c) => c.options.retry === false)).toBe(true);
+
+    const on = answering();
+    await run(SAMPLES_NEAR_LANDFILLS, on);
+    expect(on.calls.every((c) => c.options.retry !== false)).toBe(true);
+  });
+
+  it('sends a query refused in an earlier run instead of going straight to slices', async () => {
+    const fake = refusingWhole(30);
+    await run(SAMPLES_NEAR_LANDFILLS, fake); // chunking on: refused, remembered, split
+    fake.calls.length = 0;
+    await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, fake);
+    expect(fake.calls.map((c) => projected(c.query))).toEqual(['spC']);
+  });
+
+  it('fails the run when an optional step (stream lines) is refused', async () => {
+    const result = await runWithoutChunking(SAMPLES_DOWNSTREAM_OF_LANDFILLS, tracing(2));
+
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') return;
+    expect(result.failedAtStep).toBe(2);
+    expect(result.chunkingOff).toBe(true);
+  });
+
+  it('fails the run when one request-size batch is refused, and sends no more batches', async () => {
+    const fake = withSamples(manySamples(2500), (call) => (pinned(call.query, 'sp')[0] === 'http://ex.org/sp/1000' ? refuse() : undefined));
+    const result = await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, fake);
+
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') return;
+    expect(result.failedAtStep).toBe(2);
+    expect((result.error as SparqlError).kind).toBe('timeout');
+    // Batch 1 answered, batch 2 was refused, batch 3 was never sent.
+    expect(fake.calls.filter((c) => c.query.includes('VALUES ?sp {'))).toHaveLength(2);
+  });
+
+  it('fails the run on a failure that is not a refusal, where chunking on keeps the rest', async () => {
+    const networkOnBatch2 = () =>
+      withSamples(manySamples(2500), (call) =>
+        pinned(call.query, 'sp')[0] === 'http://ex.org/sp/1000' ? (() => { throw new SparqlError('network', 0, 'fetch failed'); })() : undefined,
+      );
+
+    const off = await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, networkOnBatch2());
+    expect(off.status).toBe('error');
+    if (off.status !== 'error') return;
+    expect((off.error as SparqlError).kind).toBe('network');
+    expect(off.chunkingOff).toBe(true);
+
+    const on = await run(SAMPLES_NEAR_LANDFILLS, networkOnBatch2());
+    expect(on.status).toBe('success');
+    if (on.status !== 'success') return;
+    expect(on.partial).toEqual([{ step: 'Loading details for samples', failed: ['batch 2'], skipped: [] }]);
+  });
+
+  it('sends every batch however long the step takes, where chunking on stops at 300s', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      // Six batches, each taking 120s: past the 300s step limit after three.
+      const slow = () =>
+        withSamples(manySamples(6000), () => {
+          vi.setSystemTime(Date.now() + 120_000);
+          return undefined;
+        });
+
+      const off = await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, slow());
+      expect(off.status).toBe('success');
+      if (off.status !== 'success') return;
+      expect(off.partial).toBeUndefined();
+
+      const on = await run(SAMPLES_NEAR_LANDFILLS, slow());
+      expect(on.status).toBe('success');
+      if (on.status !== 'success') return;
+      expect(on.partial?.[0].skipped).toEqual(['batch 4', 'batch 5', 'batch 6']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('still sends a long IRI list in request-size batches', async () => {
+    const fake = withSamples(manySamples(2500), () => undefined);
+    const result = await runWithoutChunking(SAMPLES_NEAR_LANDFILLS, fake);
+
+    expect(result.status).toBe('success');
+    const sampleDetails = fake.calls.filter((c) => c.query.includes('VALUES ?sp {'));
+    expect(sampleDetails.map((c) => pinned(c.query, 'sp').length)).toEqual([1000, 1000, 500]);
+  });
+
+  it('is on when not set', async () => {
+    const result = await run(SAMPLES_NEAR_LANDFILLS, refusingWhole(30));
+    expect(result.status).toBe('success');
   });
 });

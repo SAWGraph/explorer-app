@@ -4,7 +4,7 @@ import type { EndpointKey } from './constants/endpoints';
 import type { PipelineStep, PipelineContext } from './planner';
 import type { Scope } from './slicing';
 import { executeSparql, type SparqlRunner } from './endpoint';
-import { SparqlError, isSplittable, stepEmptyMessage, stepFailedMessage } from './errors';
+import { type SparqlError, splittingWouldHelp, stepEmptyMessage, stepFailedMessage } from './errors';
 import { foundIris, sliceMerger } from './merge';
 
 export interface PartialFailure {
@@ -49,6 +49,9 @@ export interface PipelineError {
   message: string;
   error: Error;
   queries?: SentQuery[];
+  // Set when the run had chunking on refusal off: it stopped at the first
+  // failure, without retrying or splitting (errors.ts says so).
+  chunkingOff?: true;
 }
 
 export type PipelineResult = PipelineSuccess | PipelineEmpty | PipelineError;
@@ -99,6 +102,8 @@ interface StepOutcome {
   failedScopes: string[];
   skippedScopes: string[];
   lastError?: SparqlError | Error;
+  // With chunking off: the first failure, at which the step stopped.
+  stoppedAt?: SparqlError | Error;
 }
 
 // Runs one step, slicing it up if the engine refuses the whole thing.
@@ -114,6 +119,7 @@ async function runStep(
   record: (sent: Omit<SentQuery, 'step' | 'description' | 'endpoint'>) => void,
   signal: AbortSignal | undefined,
   sparql: SparqlRunner,
+  chunkOnRefusal: boolean,
 ): Promise<StepOutcome> {
   const knownTooLarge = knownTooLargeFor(sparql);
   const startedAt = Date.now();
@@ -122,6 +128,7 @@ async function runStep(
   const failedScopes: string[] = [];
   const skippedScopes: string[] = [];
   let lastError: SparqlError | Error | undefined;
+  let stoppedAt: SparqlError | Error | undefined;
   let done = 0;
 
   while (queue.length > 0) {
@@ -129,8 +136,9 @@ async function runStep(
     const scope = queue.shift()!;
 
     // Out of budget. Record the rest as skipped (not failed) and keep what we
-    // have — those slices were never refused, just never reached.
-    if (Date.now() - startedAt > STEP_CEILING_MS) {
+    // have: those slices were never refused, just never reached. With chunking
+    // off there is no budget: every batch is sent, each with its own 60s.
+    if (chunkOnRefusal && Date.now() - startedAt > STEP_CEILING_MS) {
       skippedScopes.push(
         ...[scope, ...queue].map((s, i) => s?.label ?? `remaining slice ${i + 1}`),
       );
@@ -142,7 +150,7 @@ async function runStep(
 
     const query = step.buildQuery(context, scope);
 
-    if (!scope && knownTooLarge.has(query) && step.divide) {
+    if (chunkOnRefusal && !scope && knownTooLarge.has(query) && step.divide) {
       const smaller = await step.divide(context, undefined, sparql);
       if (smaller?.length) {
         queue.unshift(...smaller);
@@ -151,7 +159,7 @@ async function runStep(
     }
 
     try {
-      const result = await sparql(step.endpoint, query, { cache: step.cache, signal });
+      const result = await sparql(step.endpoint, query, { cache: step.cache, signal, retry: chunkOnRefusal });
       record({ scope: scope?.label, query });
       merged.add(result);
       done++;
@@ -161,7 +169,14 @@ async function runStep(
       const error = err instanceof Error ? err : new Error(String(err));
       lastError = error;
       record({ scope: scope?.label, query, error: error.message });
-      const splittable = error instanceof SparqlError && isSplittable(error.kind);
+      // With chunking off the step stops at its first failure, whatever it is:
+      // the run shows that error instead of a partial answer.
+      if (!chunkOnRefusal) {
+        stoppedAt = error;
+        failedScopes.push(scope?.label ?? 'whole query');
+        break;
+      }
+      const splittable = splittingWouldHelp(error);
       if (splittable && !scope) knownTooLarge.add(query);
       const smaller = splittable ? await step.divide?.(context, scope, sparql) : null;
 
@@ -176,20 +191,31 @@ async function runStep(
   }
 
   report(done, done);
-  return { rows: merged.rows, failedScopes, skippedScopes, lastError };
+  return { rows: merged.rows, failedScopes, skippedScopes, lastError, stoppedAt };
+}
+
+export interface ExecuteOptions {
+  // Each step as it starts, splits and finishes.
+  onProgress?: (progress: StepProgress) => void;
+  // Cancels the run. It then rejects with the abort reason instead of
+  // resolving, so a cancelled run never produces a result to show.
+  signal?: AbortSignal;
+  // Where every request goes. QLever over HTTP unless a caller (a test) swaps
+  // in its own.
+  endpoint?: SparqlRunner;
+  // Work around what the endpoint refuses: retry a timeout once, split a query
+  // that was too big, stop a step after 300s keeping what it has. Off: the run
+  // answers completely or shows the first error, from any step. Request-size
+  // batches stay on either way. Default on.
+  chunkOnRefusal?: boolean;
 }
 
 export async function executePipeline(
   steps: PipelineStep[],
   question: AnalysisQuestion,
-  onProgress: (progress: StepProgress) => void,
-  // Cancels the run. It then rejects with the abort reason instead of
-  // resolving, so a cancelled run never produces a result to show.
-  signal?: AbortSignal,
-  // Where every request goes. QLever over HTTP unless a caller (a test) swaps
-  // in its own.
-  sparql: SparqlRunner = executeSparql,
+  options: ExecuteOptions = {},
 ): Promise<PipelineResult> {
+  const { onProgress = () => {}, signal, endpoint: sparql = executeSparql, chunkOnRefusal = true } = options;
   const context: PipelineContext = {
     question,
     targetIris: [],
@@ -217,6 +243,7 @@ export async function executePipeline(
         (sent) => queries.push({ step: i, description: step.description, endpoint: step.endpoint, ...sent }),
         signal,
         sparql,
+        chunkOnRefusal,
       );
     } catch (err) {
       signal?.throwIfAborted();
@@ -227,6 +254,20 @@ export async function executePipeline(
         message: stepFailedMessage(step.description),
         error: err instanceof Error ? err : new Error(String(err)),
         queries,
+      };
+    }
+
+    // With chunking off the run answers completely or shows the first error:
+    // any failure, in any step (optional ones too), fails it.
+    if (outcome.stoppedAt) {
+      onProgress({ ...base, status: 'failed' });
+      return {
+        status: 'error',
+        failedAtStep: i,
+        message: stepFailedMessage(step.description),
+        error: outcome.stoppedAt,
+        queries,
+        chunkingOff: true,
       };
     }
 

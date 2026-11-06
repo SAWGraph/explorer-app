@@ -4,6 +4,14 @@ import type { PipelineResult } from '../../engine/executor';
 import { runQuestion } from '../../engine/run';
 import { fetchCachedResult } from '../api/resultCacheClient';
 
+// Retry and split what the endpoint refuses (default on). Set
+// VITE_CHUNK_ON_REFUSAL=false at build time, e.g. in the Railway development
+// environment, to see refusals as errors instead. Read here because the engine
+// is headless and takes it as a run option; read per run so a test can set it.
+function chunkOnRefusal(): boolean {
+  return String(import.meta.env.VITE_CHUNK_ON_REFUSAL ?? '').trim().toLowerCase() !== 'false';
+}
+
 export function useQueryPipeline() {
   const {
     question,
@@ -38,7 +46,7 @@ export function useQueryPipeline() {
         return cached.result;
       }
 
-      const result = await runQuestion(question, { onProgress: addStepProgress, signal });
+      const result = await runQuestion(question, { onProgress: addStepProgress, signal, chunkOnRefusal: chunkOnRefusal() });
       setPipelineResult(result);
       setResultProvenance(null);
       return result;
