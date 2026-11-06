@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { executeSparql } from '../../engine/sparqlClient';
+import { executeSparql } from '../../engine/endpoint';
 import type { SparqlRow } from '../../engine/types/sparql';
 import {
   buildDiscoverIndustriesQuery,

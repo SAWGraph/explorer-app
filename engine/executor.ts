@@ -2,9 +2,10 @@ import type { AnalysisQuestion } from './types/query';
 import type { SparqlRow } from './types/sparql';
 import type { EndpointKey } from './constants/endpoints';
 import type { PipelineStep, PipelineContext } from './planner';
-import type { Scope } from './scope';
-import { executeSparql, type SparqlRunner } from './sparqlClient';
+import type { Scope } from './slicing';
+import { executeSparql, type SparqlRunner } from './endpoint';
 import { SparqlError, isSplittable, stepEmptyMessage, stepFailedMessage } from './errors';
+import { foundIris, sliceMerger } from './merge';
 
 export interface PartialFailure {
   step: string;
@@ -74,7 +75,7 @@ export interface StepProgress {
 // up before reaching the slices that had the answer.
 //
 // Every slice gets attempted; only the total is bounded. With a 60s cap per
-// request (sparqlClient) that admits up to ~5 slices of pure failure before
+// request (endpoint.ts) that admits up to ~5 slices of pure failure before
 // stopping, which is enough for every shape measured in docs/QUERY-MATRIX.md.
 const STEP_CEILING_MS = 300_000;
 
@@ -117,8 +118,7 @@ async function runStep(
   const knownTooLarge = knownTooLargeFor(sparql);
   const startedAt = Date.now();
   const queue: (Scope | undefined)[] = step.initialScopes?.(context) ?? [undefined];
-  const rows: SparqlRow[] = [];
-  const seen = new Set<string>();
+  const merged = sliceMerger();
   const failedScopes: string[] = [];
   const skippedScopes: string[] = [];
   let lastError: SparqlError | Error | undefined;
@@ -153,16 +153,7 @@ async function runStep(
     try {
       const result = await sparql(step.endpoint, query, { cache: step.cache, signal });
       record({ scope: scope?.label, query });
-      // Slices can overlap — the same river reach is reached from several
-      // anchors — so merge as a set. Whole-row identity is the right key: for
-      // aggregate rows the GROUP BY key never spans slices (chunking always
-      // follows that key), so identical rows are genuine duplicates.
-      for (const row of result) {
-        const key = JSON.stringify(row);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        rows.push(row);
-      }
+      merged.add(result);
       done++;
     } catch (err) {
       // A cancelled run is not a failed slice: stop, record nothing.
@@ -185,7 +176,7 @@ async function runStep(
   }
 
   report(done, done);
-  return { rows, failedScopes, skippedScopes, lastError };
+  return { rows: merged.rows, failedScopes, skippedScopes, lastError };
 }
 
 export async function executePipeline(
@@ -263,9 +254,7 @@ export async function executePipeline(
     context.results[step.type] = results;
 
     if (step.type === 'FIND_TARGET_IRIS') {
-      const iris = new Set<string>();
-      for (const r of results) if (r.iri) iris.add(r.iri);
-      context.targetIris = [...iris];
+      context.targetIris = foundIris(results);
 
       if (context.targetIris.length === 0) {
         onProgress({ ...base, status: 'done', resultCount: 0 });
@@ -279,9 +268,7 @@ export async function executePipeline(
     }
 
     if (step.type === 'FIND_ANCHOR_IRIS') {
-      const iris = new Set<string>();
-      for (const r of results) if (r.iri) iris.add(r.iri);
-      context.anchorIris = [...iris];
+      context.anchorIris = foundIris(results);
     }
 
     // Hydrate results are aliased into the legacy keys that useMapLayers

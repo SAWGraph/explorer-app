@@ -47,10 +47,10 @@ Questions execute through a pipeline:
 1. **Planner** (`planner.ts`) — converts AnalysisQuestion → array of PipelineStep
 2. **Executor** (`executor.ts`) — runs steps sequentially, threading the entity IRIs the discovery steps found (`targetIris` / `anchorIris`) between steps. Early-exits if any step yields empty results. S2 cells are not carried between steps: they used to be, but since the fused-query refactor they are variables inside a single query (see `explorer/docs/ARCHITECTURE.md`, Key Design Decision 2).
 3. **Templates** (`templates/`): SPARQL query builders per spatial operation; what each entity type contributes (its IRI variable, cell bind, filters, region check, how its details load) lives in `entities/`, one module per type. All spatial joins use **S2 Level 13 cells** as the bucketing mechanism.
-4. **sparqlClient.ts** — executes SPARQL against remote endpoints, transforms bindings to flat rows
-5. **resultTransformer.ts** — converts SPARQL rows to `MapFeature[]` by parsing WKT geometries; deduplicates by URI
+4. **endpoint.ts**: executes SPARQL against remote endpoints, transforms bindings to flat rows
+5. **shape.ts**: converts SPARQL rows to `MapFeature[]` by parsing WKT geometries; deduplicates by URI
 
-A query the endpoint refuses (timeout, out of memory, payload too large) is split into smaller slices and merged (`scope.ts`); `errors.ts` classifies the failure, decides retry or split, and words the failed, empty and incomplete-result messages.
+A query the endpoint refuses (timeout, out of memory, payload too large) is split into smaller slices and merged (`slicing.ts`); `errors.ts` classifies the failure, decides retry or split, and words the failed, empty and incomplete-result messages.
 
 ### Result Cache and API (`server/`)
 

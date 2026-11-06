@@ -16,7 +16,7 @@
 import assert from 'node:assert/strict';
 import { it } from 'vitest';
 import { planPipeline, type PipelineContext } from '../planner';
-import type { SparqlRunner } from '../sparqlClient';
+import type { SparqlRunner } from '../endpoint';
 import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../types/query';
 
 // Dividing must not need the graph here; a probe would fail the test.

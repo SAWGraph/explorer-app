@@ -8,7 +8,7 @@ import {
   transformWellsToFeatures,
   transformFlowlinesToFeatures,
   transformRegionBoundaries,
-} from '../../engine/resultTransformer';
+} from '../../engine/shape';
 
 export interface MapLayerData {
   samples: MapFeature[];

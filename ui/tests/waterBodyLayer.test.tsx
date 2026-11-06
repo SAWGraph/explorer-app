@@ -10,7 +10,7 @@ import { cleanup, render } from '@testing-library/react';
 import { MapContainer } from 'react-leaflet';
 import L from 'leaflet';
 import type { SparqlRow } from '../../engine/types/sparql';
-import { transformWaterBodiesToFeatures } from '../../engine/resultTransformer';
+import { transformWaterBodiesToFeatures } from '../../engine/shape';
 import { WaterBodyLayer } from '../components/Map/WaterBodyLayer';
 import { MapPanes } from '../components/Map/ResultsMap';
 

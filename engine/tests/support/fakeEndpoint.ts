@@ -6,7 +6,7 @@
 // a query (a 429 whose body says it timed out), through the real classifier,
 // so the executor reacts as it would in production.
 import type { EndpointKey } from '../../constants/endpoints';
-import type { SparqlOptions, SparqlRunner } from '../../sparqlClient';
+import type { SparqlOptions, SparqlRunner } from '../../endpoint';
 import { SparqlError, classifySparqlFailure, extractSparqlDetail } from '../../errors';
 import type { SparqlRow } from '../../types/sparql';
 

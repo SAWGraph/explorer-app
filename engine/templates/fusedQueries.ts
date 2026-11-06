@@ -1,6 +1,8 @@
 import { PREFIXES } from '../constants/prefixes';
-import type { EntityBlock, SpatialRelationship } from '../types/query';
+import type { EntityBlock } from '../types/query';
 import { entityFor, streamFtypeFilter } from '../entities';
+import { leadSide } from '../sides';
+import type { QuestionKind } from '../question';
 import { wrapUri } from './samples';
 
 // What a block's type knows (its IRI variable, how it binds inside a cell, its
@@ -26,7 +28,7 @@ export function buildEntityProbeQuery(
 ): string {
   const entityVar = iriVarOf(block, 'P');
   // `false`, like the IRI-finding queries: the probe lists entity IRIs, and the
-  // list it returns becomes the chunk membership (engine/scope.ts). A
+  // list it returns becomes the chunk membership (engine/slicing.ts). A
   // narrowing join here removes entities from every slice, so the probe has to
   // see exactly what discovery sees.
   const bind = bindInCell(block, '?s2probe', 'P', false);
@@ -87,7 +89,7 @@ interface FusedBodyOpts extends FusedBaseOpts {
   // trace needs no direction.
   mode: 'near' | 'downstream';
   hops?: number;
-  // Chunk pins (engine/scope.ts). Restricting one side to a known slice of
+  // Chunk pins (engine/slicing.ts). Restricting one side to a known slice of
   // IRIs is what makes a too-large query fit inside the engine's 30s budget.
   anchorIris?: string[];
   targetIris?: string[];
@@ -248,7 +250,12 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   // shape whose constrained side was the target failed before this (MD in
   // docs/query-matrix): timeouts in query planning, or 4.3 GB allocation
   // failures. Reordered, the same three shapes answer in seconds.
-  if (sideNarrowness(opts, 'target') > sideNarrowness(opts, 'anchor')) {
+  // Which side leads is the Assess stage's call (engine/sides.ts).
+  const lead = leadSide(
+    { block: opts.anchor, region: opts.anchorRegion, pins: opts.anchorIris },
+    { block: opts.target, region: opts.targetRegion, pins: opts.targetIris },
+  );
+  if (lead === 'target') {
     // The target's own entity and filters come first, then the hop onto the
     // river network. A streams target *is* the flowline, so it needs no hop.
     const targetHead =
@@ -283,36 +290,6 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   return `${seed}
       ${trace}
       ${targetPin}${targetPart}`;
-}
-
-// A side is constrained when the question already narrows it: a region, any
-// entity filter, or an IRI pin from chunking. Unconstrained means "every
-// facility in the graph", which is the side that must not lead the query.
-// How narrow a side is, not whether it is narrowed at all. The seed walks
-// outward from whichever side leads, so the question is always which of the two
-// is *smaller*, and a boolean cannot answer it: an industry filter with no
-// region says "constrained" while meaning every sewage plant in the country.
-// Answering the boolean is what made "facilities upstream from PFOS samples in
-// York" fail the moment an industry filter was added to block A, after the same
-// question had just been fixed without one.
-//
-//   3  an IRI pin. The executor chose this slice; re-seeding from the other
-//      side would throw the slice away.
-//   2  a region. Bounded by geography at any level, and the graph is indexed
-//      for it.
-//   1  an entity filter only. Selective in kind, unbounded in extent.
-//   0  nothing.
-//
-// Ties keep the anchor-first order, so this only ever changes cases where both
-// sides are constrained at different levels. Every shape where one side was
-// constrained and the other was not keeps the order it had.
-function sideNarrowness(opts: FusedBodyOpts, side: 'anchor' | 'target'): 0 | 1 | 2 | 3 {
-  const block = side === 'anchor' ? opts.anchor : opts.target;
-  const region = side === 'anchor' ? opts.anchorRegion : opts.targetRegion;
-  const pins = side === 'anchor' ? opts.anchorIris : opts.targetIris;
-  if (pins?.length) return 3;
-  if (region?.length) return 2;
-  return entityFor(block.type).isFiltered(block) ? 1 : 0;
 }
 
 export interface FusedBaseOpts {
@@ -418,7 +395,10 @@ export interface FusedWellSideOpts extends FusedBaseOpts {
   // already oriented, so a trace runs downstream from the anchor like discovery
   // (re-deriving the direction here is what once made the well layer disagree
   // with the IRIs discovery had found).
-  relationship: SpatialRelationship;
+  kind: QuestionKind;
+  // Hops for a near question, the distance cap for a bounded trace.
+  hops?: number;
+  maxDistanceKm?: number;
   wellSide: 'anchor' | 'target';
 }
 
@@ -434,9 +414,9 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
     target: opts.target,
     anchorRegion: opts.anchorRegion,
     targetRegion: opts.targetRegion,
-    mode: opts.relationship.type === 'near' ? 'near' : 'downstream',
-    hops: opts.relationship.hops,
-    maxDistanceKm: opts.relationship.maxDistanceKm,
+    mode: opts.kind === 'near' ? 'near' : 'downstream',
+    hops: opts.hops,
+    maxDistanceKm: opts.maxDistanceKm,
   });
   const suffix = opts.wellSide === 'anchor' ? 'A' : 'C';
   const wellVar = `?well${suffix}`;

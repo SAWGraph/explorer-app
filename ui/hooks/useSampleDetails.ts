@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { executeSparql } from '../../engine/sparqlClient';
+import { executeSparql } from '../../engine/endpoint';
 import { buildSampleDetailsByIri } from '../../engine/templates/hydrate';
-import { buildSamplePointDetail } from '../../engine/resultTransformer';
+import { buildSamplePointDetail } from '../../engine/shape';
 import type { SamplePointDetail } from '../../engine/types/map';
 import type { SampleFilters } from '../../engine/types/query';
 

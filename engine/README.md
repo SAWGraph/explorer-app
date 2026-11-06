@@ -16,16 +16,19 @@ import the engine; the engine never imports the UI.
 
 | What | Where |
 |---|---|
-| Which block is the anchor (trace start) and which the target | `normalise(question)` in `question.ts`. Every trace runs downstream from the anchor |
+| Which block is the anchor (trace start) and which the target, and near or trace | `normalise(question)` in `question.ts`. Every trace runs downstream from the anchor |
+| How narrow a side is, and which side a trace starts from | `sideRank(side)`, `leadSide(anchor, target)` in `sides.ts` |
+| Splitting a step | `slicing.ts`: `iriScopes`, `divideIriList`, `irisFor` (by-IRI steps), `divideDiscovery`, `chooseAxis`, `refineRegionScope`, `halve` (discovery) |
+| Combining what the slices returned | `sliceMerger()`, `foundIris(rows)` in `merge.ts` |
 | Question to pipeline steps | `planPipeline(question)` in `planner.ts` |
 | Run the steps | `executePipeline(steps, question, onProgress, signal?, sparql?)` in `executor.ts`. `sparql` is where every request goes, probes included: `executeSparql` unless a test passes its own |
-| Rows to map features | `transform*ToFeatures(rows)` in `resultTransformer.ts` |
+| Rows to map features | `transform*ToFeatures(rows)` in `shape.ts` |
 | The question as a sentence | `generateQuestion(question, totals?)` in `questionGenerator.ts` |
 | Result-cache key | `cacheKey(question)` in `cacheKey.ts` |
 | A result as stored in the cache | `toWire` / `fromWire` in `wire.ts` |
 | Error messages for a run | `outcomeMessage(result, question)` (failed or empty, shown by the progress strip) and `partialNotice(result, question)` (incomplete) in `errors.ts`, which also classifies what the endpoint refused. The edit modal still words its Apply error itself (Phase 1) |
 | Warning for questions that reliably fail | `assessQueryBreadth(question)` in `queryBreadth.ts` |
-| One raw SPARQL request | `executeSparql(endpoint, query, options?)` in `sparqlClient.ts`, the production `SparqlRunner` |
+| One raw SPARQL request | `executeSparql(endpoint, query, options?)` in `endpoint.ts`, the production `SparqlRunner` |
 | What one entity type contributes to a query | `entityFor(type)` in `entities/`: IRI variable, cell bind with filters, region check, how its details load, whether it is a flowline, its label, and `describe(block, totals)` for the question sentence |
 | SPARQL builders, dropdown discovery queries | `templates/` |
 | The question, row and feature types | `types/` |

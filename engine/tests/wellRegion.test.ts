@@ -11,7 +11,7 @@ import {
   buildFusedNearQuery,
   buildFusedWellQuery,
 } from '../templates/fusedQueries';
-import { executeSparql } from '../sparqlClient';
+import { executeSparql } from '../endpoint';
 import type { EntityBlock } from '../types/query';
 
 const HANCOCK = ['23009'];
@@ -68,7 +68,7 @@ describe('a region on wells checks the well', () => {
   it('in well hydration', () => {
     const q = buildFusedWellQuery({
       anchor: waterBodies, target: wells, targetRegion: HANCOCK,
-      relationship: { type: 'near', hops: 0 }, wellSide: 'target',
+      kind: 'near', hops: 0, wellSide: 'target',
     });
     expect(checksWell(q, '?wellC')).toBe(true);
   });

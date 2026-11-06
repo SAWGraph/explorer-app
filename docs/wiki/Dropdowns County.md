@@ -71,7 +71,7 @@ Androscoggin, Aroostook, Cumberland.
 * The query text is built by
   [`buildDiscoverCountiesQuery()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts#L3).
 * It runs through
-  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/sparqlClient.ts#L4)
+  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/engine/endpoint.ts)
   against the `spatialkg` URL in
   [`endpoints.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/endpoints.ts).
 * The state list feeding it is static, `ALL_US_STATES` and `AVAILABLE_STATE_FIPS` in

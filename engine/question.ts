@@ -13,7 +13,14 @@ import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from './types
 // needs a direction. Deciding it here, once, is the point: working it out again
 // elsewhere is how "upstream" once answered the mirror question
 // (docs/DEBUGGING.md, 2026-09-16) and how step labels named the wrong block.
+// A near question joins neighbouring cells; a trace follows the river network.
+export type QuestionKind = 'near' | 'trace';
+
 export interface NormalisedQuestion {
+  // `within` is in the type but never offered; the planner has always built it
+  // as a trace, so it counts as one here. (cacheKey.ts still treats it as near
+  // when it fills in default hops; changing that would change cache keys.)
+  kind: QuestionKind;
   relationship: SpatialRelationship;
   anchor: EntityBlock;
   target: EntityBlock;
@@ -31,6 +38,7 @@ export function normalise(question: AnalysisQuestion): NormalisedQuestion {
   const anchor = anchorIsA ? blockA : blockC;
   const target = anchorIsA ? blockC : blockA;
   return {
+    kind: relationship.type === 'near' ? 'near' : 'trace',
     relationship,
     anchor,
     target,

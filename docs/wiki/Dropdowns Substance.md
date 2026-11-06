@@ -139,7 +139,7 @@ all of them named, none falling through to a DTXSID.
   and the region part by
   [`buildSamplePointRegionPattern()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts#L46).
 * It runs through
-  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/sparqlClient.ts#L4),
+  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/engine/endpoint.ts),
   against the URLs in
   [`endpoints.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/endpoints.ts).
 * Prefixes come from

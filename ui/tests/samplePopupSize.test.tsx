@@ -14,7 +14,7 @@ import { SampleLayer } from '../components/Map/SampleLayer';
 import { MapPanes } from '../components/Map/ResultsMap';
 
 let resolveRows: (rows: SparqlRow[]) => void = () => {};
-vi.mock('../../engine/sparqlClient', () => ({
+vi.mock('../../engine/endpoint', () => ({
   executeSparql: () => new Promise<SparqlRow[]>((r) => { resolveRows = r; }),
 }));
 

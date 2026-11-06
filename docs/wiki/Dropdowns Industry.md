@@ -103,7 +103,7 @@ some labels carry trailing whitespace straight from the source data.
 * The query text is built by
   [`buildDiscoverIndustriesQuery()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts#L32).
 * It runs through
-  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/sparqlClient.ts#L4)
+  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/engine/endpoint.ts)
   against the `fiokg` URL in
   [`endpoints.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/endpoints.ts).
 * The fallback list is

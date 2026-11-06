@@ -1,5 +1,5 @@
 // The substance naming rule and the popup's per-substance grouping
-// (engine/constants/substances.ts, engine/resultTransformer.ts).
+// (engine/constants/substances.ts, engine/shape.ts).
 //
 // Both are silent when wrong. A drifting naming rule shows the same substance
 // as "10-H-Perfluorodecanoic acid" in the filter dropdown and as a bare
@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 import { substanceLabel, resolveRetired } from '../constants/substances';
-import { buildSamplePointDetail } from '../resultTransformer';
+import { buildSamplePointDetail } from '../shape';
 import type { SparqlRow } from '../types/sparql';
 
 const PFDA = 'http://w3id.org/DSSTox/v1/DTXSID10630918';

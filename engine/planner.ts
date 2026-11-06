@@ -9,16 +9,9 @@ import {
   buildFusedWellQuery,
 } from './templates/fusedQueries';
 import { buildRegionBoundaryQuery } from './templates/spatial';
-import type { SparqlRunner } from './sparqlClient';
-import { normalise } from './question';
-import {
-  chooseAxis,
-  refineRegionScope,
-  halve,
-  chunk,
-  IRI_CHUNK,
-  type Scope,
-} from './scope';
+import type { SparqlRunner } from './endpoint';
+import { normalise, type QuestionKind } from './question';
+import { divideDiscovery, divideIriList, irisFor, iriScopes, scopedRegions, type Scope } from './slicing';
 
 // Reads the way the user chose it: these are the three labels in
 // RELATIONSHIP_TYPES (ui/components/QueryEditor/RelationshipSelector.tsx).
@@ -72,6 +65,7 @@ export interface PipelineContext {
 interface FusedContext {
   anchorBlock: EntityBlock;
   targetBlock: EntityBlock;
+  kind: QuestionKind;
   relationship: AnalysisQuestion['relationship'];
   anchorRegion?: string[];
   targetRegion?: string[];
@@ -105,7 +99,9 @@ function hydrateStep(
         buildFusedWellQuery({
           anchor: fused.anchorBlock,
           target: fused.targetBlock,
-          relationship: fused.relationship,
+          kind: fused.kind,
+          hops: fused.relationship.hops,
+          maxDistanceKm: fused.relationship.maxDistanceKm,
           anchorRegion: fused.anchorRegion,
           targetRegion: fused.targetRegion,
           wellSide: side === 'target' ? 'target' : 'anchor',
@@ -128,41 +124,6 @@ function hydrateStep(
   };
 }
 
-// Splitting a by-IRI step. With a scope in hand we halve it; without one the
-// step ran the full list in a single request (under IRI_CHUNK), so halve that
-// list instead of giving up.
-function divideIriList(
-  scope: Scope | undefined,
-  allIris: string[],
-  side: 'target' | 'anchor',
-): Scope[] | null {
-  if (scope) return halve(scope);
-  if (allIris.length < 2) return null;
-  return halve({
-    label: 'all',
-    ...(side === 'target' ? { targetIris: allIris } : { anchorIris: allIris }),
-  });
-}
-
-// The IRIs a by-IRI step should hydrate: the chunk's slice when running a chunk,
-// otherwise everything the discovery step found.
-function irisFor(
-  ctx: PipelineContext,
-  scope: Scope | undefined,
-  side: 'target' | 'anchor',
-): string[] {
-  const scoped = side === 'target' ? scope?.targetIris : scope?.anchorIris;
-  return scoped ?? (side === 'target' ? ctx.targetIris : ctx.anchorIris);
-}
-
-function iriScopes(iris: string[], side: 'target' | 'anchor'): Scope[] | undefined {
-  if (iris.length <= IRI_CHUNK) return undefined;
-  return chunk(iris, IRI_CHUNK).map((slice, i) => ({
-    label: `batch ${i + 1}`,
-    ...(side === 'target' ? { targetIris: slice } : { anchorIris: slice }),
-  }));
-}
-
 function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   const { blockA, blockC } = question;
 
@@ -175,15 +136,6 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
 
   const steps: PipelineStep[] = [];
 
-  // A scope narrows one side of the question: either to a slice of IRIs, or to
-  // a subset of the region that side was already filtered to.
-  const scopedRegions = (scope?: Scope) => ({
-    anchorRegion:
-      scope?.regionSide === 'anchor' ? scope.regionCodes : anchorRegion,
-    targetRegion:
-      scope?.regionSide === 'target' ? scope.regionCodes : targetRegion,
-  });
-
   const buildIriQuery = (project: 'target' | 'anchor', scope?: Scope): string => {
     const shared = {
       anchor: anchorBlock,
@@ -191,9 +143,9 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
       project,
       anchorIris: scope?.anchorIris,
       targetIris: scope?.targetIris,
-      ...scopedRegions(scope),
+      ...scopedRegions(scope, anchorRegion, targetRegion),
     };
-    if (relationship.type === 'near') {
+    if (oriented.kind === 'near') {
       return buildFusedNearQuery({ ...shared, hops: relationship.hops ?? 1 });
     }
     return buildFusedHydrologyQuery({
@@ -202,27 +154,14 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     });
   };
 
-  // Splitting a discovery query: halve a slice we already have, otherwise work
-  // out which side can be enumerated (see chooseAxis in scope.ts).
-  const axisContext = {
+  // Splitting a discovery query is the Slice stage's call (slicing.ts).
+  const divideFound = divideDiscovery({
     anchorBlock,
     targetBlock,
     anchorRegion,
     targetRegion,
-    endpoint: 'federation' as const,
-  };
-
-  const divideDiscovery = async (
-    _ctx: PipelineContext,
-    scope: Scope | undefined,
-    sparql: SparqlRunner,
-  ) => {
-    const axis = { ...axisContext, sparql };
-    if (!scope) return chooseAxis(axis);
-    // Halve what we have; when a region slice is down to one county and still
-    // fails, switch axis and chunk the targets inside it.
-    return halve(scope) ?? refineRegionScope(axis, scope);
-  };
+    endpoint: 'federation',
+  });
 
   // Both discovery steps are one fused query that resolves block A and block C
   // together, so a label naming only one side reads as though the other had not
@@ -244,21 +183,21 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
     endpoint: 'federation',
     description: oriented.targetIs === 'A' ? findingA : findingC,
     buildQuery: (_ctx, scope) => buildIriQuery('target', scope),
-    divide: divideDiscovery,
+    divide: divideFound,
   });
   steps.push({
     type: 'FIND_ANCHOR_IRIS',
     endpoint: 'federation',
     description: oriented.targetIs === 'A' ? findingC : findingA,
     buildQuery: (_ctx, scope) => buildIriQuery('anchor', scope),
-    divide: divideDiscovery,
+    divide: divideFound,
   });
 
   // Supporting stream layer. Skipped when a side is already streams — those
   // flowlines come back as the answer set and would be drawn twice.
   const streamsAreAnswer =
     entityFor(targetBlock.type).isFlowline || entityFor(anchorBlock.type).isFlowline;
-  if (relationship.type !== 'near' && !streamsAreAnswer) {
+  if (oriented.kind === 'trace' && !streamsAreAnswer) {
     steps.push({
       type: 'GET_FLOWLINE_GEOMETRIES',
       endpoint: 'federation',
@@ -283,6 +222,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   }
 
   const fusedCtx: FusedContext = {
+    kind: oriented.kind,
     anchorBlock,
     targetBlock,
     relationship,
