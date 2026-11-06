@@ -246,7 +246,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
       description: 'Loading region boundaries',
       buildQuery: () => buildRegionBoundaryQuery(stateCode),
       // County outlines never change within a session, and this step was
-      // measured at 25.5s on a cold cache (docs/QUERY-MATRIX.md 3.8).
+      // measured at 25.5s on a cold cache (docs/QUERY-SWEEP.md 3.8).
       cache: true,
       optional: true,
     });

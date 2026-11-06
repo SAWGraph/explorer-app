@@ -11,7 +11,7 @@
     "build-thumbnails": "tsx ui/scripts/build-thumbnails.mts",
     "contrast-check": "node ui/scripts/contrast-check.mjs",
     "warm-cache": "tsx scripts/ops/warm-cache.mts",
-    "query-matrix": "tsx engine/scripts/query-matrix.mts",
+    "query-sweep": "tsx engine/scripts/query-sweep.mts",
     "health-check": "tsx engine/scripts/health-check.mts",
     "flow-distance-check": "node engine/scripts/flow-distance-check.mjs",
     "test": "vitest run",

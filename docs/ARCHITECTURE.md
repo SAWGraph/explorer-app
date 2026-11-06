@@ -158,7 +158,7 @@ explorer/
 │   └── warm-questions.mts   # Same, for a JSON list of questions
 │
 │   Maintainer scripts live with what they serve: engine/scripts/ measures
-│   the engine against the live endpoints (health-check, query-matrix,
+│   the engine against the live endpoints (health-check, query-sweep,
 │   flow-distance-check); ui/scripts/ builds or audits UI assets
 │   (build-thumbnails, precompute_aquifers, contrast-check).
 │
@@ -247,7 +247,7 @@ Each step specifies:
 else; the hydrate steps take that list and fetch geometry, labels and
 measurements for exactly those entities. Keeping them apart is what stopped an
 ID-finding query from building every measurement in the state and throwing it
-away — see `docs/QUERY-MATRIX.md` Part 5.
+away — see `docs/QUERY-SWEEP.md` Part 5.
 
 **Which block seeds the trace, and which way it runs.** The templates know
 nothing about block A and block C. They take an *anchor* (the side the query
@@ -534,7 +534,7 @@ warm has been measured on the same query.
 broad NAICS, no substance filter is a combination that reliably fails, and the
 editor warns rather than spending 30 s proving it.
 
-**The measurements for all of this live in `docs/QUERY-MATRIX.md`** — Part 4 is
+**The measurements for all of this live in `docs/QUERY-SWEEP.md`** — Part 4 is
 the error catalogue, Parts 6 and 7 the before/after. They are not repeated here
 because they are re-measured as the graph changes.
 
@@ -653,7 +653,7 @@ That is the whole trick: "near" is `sfTouches`, and a trace is a flow-path join.
 `sampleObservations` flag. An ID-finding query needs the sample *points*; a
 detail query needs every observation on them. Serving both callers from one
 branch is what made a query to find sample IDs build every measurement in the
-state and discard it — the bug behind most of `QUERY-MATRIX.md` Part 5.
+state and discard it — the bug behind most of `QUERY-SWEEP.md` Part 5.
 
 The older `facilities.ts` and `samples.ts` are no longer whole-query builders.
 They survive as fragment helpers — `buildIndustryValues()`,
@@ -971,7 +971,7 @@ seeds is the side the question filtered. See the anchor/target table under
 
 - **`docs/SCHEMA.md`** — does this predicate exist, and on what? Predicate
   inventories with triple counts, per endpoint.
-- **`docs/QUERY-MATRIX.md`** — Part 4 tells you what an HTTP status actually
+- **`docs/QUERY-SWEEP.md`** — Part 4 tells you what an HTTP status actually
   means. A 429 is almost never rate limiting.
 - **`docs/DEBUGGING.md`** — bugs already diagnosed, with their root causes.
 
@@ -1012,10 +1012,10 @@ console.log('anchor IRIs:', context.anchorIris.length);
 An empty `FIND_TARGET_IRIS` ends the run and shows "no results". That is often
 the correct answer — confirm the data exists before treating it as a bug.
 
-### 6. Run the whole matrix
+### 6. Run the whole sweep
 
-`npm run query-matrix` re-measures every query shape and writes
-`docs/query-matrix/2026-09-14-raw-baseline.csv`. Slow, but it is how a regression gets proven rather
+`npm run query-sweep` re-measures every query shape and writes
+`docs/query-sweep/2026-09-14-raw-baseline.csv`. Slow, but it is how a regression gets proven rather
 than suspected.
 
 ---

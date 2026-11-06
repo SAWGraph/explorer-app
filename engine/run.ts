@@ -8,7 +8,7 @@ import { planPipeline } from './planner';
 // default on) is the next option to arrive, in Phase 1 of the engine redesign.
 //
 // planPipeline and executePipeline stay exported for the two callers that need
-// the plan itself: the golden SPARQL snapshot, and query-matrix, which runs the
+// the plan itself: the golden SPARQL snapshot, and query-sweep, which runs the
 // first N steps of a plan to time each step on its own.
 // The executor's options (endpoint, signal, onProgress, chunkOnRefusal), and
 // later the ones only a whole run has.

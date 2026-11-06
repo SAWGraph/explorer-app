@@ -20,7 +20,7 @@ npm test             # Vitest (tests/)
 npm run preview      # Preview production build
 
 npm run health-check -- <ref>   # Run every dashboard question, record the results
-npm run query-matrix            # Re-measure every query shape (slow)
+npm run query-sweep            # Re-measure every query shape (slow)
 npm run flow-distance-check     # Bounded downstream trace vs the UC1_CQ2c notebook (live)
 npm run warm-cache              # Precompute dashboard results (needs CACHE_WRITE_TOKEN)
 npm run build-thumbnails        # Re-render prebuilt card thumbnails (live queries, ~4 min)
@@ -117,8 +117,8 @@ the answer usually contradicts the obvious guess.
 **When something is broken or slow**
 
 - `DEBUGGING.md` — bugs that have already been diagnosed, with root causes and fixes.
-- `QUERY-MATRIX.md` — every query shape the app can build, measured. Part 2 is the query space; Part 3 the baseline times; **Part 4 the error catalogue** (what each HTTP status really means — note QLever reports a 30s timeout as `429 Too Many Requests`); Part 5 the four root causes; Parts 6–7 the post-fix re-measurement; Part 8 distance-bounded traces, including which county fails and what rescues it.
-- `query-matrix/` — one CSV per sweep, named for the day it ran, with a generated `README.md` indexing them: when, which commit, how many shapes passed, what moved since last time. Run a sweep with `npm run query-matrix`, rebuild the index with `npx tsx engine/scripts/query-matrix.mts --index`.
+- `QUERY-SWEEP.md` — every query shape the app can build, measured. Part 2 is the query space; Part 3 the baseline times; **Part 4 the error catalogue** (what each HTTP status really means — note QLever reports a 30s timeout as `429 Too Many Requests`); Part 5 the four root causes; Parts 6–7 the post-fix re-measurement; Part 8 distance-bounded traces, including which county fails and what rescues it.
+- `query-sweep/` — one CSV per sweep, named for the day it ran, with a generated `README.md` indexing them: when, which commit, how many shapes passed, what moved since last time. Run a sweep with `npm run query-sweep`, rebuild the index with `npx tsx engine/scripts/query-sweep.mts --index`.
 - `health/STATUS.md` — are the dashboard questions working right now, how long they take, and whether their row counts moved. Regenerated weekly by `.github/workflows/health-check.yml`; `health/history.jsonl` is the full time series, one JSON line per question per run. **This is where you date a regression.**
 
 **The code**

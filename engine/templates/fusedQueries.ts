@@ -20,7 +20,7 @@ function pinValues(entityVar: string, iris: string[] | undefined): string {
 // Lists a block's entities inside its region, capped at `limit`. Used to decide
 // whether a side is small enough to chunk over — a bounded LIMIT probe rather
 // than COUNT, because counting Maine's unfiltered facilities took 11.0s while
-// the same listing with a filter took 0.8s (docs/QUERY-MATRIX.md).
+// the same listing with a filter took 0.8s (docs/QUERY-SWEEP.md).
 export function buildEntityProbeQuery(
   block: EntityBlock,
   regionCodes: string[] | undefined,
@@ -133,7 +133,7 @@ function fringePath(direction: 'downstream' | 'upstream', endVar: string, outVar
 // block A left wide open seeds 1,506,326 facilities and the engine gives up
 // planning the query at 30s; seeded from the 132 samples the same question
 // answers in 20s. Measured identical result sets where both forms run, and the
-// bounded answer is a strict subset of the unbounded one (docs/QUERY-MATRIX.md
+// bounded answer is a strict subset of the unbounded one (docs/QUERY-SWEEP.md
 // MD, docs/DEBUGGING.md 2026-09-20).
 //
 // The "+1" fringe always extends *away* from the seed, so which physical end
@@ -248,7 +248,7 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   // embeds its seed a second time inside an aggregate, so seeding the wide-open
   // side sums path lengths across the national flowline graph. Every bounded
   // shape whose constrained side was the target failed before this (MD in
-  // docs/query-matrix): timeouts in query planning, or 4.3 GB allocation
+  // docs/query-sweep): timeouts in query planning, or 4.3 GB allocation
   // failures. Reordered, the same three shapes answer in seconds.
   // Which side leads is the Assess stage's call (engine/sides.ts).
   const lead = leadSide(
