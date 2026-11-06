@@ -25,6 +25,7 @@ M9 county scopes, MD flow-distance bounds.
 | --- | --- | --- | --- | ---: | ---: | ---: | --- |
 | [`2026-09-14`](./2026-09-14-raw-baseline.csv) | raw-baseline | `unrecorded` | M1 to M9 | 124 | 87 | 37 | _first sweep in this mode_ |
 | [`2026-09-14`](./2026-09-14-engine.csv) | engine | `unrecorded` | M1 to M9 | 124 | 112 | 9 | _first sweep in this mode_ |
+| [`2026-11-06`](./2026-11-06-chunking-off-c13831e.csv) | chunking-off | `c13831e` | M1 to M9, MD | 156 | 110 | 46 | _first sweep in this mode_ |
 | [`2026-09-20`](./2026-09-20-raw-e84a11f.csv) | raw | `e84a11f` | MD | 32 | 12 | 20 | **2 broke** (facilities upstream(30km) samples [ME on C] step1, samples downstream(30km) facilities [ME on A] step1) |
 | [`2026-09-20`](./2026-09-20-raw-ec221d9.csv) | raw | `ec221d9` | MD | 32 | 14 | 18 | 3 fixed |
 | [`2026-09-20`](./2026-09-20-raw-002e529.csv) | raw | `002e529` | MD | 32 | 11 | 21 | _first sweep in this mode_ |
