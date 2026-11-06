@@ -128,6 +128,7 @@ explorer/
 │   ├── wire.ts              # What a cached result looks like on the wire
 │   ├── resultTransformer.ts # SPARQL rows to map features
 │   ├── questionGenerator.ts # The question as an English sentence
+│   ├── entities/            # One module per entity type: IRI variable, cell bind, filters, region check, how details load
 │   ├── templates/           # SPARQL builders (fusedQueries is the main one)
 │   ├── types/               # AnalysisQuestion, MapFeature, SPARQL rows
 │   ├── constants/           # Endpoints, prefixes, regions, substances, prebuilt queries

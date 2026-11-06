@@ -1,20 +1,13 @@
 import type { AnalysisQuestion, EntityBlock } from './types/query';
 import type { EndpointKey } from './constants/endpoints';
 import type { SparqlRow } from './types/sparql';
-import { entityTypeLabel } from './questionGenerator';
+import { entityFor } from './entities';
 import {
   buildFusedNearQuery,
   buildFusedHydrologyQuery,
   buildFusedFlowlineQuery,
   buildFusedWellQuery,
 } from './templates/fusedQueries';
-import {
-  buildFacilitiesByIri,
-  buildStreamsByIri,
-  buildWaterBodiesByIri,
-  buildSamplesByIri,
-} from './templates/hydrate';
-import { buildAquifersByIri } from './templates/aquifers';
 import { buildRegionBoundaryQuery } from './templates/spatial';
 import type { SparqlRunner } from './sparqlClient';
 import { normalise } from './question';
@@ -76,20 +69,6 @@ export interface PipelineContext {
   results: Record<string, SparqlRow[]>;
 }
 
-function entityEndpoint(block: EntityBlock): EndpointKey {
-  switch (block.type) {
-    case 'facilities':
-      return 'federation';
-    case 'samples':
-      return 'sawgraph';
-    case 'waterBodies':
-    case 'wells':
-    case 'aquifers':
-    case 'streams':
-      return 'hydrologykg';
-  }
-}
-
 interface FusedContext {
   anchorBlock: EntityBlock;
   targetBlock: EntityBlock;
@@ -104,70 +83,48 @@ function hydrateStep(
   fused: FusedContext,
 ): PipelineStep {
   const type = side === 'target' ? 'HYDRATE_TARGET_BY_IRI' : 'HYDRATE_ANCHOR_BY_IRI';
-  // Samples and wells are server-fused (re-derive their entity set inside one
-  // federated query) — statewide sets are thousands of IRIs and inlining them
-  // as VALUES makes the request body exceed the gateway limit (502/413). Other
-  // entity types stay on IRI-based hydration where the IRI list is small.
-  const endpoint =
-    block.type === 'samples' || block.type === 'wells'
-      ? 'federation'
-      : entityEndpoint(block);
+  // How a type's details load, and from where, is the entity module's to say
+  // (engine/entities/). Most load the IRIs discovery found, in request-size
+  // chunks; wells re-derive their set server-side.
+  const entity = entityFor(block.type);
+  const { details } = entity;
   // "target"/"anchor" are planner concepts, and which block they name flips
   // between relationship types, so they have no business in a user-facing
   // label. Wells are the one case where this understates the work: their step
-  // re-derives the whole set server-side (see above) rather than loading
-  // details of what discovery found. The label describes what the step
-  // delivers, which is what the progress strip is for.
-  const description = `Loading details for ${entityTypeLabel(block.type)}`;
+  // re-derives the whole set server-side rather than loading details of what
+  // discovery found. The label describes what the step delivers, which is what
+  // the progress strip is for.
+  const description = `Loading details for ${entity.label}`;
 
-  return {
-    type,
-    endpoint,
-    description,
-    buildQuery: (ctx, scope) => {
-      if (block.type === 'samples') {
-        // Hydrate from the IRIs the previous step already resolved. Re-deriving
-        // the spatial/hydrology trace here is what used to time out; chunking
-        // (see initialScopes below) removes the size limit that made the old
-        // by-IRI path conditional.
-        return buildSamplesByIri(irisFor(ctx, scope, side), block.sampleFilters);
-      }
-      if (block.type === 'wells') {
-        return buildFusedWellQuery({
+  if (details.kind === 'rederive') {
+    return {
+      type,
+      endpoint: details.endpoint,
+      description,
+      buildQuery: () =>
+        buildFusedWellQuery({
           anchor: fused.anchorBlock,
           target: fused.targetBlock,
           relationship: fused.relationship,
           anchorRegion: fused.anchorRegion,
           targetRegion: fused.targetRegion,
           wellSide: side === 'target' ? 'target' : 'anchor',
-        });
-      }
-      const iris = irisFor(ctx, scope, side);
-      switch (block.type) {
-        case 'facilities':
-          return buildFacilitiesByIri(iris, block.facilityFilters);
-        case 'waterBodies':
-          return buildWaterBodiesByIri(iris, block.waterBodyFilters);
-        case 'aquifers':
-          return buildAquifersByIri(iris);
-        case 'streams':
-          return buildStreamsByIri(iris, block.streamFilters);
-      }
-    },
-    // Wells re-derive their set server-side (they can run to 80k+ IRIs), so
-    // there is no IRI list to pre-split for them, and nothing to divide: their
-    // query ignores the scope, so every "half" re-sent the identical query
-    // until the 300s step budget ran out. #82's wells step spent 533s that way
-    // before failing. A failed wells step now fails on its first refusal.
-    initialScopes:
-      block.type === 'wells'
-        ? undefined
-        : (ctx) => iriScopes(side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
-    divide:
-      block.type === 'wells'
-        ? undefined
-        : async (ctx, scope) =>
-            divideIriList(scope, side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
+        }),
+      // A re-derived set has no IRI list to pre-split, and nothing to divide:
+      // the query ignores the scope, so every "half" re-sent the identical
+      // query until the 300s step budget ran out. #82's wells step spent 533s
+      // that way before failing. It now fails on its first refusal.
+    };
+  }
+
+  return {
+    type,
+    endpoint: details.endpoint,
+    description,
+    buildQuery: (ctx, scope) => details.buildQuery(irisFor(ctx, scope, side), block),
+    initialScopes: (ctx) => iriScopes(side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
+    divide: async (ctx, scope) =>
+      divideIriList(scope, side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
   };
 }
 
@@ -277,8 +234,8 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   // side for upstream. Key the label off the block the step returns, not
   // off its target/anchor role, or the upstream labels come out swapped.
   const prep = RELATIONSHIP_PREPOSITION[relationship.type];
-  const aLabel = entityTypeLabel(blockA.type);
-  const cLabel = entityTypeLabel(blockC.type);
+  const aLabel = entityFor(blockA.type).label;
+  const cLabel = entityFor(blockC.type).label;
   const findingA = `Finding ${aLabel} ${prep} ${cLabel}`;
   const findingC = `Finding ${cLabel} with ${aLabel} ${prep} them`;
   
@@ -300,7 +257,7 @@ function buildFusedSteps(question: AnalysisQuestion): PipelineStep[] {
   // Supporting stream layer. Skipped when a side is already streams — those
   // flowlines come back as the answer set and would be drawn twice.
   const streamsAreAnswer =
-    targetBlock.type === 'streams' || anchorBlock.type === 'streams';
+    entityFor(targetBlock.type).isFlowline || entityFor(anchorBlock.type).isFlowline;
   if (relationship.type !== 'near' && !streamsAreAnswer) {
     steps.push({
       type: 'GET_FLOWLINE_GEOMETRIES',

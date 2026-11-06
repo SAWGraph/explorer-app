@@ -105,6 +105,10 @@ function adviceForOversizedQuestion(question?: AnalysisQuestion): string {
   return 'Try a smaller region, or run one county at a time.';
 }
 
+// A second definition of "this block narrows the question", kept for the advice
+// only. It disagrees with the entity modules' isFiltered for samples: it counts
+// the default `includeNondetects: true` tick as a filter. Unifying them changes
+// the advice a user reads, so it is a Phase 1 fix (engine redesign plan).
 function isNarrowed(block: EntityBlock): boolean {
   if (block.region?.stateCode || block.region?.countyCodes?.length) return true;
   const filters = [

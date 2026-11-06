@@ -1,7 +1,8 @@
 import type { EntityBlock } from './types/query';
 import type { EndpointKey } from './constants/endpoints';
 import type { SparqlRunner } from './sparqlClient';
-import { blockIsFiltered, buildEntityProbeQuery } from './templates/fusedQueries';
+import { buildEntityProbeQuery } from './templates/fusedQueries';
+import { entityFor } from './entities';
 import { buildDiscoverCountiesQuery } from './templates/regions';
 
 // A Scope is a slice of one pipeline step's work. `undefined` scope means "the
@@ -197,7 +198,7 @@ async function probeSide(
 ): Promise<string[] | null> {
   // No region and no filters means every entity of that type in the graph —
   // certainly past the probe limit, and the probe itself would scan nationwide.
-  if (!regionCodes?.length && !blockIsFiltered(block)) return null;
+  if (!regionCodes?.length && !entityFor(block.type).isFiltered(block)) return null;
 
   const rows = await sparql(
     endpoint,
