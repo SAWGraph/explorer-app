@@ -264,7 +264,7 @@ fix.
 a 30s limit. River-trace questions were half broken — 23 of 50 worked. Maine was
 the only healthy state: the same plain question failed in 5 of 6 others,
 including Indiana, which is one of our own dashboard cards. Full results and the
-catalogue of all nine failure responses are in `docs/QUERY-MATRIX.md`.
+catalogue of all nine failure responses are in `docs/QUERY-SWEEP.md`.
 
 **Root cause beyond the unused bindings** already noted above: `bindEntityInCell`
 (`templates/fusedQueries.ts`) served both the ID-finding queries and the hydrate
@@ -290,8 +290,8 @@ query the engine refuses is split into slices and merged
   token we do not have, so the 30s ceiling is not negotiable from our side.
 
 **Prevention**: benchmark against more than Maine, and re-run
-`npm run query-matrix` after any engine change, diffing against
-`docs/query-matrix/2026-09-14-raw-baseline.csv`.
+`npm run query-sweep` after any engine change, diffing against
+`docs/query-sweep/2026-09-14-raw-baseline.csv`.
 
 ---
 
@@ -425,7 +425,7 @@ it.
 
 **Caught**: by a user, on a shape nothing automated runs. The 9 prebuilt
 dashboard questions are 7 `near` and 2 `downstream`, zero `upstream`, so the
-weekly health check and the warm cache never touched it. `docs/QUERY-MATRIX.md`
+weekly health check and the warm cache never touched it. `docs/QUERY-SWEEP.md`
 3.3 *did* measure all 36 upstream shapes and passed them: a mirror answer
 returns a plausible row count in a plausible time, and the sweep records status,
 duration and rows, never semantics.
@@ -697,7 +697,7 @@ Measured before trusting the speed:
 **What it did not fix.** Step 0 of the statewide MD shapes still fails; both
 rescued rows are step 1. `facilities upstream(30km) streams [ME on C]` changed
 failure mode rather than passing. Wells remains unchanged on all four bounded
-combinations. Details in `docs/QUERY-MATRIX.md` Part 10.
+combinations. Details in `docs/QUERY-SWEEP.md` Part 10.
 
 ### The tripwire this nearly disarmed
 
@@ -729,7 +729,7 @@ consecutive sweeps at identical code agreed on every row.
 **Your own load.** Three bounded queries were measured failing with
 out-of-memory, one reporting only 2.9 MB available, while a full pipeline run of
 mine was hammering the same endpoint. Re-run alone, they failed differently, as
-planning timeouts. The header of `query-matrix.mts` warns about this; it applies
+planning timeouts. The header of `query-sweep.mts` warns about this; it applies
 to ad-hoc curl measurements just as much.
 
 ## 2026-09-20: Adding an industry filter broke a question that worked (FIXED)
@@ -764,7 +764,7 @@ region made it small.
 **The fix** replaces the boolean with a rank: IRI pin 3, region 2, entity filter
 1, nothing 0, lead with the higher, ties keep anchor-first. Only questions with
 both sides constrained at different levels change plan. See
-`docs/QUERY-MATRIX.md` Part 11 for the measurements.
+`docs/QUERY-SWEEP.md` Part 11 for the measurements.
 
 **Long selections: measure before blaming the clause.** The first version of
 this entry said selections beyond about ten codes still fail. Re-measured after

@@ -4,7 +4,7 @@ import type { PartialFailure, PipelineSuccess, SentQuery } from './executor';
 // The shape a cached result takes over the wire and in Postgres.
 //
 // Only successes are cached. An error is nearly always transient endpoint load
-// (see docs/QUERY-MATRIX.md Part 4), so freezing one would turn a bad minute
+// (see docs/QUERY-SWEEP.md Part 4), so freezing one would turn a bad minute
 // into a bad month, and an empty result is cheap to recompute.
 export interface WireResult {
   status: 'success';

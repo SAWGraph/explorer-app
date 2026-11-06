@@ -79,7 +79,7 @@ export interface StepProgress {
 //
 // Every slice gets attempted; only the total is bounded. With a 60s cap per
 // request (endpoint.ts) that admits up to ~5 slices of pure failure before
-// stopping, which is enough for every shape measured in docs/QUERY-MATRIX.md.
+// stopping, which is enough for every shape measured in docs/QUERY-SWEEP.md.
 const STEP_CEILING_MS = 300_000;
 
 // Queries that have already failed as a whole in this session. Re-running the

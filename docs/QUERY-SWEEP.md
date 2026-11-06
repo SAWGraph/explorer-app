@@ -1,9 +1,9 @@
-# Query Matrix — what the Explorer can ask, and what happens when it does
+# Query sweep: what the Explorer can ask, and what happens when it does
 
 **Baseline measured**: 2026-09-13, against the live `apps.okn.us` endpoints
 **Re-measured after Phases 1 + 2**: 2026-09-14 (Part 6)
-**Raw data**: [`query-matrix/`](./query-matrix/) — one row per query executed, importable into a spreadsheet
-**Harness**: [`engine/scripts/query-matrix.mts`](../engine/scripts/query-matrix.mts) — re-run it and diff the CSV after any engine change
+**Raw data**: [`query-sweep/`](./query-sweep/) — one row per query executed, importable into a spreadsheet
+**Harness**: [`engine/scripts/query-sweep.mts`](../engine/scripts/query-sweep.mts) — re-run it and diff the CSV after any engine change
 
 This is the reference sheet. Every claim here is a measurement, not an estimate.
 Where something is an estimate, it says so.
@@ -94,7 +94,7 @@ Every shape below was run once against the live endpoints in a single sweep on
 The gaps are deliberate: the 80 missing combinations are near-distance variants
 of pairs whose hop-1 behaviour is already recorded, and distance cost is
 characterised separately in 3.4. Fill them by adding pairs to phase M4 in
-`engine/scripts/query-matrix.mts` if a question there ever matters.
+`engine/scripts/query-sweep.mts` if a question there ever matters.
 
 | | Runs | Worked | of which slow (>15s) | Failed |
 | --- | --- | --- | --- | --- |
@@ -481,7 +481,7 @@ reason.
   an instant one, and what makes a 218s Illinois answer a one-time cost.
 - **Not re-measured:** the full 156-query sweep has not been re-run since the
   change. Only the shapes in 6.1 were checked. Re-run
-  `engine/scripts/query-matrix.mts` before treating Part 3 as superseded.
+  `engine/scripts/query-sweep.mts` before treating Part 3 as superseded.
 - **The okn.us asks** (access token to raise the 30s limit; a materialized
   downstream relation) would remove the ceiling that everything here works
   around.
@@ -490,9 +490,9 @@ reason.
 
 ## Part 7 — Full verification sweep (2026-09-14)
 
-The whole matrix re-run through the real engine (`QUERY_MATRIX_MODE=engine`), so
+The whole sweep re-run through the real engine (`QUERY_SWEEP_MODE=engine`), so
 splitting, merging, partial results and the step budget were all exercised —
-not just the raw SPARQL. Raw data: `docs/query-matrix/2026-09-14-engine.csv`.
+not just the raw SPARQL. Raw data: `docs/query-sweep/2026-09-14-engine.csv`.
 
 **124 shapes compared. Of the 37 that failed at baseline, 34 now work. No
 regressions.**
@@ -572,7 +572,7 @@ worded separately.
 
 ### 7.5 The recorded CSV is older than the counts above
 
-`query-matrix/2026-09-14-engine.csv` was captured *before* the budget fix, and
+`query-sweep/2026-09-14-engine.csv` was captured *before* the budget fix, and
 the gap is wider than it first looked. **The file has 9 error rows; the table
 above says 3.** Both are honest about the moment they describe — the counts came
 from the code as it stands, the CSV from the code a few commits earlier — but
@@ -593,7 +593,7 @@ slices skipped by a rule that has since been replaced. `wells near(4)` went from
 **What to do about it:** run a fresh engine sweep (~95 min) and let the new
 dated file supersede this one. Until then, treat the table as current and the
 CSV as an artefact of 2026-09-14. This is precisely the confusion the per-sweep
-file naming and the generated index in `query-matrix/README.md` exist to prevent
+file naming and the generated index in `query-sweep/README.md` exist to prevent
 from recurring — a sweep is now stamped with its own commit, and the index shows
 what moved between one sweep and the next.
 
@@ -602,7 +602,7 @@ what moved between one sweep and the next.
 ## Part 7.6 — The 2026-09-14 re-sweep, and why it is unusable
 
 A full engine sweep was run overnight to supersede 7.5's stale CSV. It is kept
-as `query-matrix/2026-09-14-engine-contaminated-9128aa9.csv` — named for what it
+as `query-sweep/2026-09-14-engine-contaminated-9128aa9.csv` — named for what it
 is, so nobody reads its 29 failures as measurements. What went wrong is worth
 recording, because it is a trap anyone re-running this will hit.
 
@@ -635,7 +635,7 @@ measuring our own load — exactly what the harness header warns about.
 - The sweep split across two files. `runAt` is UTC and the runner logs local
   time, so a sweep starting at 19:21 local crossed UTC midnight at phase M3 and
   began writing to the next day's filename. Fix: the runner computes
-  `QUERY_MATRIX_OUT` once and exports it, so every phase shares one path.
+  `QUERY_SWEEP_OUT` once and exports it, so every phase shares one path.
 
 **Before re-running:** find out why the ceiling misses, run under
 `caffeinate -i` or in Actions rather than on a laptop, and treat any phase that
@@ -798,7 +798,7 @@ so no shape that already worked can slow down.
 
 ### 9.3 Part 3.3 needs re-measuring
 
-All 25 upstream rows in the last sweep (`docs/query-matrix/2026-09-14-engine.csv`)
+All 25 upstream rows in the last sweep (`docs/query-sweep/2026-09-14-engine.csv`)
 measured the mirror question, as does every upstream shape the editor can build
 (36 of them, including streams as a block type, which the sweep does not cover). Expect the re-sweep to move them: shapes with an
 unfiltered block C get more expensive, and some that passed will not. The 72
@@ -825,7 +825,7 @@ it is ever in doubt again.
 ## Part 10: Flow-distance bounds and the seed side (2026-09-20)
 
 Until this date the harness never swept the flow-distance bound at all.
-`maxDistanceKm` appeared zero times in `engine/scripts/query-matrix.mts`, `mk()` had no
+`maxDistanceKm` appeared zero times in `engine/scripts/query-sweep.mts`, `mk()` had no
 distance parameter, and M4, which the header called a distance sweep, sweeps the
 `near` relationship's hop distance in miles instead. The only bounded shape the
 matrix ever ran was one dashboard prebuilt inside M5.
@@ -902,7 +902,7 @@ anchor-constrained: the reorder cannot reach it, and its generated SPARQL is
 byte-identical at 1,950 characters either side of the fix. It times out cold and
 answers in 15s warm.
 
-The header of `query-matrix.mts` has always said results are cache-sensitive.
+The header of `query-sweep.mts` has always said results are cache-sensitive.
 This is what ignoring it looks like in practice: a plausible number, in the
 right direction, that attributes a cache effect to a code change. The pre-fix
 engine was re-run warm into `2026-09-20-raw-e84a11f.csv`, and that file, not the

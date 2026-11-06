@@ -1,13 +1,13 @@
-# Query matrix sweeps
+# Query sweeps
 
-Every run of `npm run query-matrix`, newest first. One CSV per sweep, named
+Every run of `npm run query-sweep`, newest first. One CSV per sweep, named
 for the day it ran, so `ls` answers "when was this last run", and comparing
 two sweeps is a `diff` of two paths.
 
 ```
-QUERY_MATRIX_MODE=engine npx tsx engine/scripts/query-matrix.mts M1 init   # start a sweep
-QUERY_MATRIX_MODE=engine npx tsx engine/scripts/query-matrix.mts M2        # each later phase
-npx tsx engine/scripts/query-matrix.mts --index                            # rebuild this file
+QUERY_SWEEP_MODE=engine npx tsx engine/scripts/query-sweep.mts M1 init   # start a sweep
+QUERY_SWEEP_MODE=engine npx tsx engine/scripts/query-sweep.mts M2        # each later phase
+npx tsx engine/scripts/query-sweep.mts --index                            # rebuild this file
 ```
 
 `raw` posts each step's SPARQL directly and writes one row per step; `engine`
@@ -20,14 +20,31 @@ M9 county scopes, MD flow-distance bounds.
 
 | Sweep | Mode | Commit | Phases | Shapes | Pass | Fail | Since the previous sweep |
 | --- | --- | --- | --- | ---: | ---: | ---: | --- |
+| [`2026-09-14`](./2026-09-14-raw-baseline.csv) | raw-baseline | `unrecorded` | M1 to M9 | 124 | 87 | 37 | _first sweep in this mode_ |
+| [`2026-09-14`](./2026-09-14-engine.csv) | engine | `unrecorded` | M1 to M9 | 124 | 112 | 9 | _first sweep in this mode_ |
 | [`2026-09-20`](./2026-09-20-raw-e84a11f.csv) | raw | `e84a11f` | MD | 32 | 12 | 20 | **2 broke** (facilities upstream(30km) samples [ME on C] step1, samples downstream(30km) facilities [ME on A] step1) |
 | [`2026-09-20`](./2026-09-20-raw-ec221d9.csv) | raw | `ec221d9` | MD | 32 | 14 | 18 | 3 fixed |
 | [`2026-09-20`](./2026-09-20-raw-002e529.csv) | raw | `002e529` | MD | 32 | 11 | 21 | _first sweep in this mode_ |
-| [`2026-09-14`](./2026-09-14-raw-baseline.csv) | raw-baseline | `unrecorded` | M1 to M9 | 124 | 87 | 37 | _first sweep in this mode_ |
-| [`2026-09-14`](./2026-09-14-engine.csv) | engine | `unrecorded` | M1 to M9 | 124 | 112 | 9 | _first sweep in this mode_ |
 | [`2026-09-14`](./2026-09-14-engine-contaminated-9128aa9.csv) | engine-contaminated | `9128aa9` | M1 to M9 | 124 | 94 | 29 | _first sweep in this mode_ |
 
 ## Notes
+
+**[`2026-09-14-raw-baseline.csv`](./2026-09-14-raw-baseline.csv)**: **The pre-Phase-2 baseline, in raw mode.** Each step's SPARQL posted straight
+to the endpoint, one row per step, before splitting and merging existed. It is
+the reference that `docs/DEBUGGING.md` and `docs/ARCHITECTURE.md` say to diff
+against, and the only full raw sweep. It predates the `commit` column, so the
+code it measured is unrecorded. Like `2026-09-14-engine.csv`, its 25 `upstream`
+rows measured the mirror question (trace-direction bug, fixed 2026-09-16).
+
+**[`2026-09-14-engine.csv`](./2026-09-14-engine.csv)**: **The 25 `upstream` rows measured the wrong question.** Every upstream shape
+traced the relation backwards until 2026-09-16 (`docs/DEBUGGING.md`,
+2026-09-16), so their status, timing and row counts describe the mirror
+question. They are not a baseline: the corrected direction is materially more
+expensive where block C is unfiltered. See `docs/QUERY-SWEEP.md` Part 9, and
+re-sweep.
+
+The other 99 rows (62 `near`, 37 `downstream`) are unaffected, and are the control when
+diffing this file against the next sweep.
 
 **[`2026-09-20-raw-e84a11f.csv`](./2026-09-20-raw-e84a11f.csv)**: **The file name and the `commit` column disagree.** The name says `e84a11f`,
 the commit before the seed-side fix (`ec221d9`). Every row's `commit` column
@@ -42,23 +59,6 @@ sweeps taken after it were all warm. One row moves on that difference alone:
 warm, with the generated SPARQL byte-identical (1,950 chars either side of
 `ec221d9`). Read against `2026-09-20-raw-e84a11f.csv`, which re-runs the same
 pre-fix engine warm, and is the honest before-half of that comparison.
-
-**[`2026-09-14-raw-baseline.csv`](./2026-09-14-raw-baseline.csv)**: **The pre-Phase-2 baseline, in raw mode.** Each step's SPARQL posted straight
-to the endpoint, one row per step, before splitting and merging existed. It is
-the reference that `docs/DEBUGGING.md` and `docs/ARCHITECTURE.md` say to diff
-against, and the only full raw sweep. It predates the `commit` column, so the
-code it measured is unrecorded. Like `2026-09-14-engine.csv`, its 25 `upstream`
-rows measured the mirror question (trace-direction bug, fixed 2026-09-16).
-
-**[`2026-09-14-engine.csv`](./2026-09-14-engine.csv)**: **The 25 `upstream` rows measured the wrong question.** Every upstream shape
-traced the relation backwards until 2026-09-16 (`docs/DEBUGGING.md`,
-2026-09-16), so their status, timing and row counts describe the mirror
-question. They are not a baseline: the corrected direction is materially more
-expensive where block C is unfiltered. See `docs/QUERY-MATRIX.md` Part 9, and
-re-sweep.
-
-The other 99 rows (62 `near`, 37 `downstream`) are unaffected, and are the control when
-diffing this file against the next sweep.
 
 **[`2026-09-14-engine-contaminated-9128aa9.csv`](./2026-09-14-engine-contaminated-9128aa9.csv)**: **Do not read the 29 failures as real.** This sweep measured its own load.
 
@@ -82,4 +82,4 @@ runner logged local time — and was merged back by hand. The runner should fix
 the output path once and export it, as the warm-sweep runner does.
 
 
-Generated 2026-11-05.
+Generated 2026-11-06.

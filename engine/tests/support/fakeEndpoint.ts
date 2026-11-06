@@ -34,7 +34,7 @@ export function fakeEndpoint(
   return { run, calls };
 }
 
-// QLever's real bodies for each refusal (docs/QUERY-MATRIX.md Part 4).
+// QLever's real bodies for each refusal (docs/QUERY-SWEEP.md Part 4).
 const REFUSALS = {
   timeout: { status: 429, body: '{"exception":"Operation timed out"}' },
   'out-of-memory': { status: 500, body: '{"exception":"Tried to allocate 2.6 GB, but only 1 GB were available"}' },

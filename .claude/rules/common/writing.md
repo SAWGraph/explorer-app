@@ -10,7 +10,7 @@ messages, empty states, glossary).
 - Sweep app copy before committing:
   `grep -rn $'[–—]' src --include="*.tsx" --include="*.ts"` (ignore comment hits).
 - Commits are Conventional Commits with a scope when one fits:
-  `fix(engine): ...`, `docs(matrix): ...`, `test(engine): ...`, `chore: ...`.
+  `fix(engine): ...`, `docs(sweep): ...`, `test(engine): ...`, `chore: ...`.
   Subject says what changed in plain words, lowercase, no trailing period.
 - Never add a changelog entry on your own. After a feature or fix, ask:
   "Would you like me to add this to the changelog?"

@@ -17,6 +17,6 @@
 - Every bug fix leaves a test that fails without the fix. If a map is the only
   way to see the bug, that is the case that most needs a test.
 - Tests are offline. Anything that hits a live endpoint belongs in
-  `query-matrix` or `health-check`, not `npm test`.
+  `query-sweep` or `health-check`, not `npm test`.
 - No coverage targets, no E2E framework. Test the rule that is silent when
   wrong (wrong answer, mislabelled step, colliding cache key).

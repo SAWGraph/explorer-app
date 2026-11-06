@@ -120,10 +120,10 @@ Sketch, to be firmed up during implementation:
    matching how the flowline layer is already `optional`.
 5. Extend `engine/tests/flowlineScope.test.ts` or add a sibling check asserting
    both variants are emitted for all 72 hydrology shapes.
-6. Re-run `npm run query-matrix` in engine mode and commit a dated CSV. Counts
+6. Re-run `npm run query-sweep` in engine mode and commit a dated CSV. Counts
    will move upward across hydrology shapes; the sweep is how that is recorded
    rather than discovered later.
-7. Update `docs/QUERY-MATRIX.md` Part 3.2/3.3 costs, and `docs/SCHEMA.md` with
+7. Update `docs/QUERY-SWEEP.md` Part 3.2/3.3 costs, and `docs/SCHEMA.md` with
    the cell-coverage numbers above, which are not currently written down
    anywhere.
 

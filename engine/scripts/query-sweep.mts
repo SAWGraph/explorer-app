@@ -1,12 +1,12 @@
-// Query-matrix harness: runs every question shape the editor can build against
+// Query-sweep harness: runs every question shape the editor can build against
 // the live endpoints and writes one CSV row per query.
 //
-// This is the tool behind docs/QUERY-MATRIX.md. Re-run it after any change to
-// the query engine and diff the output against docs/query-matrix/2026-09-14-raw-baseline.csv — no shape
+// This is the tool behind docs/QUERY-SWEEP.md. Re-run it after any change to
+// the query engine and diff the output against docs/query-sweep/2026-09-14-raw-baseline.csv — no shape
 // may regress from working to failing.
 //
-//   npx tsx engine/scripts/query-matrix.mts M1 init   # first phase truncates the CSV
-//   npx tsx engine/scripts/query-matrix.mts M2        # subsequent phases append
+//   npx tsx engine/scripts/query-sweep.mts M1 init   # first phase truncates the CSV
+//   npx tsx engine/scripts/query-sweep.mts M2        # subsequent phases append
 //
 // Phases: M1 near(1) all 25 entity pairs | M2 downstream all pairs
 //         M3 upstream all pairs | M4 near-hop distance | M5 dashboard queries
@@ -49,7 +49,7 @@ import type { AnalysisQuestion, EntityType } from '../types/query';
 // is how the pre-Phase-2 baseline was recorded. 'engine' runs the real pipeline
 // so splitting, merging, partial results and the step budget are all exercised;
 // that is the mode to use for an after-the-change sweep.
-const MODE = (process.env.QUERY_MATRIX_MODE ?? 'raw') as 'raw' | 'engine';
+const MODE = (process.env.QUERY_SWEEP_MODE ?? 'raw') as 'raw' | 'engine';
 
 // Stamp every row with when it ran and which commit it ran against. A snapshot
 // is only useful later if you can tell what code produced it — the 2026-09-14
@@ -60,18 +60,18 @@ const COMMIT = (() => {
   catch { return 'unknown'; }
 })();
 // One file per sweep, named for the day it ran and the mode it ran in. The name
-// is the metadata: `ls docs/query-matrix/` answers "when was this last run", and
+// is the metadata: `ls docs/query-sweep/` answers "when was this last run", and
 // comparing two sweeps is `diff` of two paths. An earlier layout used
-// `query-matrix/2026-09-14-engine.csv`, which named a moment rather than a date and went
+// `query-sweep/2026-09-14-engine.csv`, which named a moment rather than a date and went
 // stale the week after it was written.
-const DIR = 'docs/query-matrix';
+const DIR = 'docs/query-sweep';
 // Date, mode and commit. The commit is in the name for two reasons: two sweeps
 // on the same day would otherwise collide (which happened the first time this
 // layout was used), and every phase of one sweep derives the same path without
 // needing a state file to remember which sweep is in progress. Commit mid-sweep
 // and the remaining phases land in a new file — which is the honest outcome,
 // since the code changed underneath them.
-const OUT = process.env.QUERY_MATRIX_OUT ?? `${DIR}/${RUN_AT.slice(0, 10)}-${MODE}-${COMMIT}.csv`;
+const OUT = process.env.QUERY_SWEEP_OUT ?? `${DIR}/${RUN_AT.slice(0, 10)}-${MODE}-${COMMIT}.csv`;
 
 // Regenerate the index and stop. Cheap, runs no queries.
 if (process.argv[2] === '--index') {
@@ -84,11 +84,11 @@ mkdirSync(DIR, { recursive: true });
 // `init` truncates. Every sweep file is committed history the moment it lands,
 // so refuse to overwrite one that already has rows — including today's, if a
 // sweep is already in progress and you meant to append the next phase.
-if (process.argv[3] === 'init' && existsSync(OUT) && readFileSync(OUT, 'utf8').split('\n').length > 2 && !process.env.QUERY_MATRIX_OVERWRITE) {
+if (process.argv[3] === 'init' && existsSync(OUT) && readFileSync(OUT, 'utf8').split('\n').length > 2 && !process.env.QUERY_SWEEP_OVERWRITE) {
   console.error(
     `Refusing to truncate ${OUT}, which already has rows.\n` +
       'Drop `init` to append the next phase of the same sweep,\n' +
-      'or set QUERY_MATRIX_OVERWRITE=1 to start it over.',
+      'or set QUERY_SWEEP_OVERWRITE=1 to start it over.',
   );
   process.exit(1);
 }
@@ -329,7 +329,7 @@ if (phase === 'MD') { // flow-distance bounds, both narrowing directions
 //
 // One row per sweep: when, which commit, how many query shapes passed, and what
 // moved since the previous sweep in the same mode. Regenerate with
-// `npx tsx engine/scripts/query-matrix.mts --index` — it reads the CSVs, runs nothing.
+// `npx tsx engine/scripts/query-sweep.mts --index` — it reads the CSVs, runs nothing.
 
 interface Sweep {
   file: string;
@@ -406,16 +406,16 @@ function sweepStartedAt(file: string): string {
 function writeIndex(): void {
   const sweeps = readSweeps();
   const out = [
-    '# Query matrix sweeps',
+    '# Query sweeps',
     '',
-    'Every run of `npm run query-matrix`, newest first. One CSV per sweep, named',
+    'Every run of `npm run query-sweep`, newest first. One CSV per sweep, named',
     'for the day it ran, so `ls` answers "when was this last run", and comparing',
     'two sweeps is a `diff` of two paths.',
     '',
     '```',
-    'QUERY_MATRIX_MODE=engine npx tsx engine/scripts/query-matrix.mts M1 init   # start a sweep',
-    'QUERY_MATRIX_MODE=engine npx tsx engine/scripts/query-matrix.mts M2        # each later phase',
-    'npx tsx engine/scripts/query-matrix.mts --index                            # rebuild this file',
+    'QUERY_SWEEP_MODE=engine npx tsx engine/scripts/query-sweep.mts M1 init   # start a sweep',
+    'QUERY_SWEEP_MODE=engine npx tsx engine/scripts/query-sweep.mts M2        # each later phase',
+    'npx tsx engine/scripts/query-sweep.mts --index                            # rebuild this file',
     '```',
     '',
     '`raw` posts each step\'s SPARQL directly and writes one row per step; `engine`',

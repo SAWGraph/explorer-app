@@ -114,7 +114,7 @@ describe('join order', () => {
   // seeding the wide-open side sums them across the national flowline graph.
   // Every bounded shape whose constrained side was the target failed before the
   // reorder covered them: 30s query-planning timeouts and 4.3 GB allocation
-  // failures, recorded in docs/query-matrix/2026-09-20-raw-002e529.csv.
+  // failures, recorded in docs/query-sweep/2026-09-20-raw-002e529.csv.
   //
   // Both halves are checked. A query can read target-first while the aggregate
   // inside still starts from the anchor, which would move the text and leave the

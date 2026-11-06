@@ -9,7 +9,7 @@ import {
 
 // The engine's own limit is 30s, so a request still open well past that is not
 // working — it is stalled behind an overloaded endpoint. Without this the client
-// waits forever: the matrix sweep recorded single requests hanging for 959s and
+// waits forever: the query sweep recorded single requests hanging for 959s and
 // 1,918s, which also defeats the per-step budget (that is checked between
 // slices, not during one).
 const REQUEST_TIMEOUT_MS = 60_000;

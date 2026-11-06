@@ -19,7 +19,7 @@ import { normalise } from './question';
 // place — the executor uses it to decide whether splitting the work would help,
 // and the UI uses it to tell the user something more useful than "went wrong".
 //
-// See docs/QUERY-MATRIX.md Part 4 for the full catalogue with measurements.
+// See docs/QUERY-SWEEP.md Part 4 for the full catalogue with measurements.
 export type SparqlErrorKind =
   | 'timeout' // 429 + "Operation timed out" / "Sort operation was canceled"
   | 'out-of-memory' // 500 + "Tried to allocate X, but only Y were available"

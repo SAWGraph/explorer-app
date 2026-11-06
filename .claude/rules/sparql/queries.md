@@ -39,7 +39,7 @@ paths:
 QLever reports its 30s timeout as `429 Too Many Requests`. It is a query that
 did too much work, not rate limiting, so the fix is a smaller query, not
 backoff. `engine/errors.ts` already classifies it and decides retry
-or split (`isRetryable`, `isSplittable`); reuse that. `docs/QUERY-MATRIX.md`
+or split (`isRetryable`, `isSplittable`); reuse that. `docs/QUERY-SWEEP.md`
 Part 4 is the full catalogue.
 
 ## When you change a query

@@ -49,13 +49,13 @@ Around the stages:
 - `run.ts`: `runQuestion(question, options)`, the one entry point. Options:
   `endpoint`, `chunkOnRefusal` (default on), `countSides` (default on),
   `signal`, `onProgress`. `planPipeline` stays exported for the golden snapshot
-  and `query-matrix`'s per-step mode (the UI's SPARQL view reads
+  and `query-sweep`'s per-step mode (the UI's SPARQL view reads
   `result.queries`, not a plan).
 - `errors.ts`: one catalogue of outcome codes (`timeout`, `out-of-memory`,
   `too-large`, `busy`, `network`, `empty`, `partial`, `unknown`). Failures
   carry code, step, block, slices and raw server text. The UI only displays.
 - `endpoint.ts`: the endpoint is an input. Three versions: QLever over HTTP,
-  an in-memory fake for tests, a recording wrapper for `query-matrix`.
+  an in-memory fake for tests, a recording wrapper for `query-sweep`.
 - `entities/<type>.ts`: one module per entity type. Stages ask the module
   instead of switching on type. Each module binds one row per (entity, cell)
   in the join and defines what counts as a drawable entity, for discovery and
@@ -74,7 +74,7 @@ Around the stages:
 | 6 | Count both sides live before every question. Run option `countSides`, default on. |
 | 7 | Counts give: an early `empty` when a side is 0, the error advice ("block C matches 459,877 facilities"), and the slice axis. |
 | 8 | Start side: rank first; within the same rank level, the side with the clearly smaller count. Every choice records its reason in plain words. |
-| 9 | The count rule applies to both trace families first. A `query-matrix` sweep sets the "clearly smaller" ratio (start at 3x). |
+| 9 | The count rule applies to both trace families first. A `query-sweep` sweep sets the "clearly smaller" ratio (start at 3x). |
 | 10 | Keep two discovery queries. A sweep decides whether one paired query replaces them. |
 | 11 | Wells load by IRI in 1,000-IRI chunks like samples. A sweep sets the size above which they re-derive the join. |
 | 12 | Decoration (stream lines, boundaries) runs alongside the main steps, started as soon as what it waits for is done. |
@@ -100,20 +100,20 @@ Around the stages:
 **Phase 0: restructure, same behaviour.** The golden SPARQL snapshot stays
 byte-identical in every PR.
 
-- [x] Endpoint as an input, the in-memory fake, executor tests that pin today's behaviour (the recording wrapper for `query-matrix` moves to the stage-files item)
+- [x] Endpoint as an input, the in-memory fake, executor tests that pin today's behaviour (the recording wrapper for `query-sweep` moves to the stage-files item)
 - [x] `errors.ts` catalogue (same wording, one file). The edit modal's Apply error is left for Phase 1, since moving it changes its wording
 - [x] Normalise: orientation in one place; delete the dead upstream branches (five were dead, not six: `fringePath`'s upstream arm is live for target-seeded bounded traces)
 - [x] Entity modules, query side (`engine/entities/`): IRI variable, cell bind, filters, region check, details, flowline, label. Not in this item: the one-row and drawable rules (Phase 1, they change SPARQL), rows to features (`resultTransformer.ts`, the Shape stage), the wells query builder (planner, until wells load by IRI) and the streams form of the trace (`fusedQueries.ts`)
 - [x] Entity modules, sentence wording: each module's `describe(block, totals)` (P0.4b). `questionGenerator.ts` keeps the sentence, the region and the relationship
 - [x] Stage files: `endpoint.ts`, `sides.ts`, `slicing.ts` (with the planner's by-IRI helpers), `merge.ts`, `shape.ts`, and "near or trace" as one `kind` from `normalise` (P0.5a)
-- [x] `runQuestion(question, options)` as the one entry point; the app, the scripts and the edit-modal UI test call it (P0.5b). `planPipeline` stays the way to see a plan (the snapshot, and `query-matrix` runs part of one), in place of a separate `planQuestion`
+- [x] `runQuestion(question, options)` as the one entry point; the app, the scripts and the edit-modal UI test call it (P0.5b). `planPipeline` stays the way to see a plan (the snapshot, and `query-sweep` runs part of one), in place of a separate `planQuestion`
 
 **Phase 1: behaviour changes.** Each with a regression test, a
 `docs/DEBUGGING.md` entry, and `npm run health-check` before merge.
 
 - [x] Chunking flag: `chunkOnRefusal` run option (default on), `VITE_CHUNK_ON_REFUSAL=false` in the app (build setting only). Off: no retry, no splitting, no 300s step limit, and any failure in any step fails the run with the first error; request-size batches and the 60s request limit stay on. Settled in a second design session on 2026-11-06
 - [ ] "Run again" button on the error strip, for every failed run (its own PR)
-- [ ] Recording endpoint replaces `query-matrix`'s raw mode (its own copy of the run loop) with the real engine and the flag off (moved from P0.5: without the flag, routing raw mode through the engine would make it split shapes it measures whole today)
+- [ ] Recording endpoint replaces `query-sweep`'s raw mode (its own copy of the run loop) with the real engine and the flag off (moved from P0.5: without the flag, routing raw mode through the engine would make it split shapes it measures whole today)
 - [ ] Decoration alongside, with the dependency-driven loop
 - [ ] Live counts: early empty, advice, slice axis
 - [ ] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills)
@@ -122,7 +122,7 @@ byte-identical in every PR.
 - [ ] Structured failures (code, step, block, slices, raw text) in `errors.ts`, and the edit modal's Apply error worded there instead of in the UI
 - [ ] Question wording: more than three picks reads "4 stream types streams" and "4 industries facilities" (the noun is said twice). Found by the P0.4b fixtures; changes copy, so needs sign-off
 
-**Phase 2: a `query-matrix` sweep decides each one before it ships.**
+**Phase 2: a `query-sweep` sweep decides each one before it ships.**
 
 - [ ] Wells by IRI and its size limit (measured after the one-row change)
 - [ ] Start side from counts for traces, and the ratio

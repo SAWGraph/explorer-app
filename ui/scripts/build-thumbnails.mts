@@ -3,7 +3,7 @@
 //
 //   npx tsx ui/scripts/build-thumbnails.mts [id ...]
 //
-// Offline and manual, like the query matrix: it runs the real pipeline against
+// Offline and manual, like the query sweep: it runs the real pipeline against
 // the live endpoints, which takes minutes. Re-run it when a prebuilt question
 // changes shape. The output is committed, so the dashboard costs one static
 // file per card and no queries at all.
