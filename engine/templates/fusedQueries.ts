@@ -9,8 +9,8 @@ import { wrapUri } from './samples';
 // filters, its region check) lives in engine/entities/. These two read it for
 // the query shapes below.
 const iriVarOf = (block: EntityBlock, suffix: string): string => entityFor(block.type).iriVar(suffix);
-const bindInCell = (block: EntityBlock, s2Var: string, suffix: string, observations = true): string =>
-  entityFor(block.type).bindInCell(block, s2Var, suffix, observations);
+const bindInCell = (block: EntityBlock, s2Var: string, suffix: string): string =>
+  entityFor(block.type).bindInCell(block, s2Var, suffix);
 
 function pinValues(entityVar: string, iris: string[] | undefined): string {
   if (!iris?.length) return '';
@@ -47,12 +47,12 @@ export function buildEntityCountQuery(block: EntityBlock, regionCodes: string[] 
 }
 
 // One side on its own: its cells in its region, its entities in them, its
-// filters. `false`, like the IRI-finding queries: the probe lists entity IRIs,
-// and the list it returns becomes the chunk membership (engine/slicing.ts). A
-// narrowing join here removes entities from every slice, so the probe (and the
-// count) has to see exactly what discovery sees.
+// filters. The probe lists entity IRIs, and the list it returns becomes the
+// chunk membership (engine/slicing.ts). A narrowing join here removes entities
+// from every slice, so the probe (and the count) has to see exactly what
+// discovery sees.
 function sideBody(block: EntityBlock, regionCodes: string[] | undefined): string {
-  const bind = bindInCell(block, '?s2probe', 'P', false);
+  const bind = bindInCell(block, '?s2probe', 'P');
   const region = regionClause(block, regionCodes, '?s2probe', 'P');
   return `
       ?s2probe rdf:type kwg-ont:S2Cell_Level13 .
@@ -110,9 +110,6 @@ interface FusedBodyOpts extends FusedBaseOpts {
   // IRIs is what makes a too-large query fit inside the engine's 30s budget.
   anchorIris?: string[];
   targetIris?: string[];
-  // Set by the IRI-finding queries only; see bindInCell in the entity modules.
-  anchorSampleObservations?: boolean;
-  targetSampleObservations?: boolean;
   maxDistanceKm?: number;
 }
 
@@ -199,33 +196,54 @@ function boundedTrace(
 // Returns just the inner WHERE-body patterns shared across all fused queries:
 // anchor binding + spatial path (neighbor expansion for "near", hydrology trace
 // for downstream/upstream) + target binding + region clauses on each side.
+// A side whose bind repeats an entity in a cell (a sample's measurements, a
+// facility's industry codes: EntityModule.fansOut) is collapsed to one row per
+// entity and cell before it meets the other side. Carried into the join as it
+// was, 407 points in Kennebec and Androscoggin entered a 2-hop join as 20,826
+// rows and "samples >= 4 ng/L near wells" did not finish in 90s; collapsed
+// first it answered in under 3s with the same 407 points (issue #82, #94).
+//
+// `lines` carries the cell type, the region and any IRI pin: QLever evaluates
+// the subquery on its own, so a region left outside would make it list every
+// matching entity in the graph. Null for a side that is already one row per
+// entity and cell, which keeps its text unchanged.
+function collapsedSide(block: EntityBlock, suffix: string, s2Var: string, lines: string): string | null {
+  if (!entityFor(block.type).fansOut(block)) return null;
+  return `{ SELECT DISTINCT ${iriVarOf(block, suffix)} ${s2Var} WHERE {
+      ${lines}
+      } }`;
+}
+
 function buildFusedWhereBody(opts: FusedBodyOpts): string {
-  // No `|| hasSampleFilters(...)` override any more: the entity modules' bindInCell now keeps
-  // exactly the joins an active filter reads, so a filtered side no longer has
-  // to fall back on the whole observation chain.
-  const anchorObs = opts.anchorSampleObservations ?? true;
-  const targetObs = opts.targetSampleObservations ?? true;
-  const anchorBind = bindInCell(opts.anchor, '?s2anchor', 'A', anchorObs);
-  const targetBind = bindInCell(opts.target, '?s2target', 'C', targetObs);
-  const anchorPin = pinValues(iriVarOf(opts.anchor, 'A'), opts.anchorIris);
-  const targetPin = pinValues(iriVarOf(opts.target, 'C'), opts.targetIris);
   const aRegion = regionClause(opts.anchor, opts.anchorRegion, '?s2anchor', 'A');
   const tRegion = regionClause(opts.target, opts.targetRegion, '?s2target', 'C');
+  const anchorBind = bindInCell(opts.anchor, '?s2anchor', 'A');
+  const targetBind = bindInCell(opts.target, '?s2target', 'C');
+  const anchorCell = `?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
+      ${aRegion}
+      ${anchorBind}`;
+  const targetCell = `?s2target rdf:type kwg-ont:S2Cell_Level13 .
+      ${tRegion}
+      ${targetBind}`;
+  const anchorPinLines = pinValues(iriVarOf(opts.anchor, 'A'), opts.anchorIris);
+  const targetPinLines = pinValues(iriVarOf(opts.target, 'C'), opts.targetIris);
+  // A collapsed side carries its pin inside, so it is not written again where
+  // the pin otherwise goes.
+  const anchorCollapsed = collapsedSide(opts.anchor, 'A', '?s2anchor', anchorPinLines + anchorCell);
+  const targetCollapsed = collapsedSide(opts.target, 'C', '?s2target', targetPinLines + targetCell);
+  const anchorPin = anchorCollapsed ? '' : anchorPinLines;
+  const targetPin = targetCollapsed ? '' : targetPinLines;
+  const anchorSide = anchorCollapsed ?? anchorCell;
+  const targetSide = targetCollapsed ?? targetCell;
 
   if (opts.mode === 'near') {
     const hopPath = neighborPath(opts.hops ?? 1, '?s2anchor', '?s2target');
-    return `${anchorPin}${targetPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
-      ${aRegion}
-      ${anchorBind}
+    return `${anchorPin}${targetPin}${anchorSide}
       ${hopPath}
-      ?s2target rdf:type kwg-ont:S2Cell_Level13 .
-      ${tRegion}
-      ${targetBind}`;
+      ${targetSide}`;
   }
 
-  const seed = `${anchorPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
-      ${aRegion}
-      ${anchorBind}
+  const seed = `${anchorPin}${anchorSide}
       ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .
       ?s2neighbor spatial:connectedTo ?upstream_flowline .
       ?upstream_flowline rdf:type hyf:HY_FlowPath .`;
@@ -248,7 +266,10 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
         }
       BIND(?ds_flowline AS ?streamC)
       ${streamFtypeFilter(opts.target.streamFilters, 'C')}`
-      : `?s2target spatial:connectedTo ?ds_flowline ;
+      : targetCollapsed
+        ? `?s2target spatial:connectedTo ?ds_flowline .
+      ${targetCollapsed}`
+        : `?s2target spatial:connectedTo ?ds_flowline ;
                 rdf:type kwg-ont:S2Cell_Level13 .
       ${tRegion}
       ${targetBind}`;
@@ -279,9 +300,7 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       entityFor(opts.target.type).isFlowline
         ? `?ds_flowline rdf:type hyf:HY_FlowPath .
       ${targetPart}`
-        : `?s2target rdf:type kwg-ont:S2Cell_Level13 .
-      ${tRegion}
-      ${targetBind}
+        : `${targetSide}
       ?s2target spatial:connectedTo ?ds_flowline .`;
 
     // The bounded block is rebuilt around the target seed. `trace` above is
@@ -299,9 +318,7 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
       ?upstream_flowline rdf:type hyf:HY_FlowPath ;
                 spatial:connectedTo ?s2neighbor .
       ?s2anchor kwg-ont:sfTouches | owl:sameAs ?s2neighbor .
-      ${anchorPin}?s2anchor rdf:type kwg-ont:S2Cell_Level13 .
-      ${aRegion}
-      ${anchorBind}`;
+      ${anchorPin}${anchorSide}`;
   }
 
   return `${seed}
@@ -335,12 +352,6 @@ export function buildFusedNearQuery(opts: FusedNearOpts): string {
     hops: opts.hops,
     anchorIris: opts.anchorIris,
     targetIris: opts.targetIris,
-    // Both sides, not just the projected one: a near query projects a single
-    // IRI, so neither side needs observation detail beyond its own filters.
-    // Keying this off `project` left the *non*-projected samples side carrying
-    // the full chain even with no filters set.
-    anchorSampleObservations: false,
-    targetSampleObservations: false,
   });
   const projectVar =
     opts.project === 'anchor'
@@ -374,13 +385,6 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
     anchorIris: opts.anchorIris,
     targetIris: opts.targetIris,
     maxDistanceKm: opts.maxDistanceKm,
-    // Verified on the live endpoint: keeping the observation joins on either
-    // side of a downstream/upstream trace always fails (429 timeout / 500 OOM).
-    // Sample points with no observations are dropped again at hydration, so the
-    // sample layer is unchanged; the facility layer can include facilities whose
-    // only downstream sample points carry no observations.
-    anchorSampleObservations: false,
-    targetSampleObservations: false,
   });
   const projectVar =
     opts.project === 'anchor'
@@ -439,8 +443,11 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
   const wellVar = `?well${suffix}`;
   const s2Var = opts.wellSide === 'anchor' ? '?s2anchor' : '?s2target';
 
-  // Projecting only ?s2cell (not the anchor cell) collapses the near-join
-  // fan-out to one row per well/cell — parity with the old buildWellsByIri.
+  // The body yields one row per well and every other-side entity it is near,
+  // so it is collapsed to one row per well and cell before the columns attach.
+  // Attached to the raw fan-out, "samples (no filter) near wells in Penobscot
+  // and Knox" asked for 3.2 GB and failed twice; collapsed first it answered in
+  // 9 to 23s with all 3,391 wells discovery found (#82, #94).
   return `
     ${PREFIXES}
     SELECT DISTINCT
@@ -448,7 +455,9 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
       ?wellName ?meUse ?meWellType ?meDepth ?meOverburden
       ?ilOwner ?ilDepth ?ilPurpose ?ilYield
     WHERE {
+      { SELECT DISTINCT ${wellVar} ${s2Var} WHERE {
       ${body}
+      } }
       ${wellVar} geo:hasGeometry/geo:asWKT ?wellWKT .
       OPTIONAL { ${wellVar} rdfs:label ?wellName . }
       OPTIONAL { ${wellVar} me_mgs:hasUse ?meUse . }
@@ -500,7 +509,7 @@ function targetReachClause(opts: FusedFlowlineOpts): string {
   // list states. Passing the bare block rather than opts.target drops those
   // clauses. Measured on the York question: re-deriving the substance filter
   // cost 1s of the 8 and changed nothing.
-  const targetBind = bindInCell({ type: opts.target.type }, '?s2celltarget', 'C', false);
+  const targetBind = bindInCell({ type: opts.target.type }, '?s2celltarget', 'C');
   // The target is downstream of the anchor, so a drawn flowline flows into it.
   const reach = `?flowline hyf:downstreamFlowPathTC ?_flTarget .`;
 
@@ -538,7 +547,7 @@ export function buildFusedFlowlineQuery(opts: FusedFlowlineOpts): string {
   // per pinned IRI; for a samples anchor it drops the whole observation chain,
   // including the coso:measurementUnit join this branch exists to keep out of
   // queries that do not read it.
-  const anchorBind = bindInCell({ type: opts.anchor.type }, '?s2anchor', 'A', false);
+  const anchorBind = bindInCell({ type: opts.anchor.type }, '?s2anchor', 'A');
   // ponytail: inlined as VALUES rather than re-derived. Anchor sets are small
   // (tens), unlike the sample IRI lists that forced server-side fusion.
   const anchorValues = pinValues(iriVarOf(opts.anchor, 'A'), opts.anchorIris);

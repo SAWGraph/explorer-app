@@ -19,6 +19,8 @@ export const wells: EntityModule = {
     return `${s2Var} spatial:connectedTo ?well${suffix} .
       ${typeFilter}`;
   },
+  // One row per entity and cell already (measured in Maine, 2026-11-06).
+  fansOut: () => false,
   isFiltered: anyFilterSlotSet,
   describe(block) {
     const tokens = block.wellFilters?.wellCategories ?? [];

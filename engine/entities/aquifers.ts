@@ -36,6 +36,8 @@ export const aquifers: EntityModule = {
       ?aquifer${suffix} rdf:type gwml2:GW_Aquifer .
       ${typeFilter}`;
   },
+  // One row per entity and cell already (measured in Maine, 2026-11-06).
+  fansOut: () => false,
   isFiltered: anyFilterSlotSet,
   describe(block) {
     const kinds = block.aquiferFilters?.aquiferTypes ?? [];

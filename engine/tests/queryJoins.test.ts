@@ -30,7 +30,11 @@ const GROUNDWATER = 'http://w3id.org/sawgraph/v1/me-egad#sampleMaterialType.GW';
 // Which side the body leads with. The first variable after WHERE { decides the
 // plan; anything else in the body can follow.
 function leadsWith(query: string): 'anchor' | 'target' | 'other' {
-  const body = query.slice(query.indexOf('WHERE {') + 'WHERE {'.length).trimStart();
+  let body = query.slice(query.indexOf('WHERE {') + 'WHERE {'.length).trimStart();
+  // A side that fans out leads as a subquery collapsed to one row per entity
+  // and cell (collapsedSide in fusedQueries.ts); its cell variable names the side.
+  const collapsed = body.match(/^\{\s*SELECT DISTINCT \?\w+ (\?s2\w+) WHERE \{/);
+  if (collapsed) body = collapsed[1];
   if (body.startsWith('?s2target') || body.startsWith('?ds_flowline')) return 'target';
   if (body.startsWith('?s2anchor')) return 'anchor';
   // A pinned side leads with its VALUES block, so neither branch above matches.

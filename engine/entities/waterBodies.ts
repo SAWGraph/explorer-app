@@ -26,6 +26,8 @@ export const waterBodies: EntityModule = {
       ?waterBody${suffix} rdf:type hyf:HY_WaterBody .
       ${filterClauses}`;
   },
+  // One row per entity and cell already (measured in Maine, 2026-11-06).
+  fansOut: () => false,
   isFiltered: anyFilterSlotSet,
   describe(block) {
     const ftypes = block.waterBodyFilters?.ftypes ?? [];
