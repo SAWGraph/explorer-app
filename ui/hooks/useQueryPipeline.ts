@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 import { useQueryStore } from '../store/queryStore';
 import type { PipelineResult } from '../../engine/executor';
-import { planPipeline } from '../../engine/planner';
-import { executePipeline } from '../../engine/executor';
+import { runQuestion } from '../../engine/run';
 import { fetchCachedResult } from '../api/resultCacheClient';
 
 export function useQueryPipeline() {
@@ -39,8 +38,7 @@ export function useQueryPipeline() {
         return cached.result;
       }
 
-      const steps = planPipeline(question);
-      const result = await executePipeline(steps, question, addStepProgress, signal);
+      const result = await runQuestion(question, { onProgress: addStepProgress, signal });
       setPipelineResult(result);
       setResultProvenance(null);
       return result;

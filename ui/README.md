@@ -26,7 +26,7 @@ can be rewritten without touching it.
 
 | UI | Engine |
 |---|---|
-| `hooks/useQueryPipeline.ts` | Checks the result cache (`api/resultCacheClient.ts`), then `planPipeline` and `executePipeline` |
+| `hooks/useQueryPipeline.ts` | Checks the result cache (`api/resultCacheClient.ts`), then `runQuestion` (`engine/run.ts`) |
 | `hooks/useMapLayers.ts` | `transform*ToFeatures` turns the result's rows into layers |
 | `hooks/useDiscoveryQueries.ts` | `executeSparql` with the builders in `engine/templates/regions.ts` fills the dropdowns |
 | `hooks/useSampleDetails.ts` | `engine/templates/hydrate.ts` for one sample's measurements |

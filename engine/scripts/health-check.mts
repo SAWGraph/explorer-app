@@ -20,8 +20,7 @@ import { execSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
-import { planPipeline } from '../planner';
-import { executePipeline } from '../executor';
+import { runQuestion } from '../run';
 
 // The keys useMapLayers renders (wire.ts RENDERED_KEYS). Counting anything else
 // would flag drift in intermediate bookkeeping the user never sees.
@@ -136,7 +135,7 @@ async function attempt(prebuilt: (typeof PREBUILT_QUERIES)[number], n: number): 
   const started = Date.now();
   const base = { runAt, ref, commit, id: prebuilt.id, title: prebuilt.title, attempts: n };
   try {
-    const result = await executePipeline(planPipeline(prebuilt.question), prebuilt.question, () => {});
+    const result = await runQuestion(prebuilt.question);
     const counts: Record<string, number> = {};
     if (result.status === 'success') {
       for (const key of COUNTED) if (result.data[key]?.length) counts[key] = result.data[key].length;

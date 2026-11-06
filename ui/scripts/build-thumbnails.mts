@@ -17,8 +17,7 @@
 // artefacts land on terrain nobody is reading.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { PREBUILT_QUERIES } from '../../engine/constants/prebuiltQueries';
-import { planPipeline } from '../../engine/planner';
-import { executePipeline } from '../../engine/executor';
+import { runQuestion } from '../../engine/run';
 import { questionThumbnailUrl, boundsForQuestion } from '../constants/regionBounds';
 
 const W = 440;
@@ -157,7 +156,7 @@ let failures = 0;
 for (const q of queries) {
   const started = Date.now();
   try {
-    const result = await executePipeline(planPipeline(q.question), q.question, () => {});
+    const result = await runQuestion(q.question);
     if (result.status !== 'success') throw new Error(result.status);
     const marks = collect(result.data);
     const stats = await render(q.id, marks, boundsForQuestion(q.question));

@@ -117,6 +117,7 @@ engine; never the other way round. Each folder has its own README and tests.
 explorer/
 ├── engine/                  # Headless: question in, SPARQL out, rows in, features out
 │   ├── README.md            # Entry points and how to call the engine from Node
+│   ├── run.ts               # runQuestion: the one entry point, runs stages 1 to 6 (the UI shapes rows until Phase 1)
 │   ├── question.ts          # 1 Normalise: which block is the anchor and which the target, near or trace
 │   ├── sides.ts             # 2 Assess: how narrow each side is (the rank that picks the start side)
 │   ├── planner.ts           # 3 Strategy: question to pipeline steps

@@ -48,8 +48,9 @@ Around the stages:
 
 - `run.ts`: `runQuestion(question, options)`, the one entry point. Options:
   `endpoint`, `chunkOnRefusal` (default on), `countSides` (default on),
-  `signal`, `onProgress`. `planQuestion` stays exported for the SPARQL view and
-  the golden snapshot.
+  `signal`, `onProgress`. `planPipeline` stays exported for the golden snapshot
+  and `query-matrix`'s per-step mode (the UI's SPARQL view reads
+  `result.queries`, not a plan).
 - `errors.ts`: one catalogue of outcome codes (`timeout`, `out-of-memory`,
   `too-large`, `busy`, `network`, `empty`, `partial`, `unknown`). Failures
   carry code, step, block, slices and raw server text. The UI only displays.
@@ -105,7 +106,7 @@ byte-identical in every PR.
 - [x] Entity modules, query side (`engine/entities/`): IRI variable, cell bind, filters, region check, details, flowline, label. Not in this item: the one-row and drawable rules (Phase 1, they change SPARQL), rows to features (`resultTransformer.ts`, the Shape stage), the wells query builder (planner, until wells load by IRI) and the streams form of the trace (`fusedQueries.ts`)
 - [x] Entity modules, sentence wording: each module's `describe(block, totals)` (P0.4b). `questionGenerator.ts` keeps the sentence, the region and the relationship
 - [x] Stage files: `endpoint.ts`, `sides.ts`, `slicing.ts` (with the planner's by-IRI helpers), `merge.ts`, `shape.ts`, and "near or trace" as one `kind` from `normalise` (P0.5a)
-- [ ] `runQuestion(question, options)` as the one entry point; the app, scripts and UI test call it (P0.5b)
+- [x] `runQuestion(question, options)` as the one entry point; the app, the scripts and the edit-modal UI test call it (P0.5b). `planPipeline` stays the way to see a plan (the snapshot, and `query-matrix` runs part of one), in place of a separate `planQuestion`
 
 **Phase 1: behaviour changes.** Each with a regression test, a
 `docs/DEBUGGING.md` entry, and `npm run health-check` before merge.
