@@ -102,7 +102,8 @@ byte-identical in every PR.
 - [x] Endpoint as an input, the in-memory fake, executor tests that pin today's behaviour (the recording wrapper for `query-matrix` moves to the stage-files item)
 - [x] `errors.ts` catalogue (same wording, one file). The edit modal's Apply error is left for Phase 1, since moving it changes its wording
 - [x] Normalise: orientation in one place; delete the dead upstream branches (five were dead, not six: `fringePath`'s upstream arm is live for target-seeded bounded traces)
-- [ ] Entity modules
+- [x] Entity modules, query side (`engine/entities/`): IRI variable, cell bind, filters, region check, details, flowline, label. Not in this item: the one-row and drawable rules (Phase 1, they change SPARQL), rows to features (`resultTransformer.ts`, the Shape stage), the wells query builder (planner, until wells load by IRI) and the streams form of the trace (`fusedQueries.ts`)
+- [ ] Entity modules, sentence wording: the per-type parts of `questionGenerator.ts` (P0.4b)
 - [ ] Stage files and `runQuestion`, plus the recording wrapper so `query-matrix` runs the real engine, and "near or trace" as one kind from `normalise` (today `relationship.type` is still tested in the planner, the wells query and `errors.ts`)
 
 **Phase 1: behaviour changes.** Each with a regression test, a

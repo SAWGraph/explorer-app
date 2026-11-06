@@ -1,3 +1,4 @@
+import { entityFor } from './entities';
 import type {
   AnalysisQuestion,
   EntityBlock,
@@ -75,20 +76,7 @@ const ftypeLabels = (values: string[], options: FtypeOption[]): string[] =>
 // "surface water bodies" rather than the raw camelCase type name, and so the
 // two places cannot drift into two different vocabularies.
 export function entityTypeLabel(type: EntityType): string {
-  switch (type) {
-    case 'samples':
-      return 'samples';
-    case 'facilities':
-      return 'facilities';
-    case 'waterBodies':
-      return 'surface water bodies';
-    case 'streams':
-      return 'streams';
-    case 'wells':
-      return 'wells';
-    case 'aquifers':
-      return 'aquifers';
-  }
+  return entityFor(type).label;
 }
 
 function describeEntity(block: EntityBlock, totals?: QuestionTotals): string {
