@@ -18,6 +18,7 @@ can be rewritten without touching it.
 | `store/queryStore.ts` | Zustand: the question, results, view state |
 | `storage/` | localStorage: saved questions, publish edit tokens |
 | `api/` | Our own API (result cache, publish), not SPARQL. Reads `VITE_API_BASE_URL` |
+| `hooks/useQueryPipeline.ts` (chunking) | Reads `VITE_CHUNK_ON_REFUSAL`: `false` turns off splitting refused queries for the build (default on) |
 | `tours/` | The guided walkthroughs |
 | `constants/`, `types/`, `utils/` | UI-only pieces: the blank question, map bounds and thumbnails, saved-question types, export and tag colours |
 | `assets/` | Logo and the precomputed aquifer boundaries |

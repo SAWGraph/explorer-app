@@ -137,3 +137,31 @@ describe('the step messages a run carries', () => {
     expect(stepEmptyMessage('Finding wells near facilities')).toBe('No results at step: Finding wells near facilities');
   });
 });
+
+describe('the message when chunking on refusal is off', () => {
+  const off = (error: Error): PipelineResult => ({ status: 'error', failedAtStep: 0, message: stepFailedMessage('Finding samples near facilities'), error, chunkingOff: true });
+
+  it('says the question was not split, for a refusal splitting could have helped', () => {
+    expect(outcomeMessage(off(new SparqlError('timeout', 429, 'Operation timed out')), question())).toBe(
+      `${TOO_MUCH} Try a smaller region, or run one county at a time. Chunking is turned off for this run, so the question was not split into smaller queries.`,
+    );
+  });
+
+  it('says so in the incomplete-results notice too', () => {
+    const result: PipelineResult = {
+      status: 'success',
+      data: {},
+      partial: [{ step: 'Loading downstream stream geometries', failed: ['whole query'], skipped: [] }],
+      chunkingOff: true,
+    };
+    expect(partialNotice(result, question())).toBe(
+      'Showing incomplete results: whole query could not be answered. Try a smaller region, or run one county at a time. Chunking is turned off for this run, so the question was not split into smaller queries.',
+    );
+  });
+
+  it('adds nothing for a failure splitting would not help', () => {
+    expect(outcomeMessage(off(new SparqlError('network', 0, 'fetch failed')), question())).toBe(
+      'Could not reach the knowledge graph. Check your connection and try again.',
+    );
+  });
+});

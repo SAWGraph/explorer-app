@@ -235,6 +235,21 @@ describe('2 new analysis, filters applied', () => {
     expect(store().pipelineResult?.status).toBe('success');
   });
 
+  // VITE_CHUNK_ON_REFUSAL is unset in tests, so every run splits refused
+  // queries (the production default).
+  it('runs the question with chunking on refusal on when the build does not turn it off', async () => {
+    await newApplied();
+    const options = engine.runQuestion.mock.calls.at(-1)?.[1] as RunOptions | undefined;
+    expect(options?.chunkOnRefusal).toBe(true);
+  });
+
+  it('runs the question with chunking on refusal off when the build sets VITE_CHUNK_ON_REFUSAL=false', async () => {
+    vi.stubEnv('VITE_CHUNK_ON_REFUSAL', 'false');
+    await newApplied();
+    const options = engine.runQuestion.mock.calls.at(-1)?.[1] as RunOptions | undefined;
+    expect(options?.chunkOnRefusal).toBe(false);
+  });
+
   it('2d Customize, edits, Apply fails, dismiss: closes, keeps the failed question and the error', async () => {
     const before = await newApplied();
     await customize();

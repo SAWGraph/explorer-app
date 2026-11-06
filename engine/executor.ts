@@ -4,7 +4,7 @@ import type { EndpointKey } from './constants/endpoints';
 import type { PipelineStep, PipelineContext } from './planner';
 import type { Scope } from './slicing';
 import { executeSparql, type SparqlRunner } from './endpoint';
-import { SparqlError, isSplittable, stepEmptyMessage, stepFailedMessage } from './errors';
+import { type SparqlError, splittingWouldHelp, stepEmptyMessage, stepFailedMessage } from './errors';
 import { foundIris, sliceMerger } from './merge';
 
 export interface PartialFailure {
@@ -34,6 +34,9 @@ export interface PipelineSuccess {
   // Set when some slices of the work failed but enough succeeded to show a map.
   partial?: PartialFailure[];
   queries?: SentQuery[];
+  // Set when chunking on refusal was off and a refusal it could have rescued
+  // left part of the answer out. Not stored with cached results (wire.ts).
+  chunkingOff?: true;
 }
 
 export interface PipelineEmpty {
@@ -49,6 +52,9 @@ export interface PipelineError {
   message: string;
   error: Error;
   queries?: SentQuery[];
+  // Set when chunking on refusal was off, so a refusal splitting could have
+  // rescued was reported instead (errors.ts says so).
+  chunkingOff?: true;
 }
 
 export type PipelineResult = PipelineSuccess | PipelineEmpty | PipelineError;
@@ -99,6 +105,8 @@ interface StepOutcome {
   failedScopes: string[];
   skippedScopes: string[];
   lastError?: SparqlError | Error;
+  // A refusal splitting could have rescued was left as it was (chunking off).
+  notSplit: boolean;
 }
 
 // Runs one step, slicing it up if the engine refuses the whole thing.
@@ -114,6 +122,7 @@ async function runStep(
   record: (sent: Omit<SentQuery, 'step' | 'description' | 'endpoint'>) => void,
   signal: AbortSignal | undefined,
   sparql: SparqlRunner,
+  chunkOnRefusal: boolean,
 ): Promise<StepOutcome> {
   const knownTooLarge = knownTooLargeFor(sparql);
   const startedAt = Date.now();
@@ -122,6 +131,7 @@ async function runStep(
   const failedScopes: string[] = [];
   const skippedScopes: string[] = [];
   let lastError: SparqlError | Error | undefined;
+  let notSplit = false;
   let done = 0;
 
   while (queue.length > 0) {
@@ -142,7 +152,7 @@ async function runStep(
 
     const query = step.buildQuery(context, scope);
 
-    if (!scope && knownTooLarge.has(query) && step.divide) {
+    if (chunkOnRefusal && !scope && knownTooLarge.has(query) && step.divide) {
       const smaller = await step.divide(context, undefined, sparql);
       if (smaller?.length) {
         queue.unshift(...smaller);
@@ -161,9 +171,12 @@ async function runStep(
       const error = err instanceof Error ? err : new Error(String(err));
       lastError = error;
       record({ scope: scope?.label, query, error: error.message });
-      const splittable = error instanceof SparqlError && isSplittable(error.kind);
+      const splittable = splittingWouldHelp(error);
+      if (splittable && !chunkOnRefusal) notSplit = true;
       if (splittable && !scope) knownTooLarge.add(query);
-      const smaller = splittable ? await step.divide?.(context, scope, sparql) : null;
+      // With chunking on refusal off, a refusal is reported as it is: no probes,
+      // no smaller slices. Request-size batches (initialScopes) are unaffected.
+      const smaller = splittable && chunkOnRefusal ? await step.divide?.(context, scope, sparql) : null;
 
       if (smaller?.length) {
         queue.unshift(...smaller);
@@ -176,20 +189,29 @@ async function runStep(
   }
 
   report(done, done);
-  return { rows: merged.rows, failedScopes, skippedScopes, lastError };
+  return { rows: merged.rows, failedScopes, skippedScopes, lastError, notSplit };
+}
+
+export interface ExecuteOptions {
+  // Each step as it starts, splits and finishes.
+  onProgress?: (progress: StepProgress) => void;
+  // Cancels the run. It then rejects with the abort reason instead of
+  // resolving, so a cancelled run never produces a result to show.
+  signal?: AbortSignal;
+  // Where every request goes. QLever over HTTP unless a caller (a test) swaps
+  // in its own.
+  endpoint?: SparqlRunner;
+  // Split a query the endpoint refuses (timeout, out of memory, too large)
+  // into smaller ones. Off: the refusal is reported as it is. Default on.
+  chunkOnRefusal?: boolean;
 }
 
 export async function executePipeline(
   steps: PipelineStep[],
   question: AnalysisQuestion,
-  onProgress: (progress: StepProgress) => void,
-  // Cancels the run. It then rejects with the abort reason instead of
-  // resolving, so a cancelled run never produces a result to show.
-  signal?: AbortSignal,
-  // Where every request goes. QLever over HTTP unless a caller (a test) swaps
-  // in its own.
-  sparql: SparqlRunner = executeSparql,
+  options: ExecuteOptions = {},
 ): Promise<PipelineResult> {
+  const { onProgress = () => {}, signal, endpoint: sparql = executeSparql, chunkOnRefusal = true } = options;
   const context: PipelineContext = {
     question,
     targetIris: [],
@@ -197,6 +219,7 @@ export async function executePipeline(
     results: {},
   };
   const partial: PartialFailure[] = [];
+  let leftUnsplit = false;
   const queries: SentQuery[] = [];
 
   for (let i = 0; i < steps.length; i++) {
@@ -217,6 +240,7 @@ export async function executePipeline(
         (sent) => queries.push({ step: i, description: step.description, endpoint: step.endpoint, ...sent }),
         signal,
         sparql,
+        chunkOnRefusal,
       );
     } catch (err) {
       signal?.throwIfAborted();
@@ -239,6 +263,7 @@ export async function executePipeline(
         failedAtStep: i,
         message: stepFailedMessage(step.description),
         error: outcome.lastError ?? new Error('Query failed'),
+        ...(outcome.notSplit ? { chunkingOff: true as const } : {}),
         queries,
       };
     }
@@ -248,6 +273,7 @@ export async function executePipeline(
         failed: outcome.failedScopes,
         skipped: outcome.skippedScopes,
       });
+      if (outcome.notSplit) leftUnsplit = true;
     }
 
     const results = outcome.rows;
@@ -287,6 +313,7 @@ export async function executePipeline(
     status: 'success',
     data: context.results,
     ...(partial.length > 0 ? { partial } : {}),
+    ...(leftUnsplit ? { chunkingOff: true as const } : {}),
     queries,
   };
 }

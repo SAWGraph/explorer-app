@@ -111,7 +111,8 @@ byte-identical in every PR.
 **Phase 1: behaviour changes.** Each with a regression test, a
 `docs/DEBUGGING.md` entry, and `npm run health-check` before merge.
 
-- [ ] Chunking flag (default on), then the recording endpoint replaces `query-matrix`'s raw mode (its own copy of the run loop) with the real engine and the flag off (moved from P0.5: without the flag, routing raw mode through the engine would make it split shapes it measures whole today)
+- [x] Chunking flag: `chunkOnRefusal` run option (default on), `VITE_CHUNK_ON_REFUSAL=false` in the app; off, a refused query is reported and its message says so
+- [ ] Recording endpoint replaces `query-matrix`'s raw mode (its own copy of the run loop) with the real engine and the flag off (moved from P0.5: without the flag, routing raw mode through the engine would make it split shapes it measures whole today)
 - [ ] Decoration alongside, with the dependency-driven loop
 - [ ] Live counts: early empty, advice, slice axis
 - [ ] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills)

@@ -926,3 +926,29 @@ divides into, and that no slice re-sends the undivided query. It fails on
 
 **Lesson.** A step's `divide` and its `buildQuery` have to agree about the
 scope. If the query cannot see the scope, splitting is a loop, not a rescue.
+
+## 2026-11-06: Seeing a refused query as it is: chunking on refusal off
+
+**When to reach for it.** The engine splits a query the endpoint refuses
+(timeout, out of memory, too large) into smaller ones and merges them. That
+rescue hides the refusal: a slow or partial answer is the only sign. To see
+which step was refused and why, turn the rescue off.
+
+**How.** Run option `chunkOnRefusal: false` (`runQuestion` or
+`executePipeline`), or build the app with `VITE_CHUNK_ON_REFUSAL=false` (the
+Railway development environment, say). A refused required step then fails at
+once with the classified error, and the message ends "Chunking is turned off
+for this run, so the question was not split into smaller queries." A refused
+optional step (stream lines, boundaries), or one refused batch of a long IRI
+list, leaves the rest of the answer on the map, and the incomplete-results
+notice ends with the same sentence. Request-size batches and the one retry
+after a timeout stay on.
+
+Cached and published results do not keep the "chunking was off" note
+(engine/wire.ts stores only the rows, the incomplete-results list and the
+SPARQL), so a result published from a build with the flag off shows its
+incomplete notice without the note.
+
+**Tests.** The "with chunking on refusal turned off" block in
+`engine/tests/executor.test.ts`, and the chunking-off messages in
+`engine/tests/errors.test.ts`.
