@@ -1,5 +1,6 @@
 import type { EndpointKey } from '../constants/endpoints';
 import type { EntityBlock, EntityType } from '../types/query';
+import type { QuestionTotals } from './wording';
 
 // Everything the engine knows about one type of entity. The stages ask this
 // instead of switching on the type, so adding a type is one new module.
@@ -22,6 +23,10 @@ export interface EntityModule {
   bindInCell(block: EntityBlock, s2Var: string, suffix: string, observations: boolean): string;
   // Whether the block narrows this type at all.
   isFiltered(block: EntityBlock): boolean;
+  // The block in words, filters included ("PFOS samples", "landfill
+  // facilities"), for the question sentence. `totals` lets a selection of
+  // every option read as "any".
+  describe(block: EntityBlock, totals?: QuestionTotals): string;
   // A check that the entity itself, not only its cell, lies in the region.
   // Absent where the cell check is enough.
   regionCheck?(suffix: string, anyOf: (variable: string) => RegionMatch): string;

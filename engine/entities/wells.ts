@@ -1,11 +1,14 @@
 import { buildWellCategoryFilter } from '../templates/wells';
 import { anyFilterSlotSet, type EntityModule } from './types';
+import { extractLabel, summarize } from './wording';
+
+const LABEL = 'wells';
 
 const iriVar = (suffix: string): string => `?well${suffix}`;
 
 export const wells: EntityModule = {
   type: 'wells',
-  label: 'wells',
+  label: LABEL,
   isFlowline: false,
   // Wells re-derive their set server-side (buildFusedWellQuery): a statewide
   // set runs to 80k+ IRIs, and inlining them made the request too big (413).
@@ -17,6 +20,15 @@ export const wells: EntityModule = {
       ${typeFilter}`;
   },
   isFiltered: anyFilterSlotSet,
+  describe(block) {
+    const tokens = block.wellFilters?.wellCategories ?? [];
+    if (!tokens.length) return LABEL;
+    // A token ends in its category IRI, whose last segment ("Drilled") is
+    // the fallback when the save predates stored labels.
+    const labels = block.wellFilters?.wellCategoryLabels ?? {};
+    const items = tokens.map((t) => labels[t] || extractLabel(t));
+    return `${summarize(items, undefined, 'well types', 'well type', ', ', 'any')} ${LABEL}`;
+  },
   // A cell that crosses the county line touches the county, so the cell check
   // alone lets in wells from the next county (35 of 2,264 for Hancock, #96).
   // Wells link to the county subdivision they sit in, which rolls up to county

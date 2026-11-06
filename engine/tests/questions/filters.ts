@@ -56,6 +56,9 @@ export const BLOCK_FILTERS: BlockFilterCase[] = [
   { name: 'waterBodies: water type', type: 'waterBodies', filter: { waterBodyFilters: { ftypes: ['LakePond'] } } },
   { name: 'waterBodies: two water types', type: 'waterBodies', filter: { waterBodyFilters: { ftypes: ['LakePond', 'Reservoir'] } } },
   { name: 'streams: stream type', type: 'streams', filter: { streamFilters: { ftypes: ['StreamRiver'] } } },
+  // More than three picks read as a count ("4 stream types"), not a list.
+  { name: 'streams: more than three stream types', type: 'streams', filter: { streamFilters: { ftypes: ['StreamRiver', 'ArtificialPath', 'CanalDitch', 'Connector'] } } },
+  { name: 'facilities: more than three industries', type: 'facilities', filter: { facilityFilters: { industryCodes: ['221', '325', '562', '928'] } } },
   { name: 'wells: classification with label', type: 'wells', filter: { wellFilters: { wellCategories: [BEDROCK], wellCategoryLabels: { [BEDROCK]: 'Bedrock' } } } },
   { name: 'wells: classification without label', type: 'wells', filter: { wellFilters: { wellCategories: [BEDROCK] } } },
   { name: 'aquifers: bedrock', type: 'aquifers', filter: { aquiferFilters: { aquiferTypes: ['bedrock'] } } },

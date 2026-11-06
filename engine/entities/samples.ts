@@ -1,7 +1,26 @@
 import type { SampleFilters } from '../types/query';
 import { buildSampleFilterClauses, needsUnitJoin, resultValueClauses } from '../templates/samples';
 import { buildSamplesByIri } from '../templates/hydrate';
+import { FALLBACK_MATERIAL_TYPES } from '../constants/materialTypes';
 import type { EntityModule } from './types';
+import { LIST_THRESHOLD, extractLabel, summarize } from './wording';
+
+const LABEL = 'samples';
+
+// Concentration range and the non-detect exclusion, as one parenthetical:
+// " (10-1000 ng/L, detections only)". The editor's inputs are ng/L and the
+// query compares in ng/L, so that is the unit when none is stored.
+function describeConcentration(f?: SampleFilters): string {
+  if (!f) return '';
+  const { minConcentration: min, maxConcentration: max } = f;
+  const u = ` ${f.unit ?? 'ng/L'}`;
+  const parts: string[] = [];
+  if (min !== undefined && max !== undefined) parts.push(`${min}-${max}${u}`);
+  else if (min !== undefined) parts.push(`above ${min}${u}`);
+  else if (max !== undefined) parts.push(`below ${max}${u}`);
+  if (f.includeNondetects === false) parts.push('detections only');
+  return parts.length ? ` (${parts.join(', ')})` : '';
+}
 
 // The observation joins a samples block needs to *filter*, which is a smaller
 // set than the joins it needs to *display*. Every required triple is also a
@@ -26,7 +45,7 @@ function sampleJoinsNeeded(filters: SampleFilters | undefined) {
 
 export const samples: EntityModule = {
   type: 'samples',
-  label: 'samples',
+  label: LABEL,
   isFlowline: false,
   // By IRI on federation, in request-size chunks (planner.ts iriScopes).
   // Re-deriving the trace here is what used to time out.
@@ -95,4 +114,59 @@ export const samples: EntityModule = {
   // generic "any field is non-null" scan does not, and read
   // `includeNondetects: true` alone as a reason to reorder the whole body.
   isFiltered: (block) => sampleJoinsNeeded(block.sampleFilters).observation,
+  describe(block, totals) {
+    const conc = describeConcentration(block.sampleFilters);
+    const subs = block.sampleFilters?.substances ?? [];
+    const mats = block.sampleFilters?.materialTypes ?? [];
+    const subLabels = block.sampleFilters?.substanceLabels ?? {};
+    const subItems = subs.map((uri) => subLabels[uri] || extractLabel(uri));
+    const matLabels = block.sampleFilters?.materialTypeLabels ?? {};
+    // Prebuilt questions and older saves carry no label map.
+    const matItems = mats.map(
+      (uri) =>
+        matLabels[uri] ||
+        FALLBACK_MATERIAL_TYPES.find((m) => m.uri === uri)?.label ||
+        extractLabel(uri),
+    );
+
+    const subAll =
+      totals?.substances !== undefined &&
+      totals.substances > 0 &&
+      subItems.length === totals.substances;
+    const matAll =
+      totals?.materialTypes !== undefined &&
+      totals.materialTypes > 0 &&
+      matItems.length === totals.materialTypes;
+    const subLong = subItems.length > LIST_THRESHOLD || subAll;
+    const matLong = matItems.length > LIST_THRESHOLD || matAll;
+
+    // Inline adjective form when both lists are short, which preserves today's phrasing.
+    if (!subLong && !matLong) {
+      const parts: string[] = [];
+      if (subItems.length) parts.push(subItems.join('/'));
+      if (matItems.length) parts.push(matItems.join('/'));
+      return (parts.length ? `${parts.join(' ')} ${LABEL}` : LABEL) + conc;
+    }
+
+    // Postfix form for long/all selections: reads naturally.
+    const clauses: string[] = [];
+    if (subItems.length) {
+      clauses.push(
+        summarize(subItems, totals?.substances, 'substances', 'substance', '/', 'any'),
+      );
+    }
+    if (matItems.length) {
+      clauses.push(
+        summarize(
+          matItems,
+          totals?.materialTypes,
+          'material types',
+          'material type',
+          '/',
+          'any',
+        ),
+      );
+    }
+    return (clauses.length ? `${LABEL} with ${clauses.join(' and ')}` : LABEL) + conc;
+  },
 };

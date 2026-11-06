@@ -1,9 +1,13 @@
 import { buildWaterBodiesByIri } from '../templates/hydrate';
+import { WATER_BODY_FTYPES } from '../constants/featureTypes';
 import { anyFilterSlotSet, type EntityModule } from './types';
+import { ftypeLabels, summarize } from './wording';
+
+const LABEL = 'surface water bodies';
 
 export const waterBodies: EntityModule = {
   type: 'waterBodies',
-  label: 'surface water bodies',
+  label: LABEL,
   isFlowline: false,
   details: {
     kind: 'by-iri',
@@ -23,4 +27,11 @@ export const waterBodies: EntityModule = {
       ${filterClauses}`;
   },
   isFiltered: anyFilterSlotSet,
+  describe(block) {
+    const ftypes = block.waterBodyFilters?.ftypes ?? [];
+    if (!ftypes.length) return LABEL;
+    // Labels contain " / " themselves, so they are joined with commas.
+    const items = ftypeLabels(ftypes, WATER_BODY_FTYPES);
+    return `${summarize(items, undefined, 'water types', 'water type', ', ', 'any')} ${LABEL}`;
+  },
 };

@@ -24,9 +24,6 @@ const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/
 
 // Files allowed to name entity types, and why.
 const STAYS: Record<string, string> = {
-  // The question as a sentence. Its per-type wording moves to the modules in
-  // the next Phase 0 item (P0.4b).
-  '../questionGenerator.ts': 'sentence wording, moves in P0.4b',
   // A warning measured for one samples and facilities combination; kept as is
   // until live counts can replace it (redesign decision 22).
   '../queryBreadth.ts': 'measured samples x facilities warning, decision 22',
@@ -52,6 +49,13 @@ describe('every entity type has a module', () => {
     const entity = entityFor(type);
     expect(entity.type).toBe(type);
     expect(entity.label.length).toBeGreaterThan(0);
+  });
+
+  // The label is how the step labels name the type, and an unfiltered block
+  // is how the question sentence names it; the two must be the same words.
+  it.each(ENTITY_TYPES)('%s: an unfiltered block reads as its label', (type) => {
+    const entity = entityFor(type);
+    expect(entity.describe({ type })).toBe(entity.label);
   });
 
   it('covers all six types', () => {

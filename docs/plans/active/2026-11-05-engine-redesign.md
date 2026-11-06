@@ -103,7 +103,7 @@ byte-identical in every PR.
 - [x] `errors.ts` catalogue (same wording, one file). The edit modal's Apply error is left for Phase 1, since moving it changes its wording
 - [x] Normalise: orientation in one place; delete the dead upstream branches (five were dead, not six: `fringePath`'s upstream arm is live for target-seeded bounded traces)
 - [x] Entity modules, query side (`engine/entities/`): IRI variable, cell bind, filters, region check, details, flowline, label. Not in this item: the one-row and drawable rules (Phase 1, they change SPARQL), rows to features (`resultTransformer.ts`, the Shape stage), the wells query builder (planner, until wells load by IRI) and the streams form of the trace (`fusedQueries.ts`)
-- [ ] Entity modules, sentence wording: the per-type parts of `questionGenerator.ts` (P0.4b)
+- [x] Entity modules, sentence wording: each module's `describe(block, totals)` (P0.4b). `questionGenerator.ts` keeps the sentence, the region and the relationship
 - [ ] Stage files and `runQuestion`, plus the recording wrapper so `query-matrix` runs the real engine, and "near or trace" as one kind from `normalise` (today `relationship.type` is still tested in the planner, the wells query and `errors.ts`)
 
 **Phase 1: behaviour changes.** Each with a regression test, a
@@ -116,6 +116,7 @@ byte-identical in every PR.
 - [ ] Fixes: combine facility industry codes; leftover filter slots; the non-detect tick counted as a filter in the advice
 - [ ] Result by block, `WIRE_VERSION` bump, `warm-cache`
 - [ ] Structured failures (code, step, block, slices, raw text) in `errors.ts`, and the edit modal's Apply error worded there instead of in the UI
+- [ ] Question wording: more than three picks reads "4 stream types streams" and "4 industries facilities" (the noun is said twice). Found by the P0.4b fixtures; changes copy, so needs sign-off
 
 **Phase 2: a `query-matrix` sweep decides each one before it ships.**
 
