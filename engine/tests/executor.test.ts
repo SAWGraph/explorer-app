@@ -9,7 +9,7 @@
 // No network: every request goes to the fake.
 import { describe, expect, it, vi } from 'vitest';
 import { executePipeline, type StepProgress } from '../executor';
-import { SparqlError } from '../sparqlErrors';
+import { SparqlError } from '../errors';
 import { planPipeline } from '../planner';
 import type { AnalysisQuestion } from '../types/query';
 import { fakeEndpoint, iriRows, pinned, projected, refuse, type FakeEndpoint } from './support/fakeEndpoint';

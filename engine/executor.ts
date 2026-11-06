@@ -4,7 +4,7 @@ import type { EndpointKey } from './constants/endpoints';
 import type { PipelineStep, PipelineContext } from './planner';
 import type { Scope } from './scope';
 import { executeSparql, type SparqlRunner } from './sparqlClient';
-import { SparqlError, isSplittable } from './sparqlErrors';
+import { SparqlError, isSplittable, stepEmptyMessage, stepFailedMessage } from './errors';
 
 export interface PartialFailure {
   step: string;
@@ -102,7 +102,7 @@ interface StepOutcome {
 
 // Runs one step, slicing it up if the engine refuses the whole thing.
 //
-// The engine kills any query at 30s and reports it as a 429 (see sparqlErrors).
+// The engine kills any query at 30s and reports it as a 429 (see errors.ts).
 // Rather than guessing a safe size up front, we try the whole query and only
 // split what actually fails — most questions never split at all, and the ones
 // that do split only as far as they need.
@@ -233,7 +233,7 @@ export async function executePipeline(
       return {
         status: 'error',
         failedAtStep: i,
-        message: `Error at step: ${step.description}`,
+        message: stepFailedMessage(step.description),
         error: err instanceof Error ? err : new Error(String(err)),
         queries,
       };
@@ -246,7 +246,7 @@ export async function executePipeline(
       return {
         status: 'error',
         failedAtStep: i,
-        message: `Error at step: ${step.description}`,
+        message: stepFailedMessage(step.description),
         error: outcome.lastError ?? new Error('Query failed'),
         queries,
       };
@@ -272,7 +272,7 @@ export async function executePipeline(
         return {
           status: 'empty',
           failedAtStep: i,
-          message: `No results at step: ${step.description}`,
+          message: stepEmptyMessage(step.description),
           queries,
         };
       }

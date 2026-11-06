@@ -5,7 +5,7 @@ import {
   classifySparqlFailure,
   extractSparqlDetail,
   isRetryable,
-} from './sparqlErrors';
+} from './errors';
 
 // The engine's own limit is 30s, so a request still open well past that is not
 // working — it is stalled behind an overloaded endpoint. Without this the client

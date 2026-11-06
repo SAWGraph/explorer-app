@@ -100,7 +100,7 @@ Around the stages:
 byte-identical in every PR.
 
 - [x] Endpoint as an input, the in-memory fake, executor tests that pin today's behaviour (the recording wrapper for `query-matrix` moves to the stage-files item)
-- [ ] `errors.ts` catalogue (same wording, one file)
+- [x] `errors.ts` catalogue (same wording, one file). The edit modal's Apply error is left for Phase 1, since moving it changes its wording
 - [ ] Normalise: orientation in one place; delete the dead upstream branches
 - [ ] Entity modules
 - [ ] Stage files and `runQuestion`, plus the recording wrapper so `query-matrix` runs the real engine
@@ -114,6 +114,7 @@ byte-identical in every PR.
 - [ ] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills)
 - [ ] Fixes: combine facility industry codes; leftover filter slots; the non-detect tick counted as a filter in the advice
 - [ ] Result by block, `WIRE_VERSION` bump, `warm-cache`
+- [ ] Structured failures (code, step, block, slices, raw text) in `errors.ts`, and the edit modal's Apply error worded there instead of in the UI
 
 **Phase 2: a `query-matrix` sweep decides each one before it ships.**
 

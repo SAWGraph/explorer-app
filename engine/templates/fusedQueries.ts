@@ -467,7 +467,7 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
 // engine/scope.ts asks the same question to pick a chunking axis, and the two
 // have to agree: if the template thinks a side is constrained and the executor
 // thinks it is wide open, the executor slices on an axis the template already
-// led with. engine/sparqlErrors.ts still keeps its own `isNarrowed`, which is
+// led with. engine/errors.ts still keeps its own `isNarrowed`, which is
 // this plus the region check.
 //
 // A samples block is the one type with a filter that defaults to set:

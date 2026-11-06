@@ -341,7 +341,7 @@ client bug — but it means a very large response can fail *after* a successful
 **Baseline:** all eight surfaced as the same red card — nothing distinguished
 "this question is too big" from "the server had a bad moment, press retry".
 
-**Now:** classified in `engine/sparqlErrors.ts` and shown per kind. A
+**Now:** classified in `engine/errors.ts` and shown per kind. A
 `sibling-failure` says to just run it again; a network error says to check the
 connection; a timeout or out-of-memory offers the lever that applies to the
 question being asked (see Part 8.1) rather than one fixed sentence.
@@ -699,7 +699,7 @@ What rescues it, measured on York alone:
 | 30 km, Block A = landfills | ⬜ *empty* in 3s |
 
 Two things follow, and both are now encoded in `adviceForOversizedQuestion`
-(`engine/sparqlErrors.ts`):
+(`engine/errors.ts`):
 
 - **A shorter distance is the lever that works here** — and it was the one the
   old message never mentioned. It said to add a filter or region to the second

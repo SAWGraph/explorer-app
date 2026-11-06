@@ -50,7 +50,7 @@ Questions execute through a pipeline:
 4. **sparqlClient.ts** — executes SPARQL against remote endpoints, transforms bindings to flat rows
 5. **resultTransformer.ts** — converts SPARQL rows to `MapFeature[]` by parsing WKT geometries; deduplicates by URI
 
-A query the endpoint refuses (timeout, out of memory, payload too large) is split into smaller slices and merged (`scope.ts`); `sparqlErrors.ts` classifies the failure and decides retry or split.
+A query the endpoint refuses (timeout, out of memory, payload too large) is split into smaller slices and merged (`scope.ts`); `errors.ts` classifies the failure, decides retry or split, and words the failed, empty and incomplete-result messages.
 
 ### Result Cache and API (`server/`)
 
