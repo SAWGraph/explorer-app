@@ -75,7 +75,7 @@ Around the stages:
 | 7 | Counts give: an early `empty` when a side is 0, the error advice ("block C matches 459,877 facilities"), and the slice axis. |
 | 8 | Start side: rank first; within the same rank level, the side with the clearly smaller count. Every choice records its reason in plain words. |
 | 9 | The count rule applies to both trace families first. A `query-sweep` sweep sets the "clearly smaller" ratio (start at 3x). |
-| 10 | Keep two discovery queries. A sweep decides whether one paired query replaces them. |
+| 10 | Keep two discovery queries. Confirmed 2026-11-07: QLever's cache already shares the join between them (the second query took 0.6s to 3.3s after a first of 3.9s to 6.4s), so a paired query saves about one query, and on traces it returns 20 to 700 times more rows (Lake County: 49,447 pairs against 1,190 IRIs). |
 | 11 | Wells load by IRI in 1,000-IRI chunks like samples. A sweep sets the size above which they re-derive the join. |
 | 12 | Decoration (stream lines, boundaries) runs alongside the main steps, started as soon as what it waits for is done. |
 | 13 | Keep the boundaries query. Static county outlines are a later UI job. |
@@ -129,7 +129,7 @@ byte-identical in every PR.
 
 - [ ] Wells by IRI and its size limit (measured after the one-row change)
 - [ ] Start side from counts for traces, and the ratio
-- [ ] One paired discovery query
+- [x] One paired discovery query: rejected, see decision 10. Live on 10 fresh shapes (5 near, 5 traces), order alternated, QLever `cache_status` read on every step. Not measured: both lists in one request as a `UNION` of two `SELECT DISTINCT` subqueries (same rows as today, worth at most one round trip per question)
 
 ## Notes
 
