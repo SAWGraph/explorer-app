@@ -118,7 +118,7 @@ byte-identical in every PR.
 - [x] Record the new baseline: a full chunking-off sweep (M1 to M9, MD) on `development`, from the workflow (PR #118: 156 shapes, 110 passed, 46 failed)
 - [x] Decoration alongside, with the dependency-driven loop: each step names what it waits for (`after`); boundaries start with the run, stream lines once both sides are found. The main steps still run one at a time
 - [x] Live counts: early empty, advice, slice axis. Two count steps (`COUNT_TARGET`, `COUNT_ANCHOR`) open every plan, 10s cap, dropped on failure in both chunking modes; a side at 0 ends the run naming the block; the advice gives both counts and names the bigger block; slicing skips probes a count says would be full, order unchanged
-- [ ] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills)
+- [x] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills). Met: #82 41.7s to 23.7s (best of 2); Penobscot landfills is 3.4s to 5.9s either way today. Facilities collapse only under a prefix code or no code filter; water bodies downstream of wells left for wells by IRI (Phase 2)
 - [ ] Fixes: combine facility industry codes; leftover filter slots. (The non-detect tick counted as a filter in the advice: fixed with the live counts)
 - [ ] Result by block, `WIRE_VERSION` bump, `warm-cache`
 - [ ] Structured failures (code, step, block, slices, raw text) in `errors.ts`, and the edit modal's Apply error worded there instead of in the UI

@@ -55,59 +55,45 @@ export const samples: EntityModule = {
     buildQuery: (iris, block) => buildSamplesByIri(iris, block.sampleFilters),
   },
   iriVar: (suffix) => `?sp${suffix}`,
-  // `observations: false` drops the observation joins outright. Only the
-  // IRI-finding queries may pass it: they project just the sample-point IRI,
-  // and re-deriving every observation there is what pushes the hydrology
-  // queries past QLever's 30s limit / memory ceiling (429/500).
-  // buildFusedWellQuery is the one caller left on `true`: it projects well
-  // columns from a body that may carry a samples block on the other side.
+  // One row per sample point and cell: the observation joins a filter reads
+  // repeat a point once per matching measurement (Maine, >= 4 ng/L: 78,369
+  // rows for 2,207 points), so a filtered side fans out and the fused queries
+  // collapse it (fansOut, templates/fusedQueries.ts). Only the joins the
+  // filters read are written (sampleJoinsNeeded); measurement detail comes
+  // from the details step (buildSamplesByIri).
   //
-  // With `false` and an active sample filter the block is rebuilt from
-  // sampleJoinsNeeded: enough to honour the filter, nothing that only feeds a
-  // popup.
-  bindInCell(block, s2Var, suffix, observations) {
+  // Drawable: a point needs a location, the map draws nothing without one,
+  // and an observation that passes a filter has to name a chemical. Aggregate
+  // rows such as SUM_PFOA_PFOS carry no DSSTox substance, so a point whose only
+  // result >= 4 ng/L was a sum matched while the map, which lists chemicals,
+  // never drew it (sample point 151764 on North Haven, #82).
+  bindInCell(block, s2Var, suffix) {
     const point = `?sp${suffix} rdf:type coso:SamplePoint ;
-                spatial:connectedTo ${s2Var} .`;
-    const filters = buildSampleFilterClauses(block.sampleFilters, suffix);
-
-    if (!observations) {
-      const need = sampleJoinsNeeded(block.sampleFilters);
-      if (!need.observation) return point;
-      const parts = [
-        point,
-        `?observation${suffix} coso:observedAtSamplePoint ?sp${suffix} .`,
-      ];
-      if (need.substance) {
-        parts.push(`?observation${suffix} coso:ofDSSToxSubstance ?substance${suffix} .`);
-      }
-      if (need.material) {
-        // The material lives on the analysed sample, not the observation.
-        parts.push(`?observation${suffix} coso:analyzedSample ?sample${suffix} .
+                spatial:connectedTo ${s2Var} ;
+                geo:hasGeometry ?_spGeom${suffix} .`;
+    const need = sampleJoinsNeeded(block.sampleFilters);
+    if (!need.observation) return point;
+    const parts = [
+      point,
+      `?observation${suffix} coso:observedAtSamplePoint ?sp${suffix} ;
+          coso:ofDSSToxSubstance ?substance${suffix} .`,
+    ];
+    if (need.material) {
+      // The material lives on the analysed sample, not the observation.
+      parts.push(`?observation${suffix} coso:analyzedSample ?sample${suffix} .
       ?sample${suffix} coso:sampleOfMaterialType ?matType${suffix} .`);
-      }
-      if (need.result) {
-        parts.push(`?observation${suffix} coso:hasResult ?result${suffix} .
-      ${resultValueClauses(suffix)}`);
-      }
-      if (need.unit) {
-        parts.push(`?result${suffix} coso:measurementUnit ?unit${suffix} .`);
-      }
-      parts.push(filters);
-      return parts.join('\n      ');
     }
-
-    return `${point}
-      ?observation${suffix} rdf:type coso:ContaminantObservation ;
-          coso:observedAtSamplePoint ?sp${suffix} ;
-          coso:ofDSSToxSubstance ?substance${suffix} ;
-          coso:analyzedSample ?sample${suffix} ;
-          coso:hasResult ?result${suffix} .
-      ?sample${suffix} coso:sampleOfMaterialType ?matType${suffix} .
-      ?matType${suffix} rdfs:label ?matTypeLabel${suffix} .
-      ?result${suffix} coso:measurementUnit ?unit${suffix} .
-      ${resultValueClauses(suffix)}
-      ${filters}`;
+    if (need.result) {
+      parts.push(`?observation${suffix} coso:hasResult ?result${suffix} .
+      ${resultValueClauses(suffix)}`);
+    }
+    if (need.unit) {
+      parts.push(`?result${suffix} coso:measurementUnit ?unit${suffix} .`);
+    }
+    parts.push(buildSampleFilterClauses(block.sampleFilters, suffix));
+    return parts.join('\n      ');
   },
+  fansOut: (block) => sampleJoinsNeeded(block.sampleFilters).observation,
   // Samples are the one type with a filter that defaults to set:
   // `includeNondetects: true` is the UI's default checked state and narrows
   // nothing, so only `=== false` counts. sampleJoinsNeeded draws that line; a

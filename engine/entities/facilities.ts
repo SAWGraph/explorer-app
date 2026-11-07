@@ -27,6 +27,18 @@ export const facilities: EntityModule = {
       ?industryCode${suffix} a naics:NAICS-IndustryCode .
       ${industry}`;
   },
+  // A facility has one row per industry code that passes the filter. A full
+  // 6-digit code matches itself only, so those sides are one row per facility
+  // already (landfills and DoD sites nationwide: 5,922 rows for 5,908); a
+  // shorter code matches every code under it, and no filter matches every
+  // code a facility has (5622 nationwide: 13,413 rows for 6,372; Cumberland,
+  // no filter: 1,270 for 676). Collapsing a side that does not fan out only
+  // costs: the two Maine wells dashboard questions' discovery went from 6s to
+  // 20s, where Cook's sector-coded side went from 12.5s to 4.2s (2026-11-06).
+  fansOut: (block) => {
+    const codes = (block.facilityFilters as FacilityFilters | undefined)?.industryCodes ?? [];
+    return codes.length === 0 || codes.some((code) => code.length < 6);
+  },
   isFiltered: anyFilterSlotSet,
   describe(block, totals) {
     const codes = block.facilityFilters?.industryCodes;

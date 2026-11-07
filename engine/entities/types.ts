@@ -18,9 +18,16 @@ export interface EntityModule {
   readonly details: DetailsLoad;
   // The variable a fused query binds this entity to, e.g. `?facilityA`.
   iriVar(suffix: string): string;
-  // Binds the entity inside the S2 cell `s2Var`, with the block's filters.
-  // `observations` matters for samples only (see entities/samples.ts).
-  bindInCell(block: EntityBlock, s2Var: string, suffix: string, observations: boolean): string;
+  // Binds the entity inside the S2 cell `s2Var`, with the block's filters, and
+  // only entities the map can draw.
+  bindInCell(block: EntityBlock, s2Var: string, suffix: string): string;
+  // Whether the bind can yield more than one row per entity and cell (a join
+  // on a field with several values: a sample's measurements, a facility's
+  // industry codes). Such a side is collapsed to one row per entity and cell
+  // before it meets the other side (templates/fusedQueries.ts), so the join
+  // multiplies entities, not their fields. Multi-valued fields are read only
+  // by the details step.
+  fansOut(block: EntityBlock): boolean;
   // Whether the block narrows this type at all.
   isFiltered(block: EntityBlock): boolean;
   // The block in words, filters included ("PFOS samples", "landfill

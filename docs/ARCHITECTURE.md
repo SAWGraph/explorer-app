@@ -666,11 +666,20 @@ Both blocks of a question go through it, once for the anchor cell and once for
 the target cell, and the relationship supplies the path between the two cells.
 That is the whole trick: "near" is `sfTouches`, and a trace is a flow-path join.
 
-**One guard is worth knowing about.** `bindEntityInCell` takes a
-`sampleObservations` flag. An ID-finding query needs the sample *points*; a
-detail query needs every observation on them. Serving both callers from one
-branch is what made a query to find sample IDs build every measurement in the
-state and discard it — the bug behind most of `QUERY-SWEEP.md` Part 5.
+**One rule is worth knowing about: one row per entity and cell.** Each entity
+module's `bindInCell` (`engine/entities/`) writes only the joins its filters
+read, and only entities the map can draw (a sample point needs a location, and
+a filtered match must name a chemical). A side whose bind still repeats an
+entity in a cell (`fansOut`: a sample's matching measurements, a facility's
+industry codes under a prefix code or no code filter) is collapsed to
+`SELECT DISTINCT ?entity ?cell`, with its region and pin inside, before it
+meets the other side. The wells step collapses its join the same way before the
+well columns attach. Carried into the join uncollapsed, 407 sample points
+became 20,826 rows and issue #82's question failed after 626s; collapsed, it
+answers in about 24s. Measurement detail is read only by the details step.
+`engine/tests/oneRowPerCell.test.ts` checks every question shape. (The old
+`sampleObservations` flag, which let the wells step build every measurement on
+the other side, is gone.)
 
 The older `facilities.ts` and `samples.ts` are no longer whole-query builders.
 They survive as fragment helpers — `buildIndustryValues()`,

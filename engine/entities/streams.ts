@@ -30,6 +30,8 @@ export const streams: EntityModule = {
       ?stream${suffix} rdf:type hyf:HY_FlowPath .
       ${streamFtypeFilter(block.streamFilters, suffix)}`;
   },
+  // One row per entity and cell already (measured in Maine, 2026-11-06).
+  fansOut: () => false,
   isFiltered: anyFilterSlotSet,
   describe(block) {
     const ftypes = block.streamFilters?.ftypes ?? [];
