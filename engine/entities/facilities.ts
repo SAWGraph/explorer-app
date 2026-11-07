@@ -3,7 +3,7 @@ import { buildIndustryValues } from '../templates/facilities';
 import { buildFacilitiesByIri } from '../templates/hydrate';
 import { NAICS_SECTOR_SHORT } from '../constants/naics';
 import { ownFilterSet, type EntityModule } from './types';
-import { summarize } from './wording';
+import { namedOrCounted } from './wording';
 
 const LABEL = 'facilities';
 
@@ -69,15 +69,7 @@ export const facilities: EntityModule = {
           displayLabels.push(label);
         }
       }
-      const summary = summarize(
-        displayLabels,
-        undefined,
-        'industries',
-        'industry',
-        ', ',
-        'any',
-      );
-      return `${summary} ${LABEL}`;
+      return namedOrCounted(displayLabels, LABEL, ', ', (n) => `in ${n} industries`);
     }
     return LABEL;
   },

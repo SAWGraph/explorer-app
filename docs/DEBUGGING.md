@@ -1178,3 +1178,22 @@ is the scripts' log line and no screen shows it.
 **Tests.** "what a failure carries" in `engine/tests/executor.test.ts`, "the
 detail of a failure" in `engine/tests/errors.test.ts`, and "1d" in
 `ui/tests/editModalFlows.test.tsx`.
+
+## 2026-11-06: "4 stream types streams" in the question sentence (FIXED)
+
+**Symptom.** A block with more than three picks read with its noun twice: "What
+4 stream types streams are within at most 2 miles of samples?", "4 industries
+facilities". Found by the P0.4b wording fixtures.
+
+**Root cause.** `summarize` returned the count with its own noun ("4 stream
+types"), and each module then appended the block's noun.
+
+**Fix.** `namedOrCounted` (`engine/entities/wording.ts`): up to three picks are
+named in front of the noun as before ("Stream / River streams"); past that the
+count follows the noun: "streams of 4 types", "facilities in 4 industries",
+"wells of 4 types", "surface water bodies of 4 types". Samples already read
+"samples with 4 substances". Only the four doubled sentences in the recorded
+wording moved.
+
+**Tests.** `engine/tests/blockWording.test.ts`, and the recorded sentences in
+`engine/tests/__snapshots__/question-text.txt`.
