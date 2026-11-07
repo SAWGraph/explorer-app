@@ -2,7 +2,7 @@ import type { StreamFilters } from '../types/query';
 import { buildStreamsByIri } from '../templates/hydrate';
 import { STREAM_FTYPES } from '../constants/featureTypes';
 import { ownFilterSet, type EntityModule } from './types';
-import { ftypeLabels, summarize } from './wording';
+import { ftypeLabels, namedOrCounted } from './wording';
 
 const LABEL = 'streams';
 
@@ -38,6 +38,6 @@ export const streams: EntityModule = {
     const ftypes = block.streamFilters?.ftypes ?? [];
     if (!ftypes.length) return LABEL;
     const items = ftypeLabels(ftypes, STREAM_FTYPES);
-    return `${summarize(items, undefined, 'stream types', 'stream type', ', ', 'any')} ${LABEL}`;
+    return namedOrCounted(items, LABEL, ', ', (n) => `of ${n} types`);
   },
 };

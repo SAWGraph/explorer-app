@@ -1,7 +1,7 @@
 import { buildWaterBodiesByIri } from '../templates/hydrate';
 import { WATER_BODY_FTYPES } from '../constants/featureTypes';
 import { ownFilterSet, type EntityModule } from './types';
-import { ftypeLabels, summarize } from './wording';
+import { ftypeLabels, namedOrCounted } from './wording';
 
 const LABEL = 'surface water bodies';
 
@@ -35,6 +35,6 @@ export const waterBodies: EntityModule = {
     if (!ftypes.length) return LABEL;
     // Labels contain " / " themselves, so they are joined with commas.
     const items = ftypeLabels(ftypes, WATER_BODY_FTYPES);
-    return `${summarize(items, undefined, 'water types', 'water type', ', ', 'any')} ${LABEL}`;
+    return namedOrCounted(items, LABEL, ', ', (n) => `of ${n} types`);
   },
 };

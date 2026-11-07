@@ -200,13 +200,13 @@
 ## FILTER C: streams: stream type
   What samples are within at most 2 miles of Stream / River streams?
 ## FILTER A: streams: more than three stream types
-  What 4 stream types streams are within at most 2 miles of samples?
+  What streams of 4 types are within at most 2 miles of samples?
 ## FILTER C: streams: more than three stream types
-  What samples are within at most 2 miles of 4 stream types streams?
+  What samples are within at most 2 miles of streams of 4 types?
 ## FILTER A: facilities: more than three industries
-  What 4 industries facilities are within at most 2 miles of samples?
+  What facilities in 4 industries are within at most 2 miles of samples?
 ## FILTER C: facilities: more than three industries
-  What samples are within at most 2 miles of 4 industries facilities?
+  What samples are within at most 2 miles of facilities in 4 industries?
 ## FILTER A: wells: classification with label
   What Bedrock wells are within at most 2 miles of samples?
 ## FILTER C: wells: classification with label

@@ -1,6 +1,6 @@
 import { buildWellCategoryFilter } from '../templates/wells';
 import { ownFilterSet, type EntityModule } from './types';
-import { extractLabel, summarize } from './wording';
+import { extractLabel, namedOrCounted } from './wording';
 
 const LABEL = 'wells';
 
@@ -30,7 +30,7 @@ export const wells: EntityModule = {
     // the fallback when the save predates stored labels.
     const labels = block.wellFilters?.wellCategoryLabels ?? {};
     const items = tokens.map((t) => labels[t] || extractLabel(t));
-    return `${summarize(items, undefined, 'well types', 'well type', ', ', 'any')} ${LABEL}`;
+    return namedOrCounted(items, LABEL, ', ', (n) => `of ${n} types`);
   },
   // A cell that crosses the county line touches the county, so the cell check
   // alone lets in wells from the next county (35 of 2,264 for Hancock, #96).
