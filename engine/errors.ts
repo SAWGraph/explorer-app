@@ -1,4 +1,4 @@
-import type { PipelineResult, SideCounts } from './executor';
+import type { PipelineError, PipelineResult, SideCounts } from './executor';
 import type { AnalysisQuestion, EntityBlock } from './types/query';
 import { normalise } from './question';
 import { entityFor } from './entities';
@@ -8,10 +8,9 @@ import { entityFor } from './entities';
 // strip and the incomplete-results notice display what this file returns and
 // write none of it themselves.
 //
-// One exception is left on purpose: the edit modal still puts its own "Error:"
-// label before stepFailedMessage and shows the raw error text under it. Routing
-// it through here changes what it says, so it moves with the structured
-// failures (engine redesign, Phase 1).
+// A failed run carries its failure in parts (Failure: code, step, block,
+// slices, status, raw text). The edit modal shows outcomeMessage, then
+// failureDetail, then the raw text; the progress strip shows outcomeMessage.
 
 // QLever reports several very different problems through a small set of HTTP
 // statuses, and the most important one is actively misleading: a query that
@@ -125,8 +124,9 @@ function isNarrowed(block: EntityBlock): boolean {
   return entityFor(block.type).isFiltered(block);
 }
 
-function userMessageFor(error: unknown, question?: AnalysisQuestion, counts?: SideCounts): string {
-  const kind = error instanceof SparqlError ? error.kind : 'unknown';
+// Worded from the failure's code, not from the error object it came from: a
+// result rebuilt from its parts (or a test's) carries the code alone.
+function userMessageFor(kind: SparqlErrorKind, question?: AnalysisQuestion, counts?: SideCounts): string {
   switch (kind) {
     case 'timeout':
     case 'out-of-memory':
@@ -153,6 +153,60 @@ export function stepEmptyMessage(stepDescription: string): string {
   return `No results at step: ${stepDescription}`;
 }
 
+// What a failed run carries, in parts: the UI shows them and words nothing
+// itself. `code` keeps the classifier's names (the query-sweep CSVs compare on
+// them). `step` and `block` are missing for a failure outside the steps.
+export interface Failure {
+  code: SparqlErrorKind;
+  step?: { index: number; total: number; type: string; description: string };
+  // The block the step was working on; none for decoration (boundaries,
+  // stream lines).
+  block?: 'A' | 'C';
+  // The slices of the step that failed, and those never reached.
+  slices: { failed: string[]; skipped: string[] };
+  // The HTTP status, when the endpoint answered with one.
+  status?: number;
+  // What the server said, or the error's own message.
+  raw: string;
+}
+
+export function failureOf(
+  error: unknown,
+  where: { step?: Failure['step']; block?: 'A' | 'C'; failed?: string[]; skipped?: string[] } = {},
+): Failure {
+  const sparql = error instanceof SparqlError ? error : null;
+  return {
+    code: sparql?.kind ?? 'unknown',
+    ...(where.step ? { step: where.step } : {}),
+    ...(where.block ? { block: where.block } : {}),
+    slices: { failed: where.failed ?? [], skipped: where.skipped ?? [] },
+    ...(sparql && sparql.status > 0 ? { status: sparql.status } : {}),
+    raw: sparql ? sparql.detail : error instanceof Error ? error.message : String(error),
+  };
+}
+
+// A run that threw outside its steps (a bug, the cache client): no step, code
+// unknown, the generic sentence.
+export function unexpectedFailure(err: unknown): PipelineError {
+  const error = err instanceof Error ? err : new Error(String(err));
+  return { status: 'error', failedAtStep: -1, message: error.message, error, failure: failureOf(error) };
+}
+
+// One line under a failure's headline: where it failed and how.
+// "Step 4 of 7, loading details for samples (block A): timeout (HTTP 429)".
+export function failureDetail(result: PipelineResult | null | undefined): string | null {
+  if (result?.status !== 'error') return null;
+  const { step, block, code, status, slices } = result.failure;
+  const where = step
+    ? `Step ${step.index + 1} of ${step.total}, ${step.description.charAt(0).toLowerCase()}${step.description.slice(1)}${block ? ` (block ${block})` : ''}: `
+    : '';
+  const http = status ? ` (HTTP ${status})` : '';
+  // A step that was never split failed as "whole query": the step says it.
+  const named = slices.failed.filter((label) => label !== 'whole query');
+  const sliceNote = named.length > 0 ? `. Not answered: ${nameList(named)}` : '';
+  return `${where}${code}${http}${sliceNote}`;
+}
+
 // The button on a failed run's error strip that runs the question again,
 // fresh. With chunking off it is the only retry the run gets.
 export const RUN_AGAIN_LABEL = 'Run again';
@@ -173,8 +227,8 @@ export function splittingWouldHelp(error: unknown): boolean {
 
 // A failure chunking on would have retried (timeout, busy) or split (timeout,
 // out of memory, too large). A network error is neither.
-function chunkingWouldHaveTried(error: unknown): boolean {
-  return error instanceof SparqlError && (isSplittable(error.kind) || isRetryable(error.kind));
+function chunkingWouldHaveTried(kind: SparqlErrorKind): boolean {
+  return isSplittable(kind) || isRetryable(kind);
 }
 
 const CHUNKING_OFF = `Chunking is turned off for this run, so the question was not retried or split into smaller queries. Use ${RUN_AGAIN_LABEL} to try it once more.`;
@@ -193,11 +247,11 @@ export function outcomeMessage(result: PipelineResult | null | undefined, questi
     return 'No results found for this query. Try adjusting the filters.';
   }
   if (result?.status === 'error') {
-    const message = userMessageFor(result.error, question, result.counts);
+    const message = userMessageFor(result.failure.code, question, result.counts);
     // The run was told not to retry or split, so say what it did not try:
     // otherwise the advice reads as though it had. Only after a failure that
     // chunking on would have retried or split.
-    return result.chunkingOff && chunkingWouldHaveTried(result.error) ? `${message} ${CHUNKING_OFF}` : message;
+    return result.chunkingOff && chunkingWouldHaveTried(result.failure.code) ? `${message} ${CHUNKING_OFF}` : message;
   }
   return null;
 }

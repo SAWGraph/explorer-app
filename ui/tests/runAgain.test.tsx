@@ -22,6 +22,7 @@ const FAILED: PipelineResult = {
   failedAtStep: 0,
   message: 'Error at step: Finding samples near facilities',
   error: new SparqlError('timeout', 429, 'Operation timed out'),
+  failure: { code: 'timeout', slices: { failed: [], skipped: [] }, status: 429, raw: 'Operation timed out' },
 };
 
 beforeEach(() => {

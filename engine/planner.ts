@@ -70,6 +70,8 @@ export interface PipelineStep {
   timeoutMs?: number;
   // A count step: which side it counts, and which block that side is.
   counts?: { side: 'target' | 'anchor'; block: 'A' | 'C' };
+  // The block the step works on, for a failure to name. None for decoration.
+  block?: 'A' | 'C';
 }
 
 export interface PlanOptions {
@@ -105,6 +107,7 @@ function hydrateStep(
   side: 'target' | 'anchor',
   fused: FusedContext,
   after: PipelineStepType[],
+  blockName: 'A' | 'C',
 ): PipelineStep {
   const type = side === 'target' ? 'HYDRATE_TARGET_BY_IRI' : 'HYDRATE_ANCHOR_BY_IRI';
   // How a type's details load, and from where, is the entity module's to say
@@ -126,6 +129,7 @@ function hydrateStep(
       endpoint: details.endpoint,
       description,
       after,
+      block: blockName,
       buildQuery: () =>
         buildFusedWellQuery({
           anchor: fused.anchorBlock,
@@ -149,6 +153,7 @@ function hydrateStep(
     endpoint: details.endpoint,
     description,
     after,
+    block: blockName,
     buildQuery: (ctx, scope) => details.buildQuery(irisFor(ctx, scope, side), block),
     initialScopes: (ctx) => iriScopes(side === 'target' ? ctx.targetIris : ctx.anchorIris, side),
     divide: async (ctx, scope) =>
@@ -235,6 +240,7 @@ function buildFusedSteps(question: AnalysisQuestion, { countSides = true }: Plan
         advisory: true,
         timeoutMs: COUNT_TIMEOUT_MS,
         counts: { side, block: name },
+        block: name,
       });
       counts.push(type);
     }
@@ -243,6 +249,7 @@ function buildFusedSteps(question: AnalysisQuestion, { countSides = true }: Plan
   steps.push({
     type: 'FIND_TARGET_IRIS',
     endpoint: 'federation',
+    block: oriented.targetIs,
     description: oriented.targetIs === 'A' ? findingA : findingC,
     after: counts,
     buildQuery: (_ctx, scope) => buildIriQuery('target', scope),
@@ -251,6 +258,7 @@ function buildFusedSteps(question: AnalysisQuestion, { countSides = true }: Plan
   steps.push({
     type: 'FIND_ANCHOR_IRIS',
     endpoint: 'federation',
+    block: oriented.targetIs === 'A' ? 'C' : 'A',
     description: oriented.targetIs === 'A' ? findingC : findingA,
     // Not for its rows: a target side that finds nothing ends the run, and
     // waiting saves this query when it does.
@@ -298,8 +306,9 @@ function buildFusedSteps(question: AnalysisQuestion, { countSides = true }: Plan
     targetRegion,
   };
 
-  steps.push(hydrateStep(targetBlock, 'target', fusedCtx, ['FIND_ANCHOR_IRIS']));
-  steps.push(hydrateStep(anchorBlock, 'anchor', fusedCtx, ['HYDRATE_TARGET_BY_IRI']));
+  const anchorIs = oriented.targetIs === 'A' ? 'C' : 'A';
+  steps.push(hydrateStep(targetBlock, 'target', fusedCtx, ['FIND_ANCHOR_IRIS'], oriented.targetIs));
+  steps.push(hydrateStep(anchorBlock, 'anchor', fusedCtx, ['HYDRATE_TARGET_BY_IRI'], anchorIs));
 
   // Per-observation detail is no longer fetched up front. It filled map popups
   // one click at a time but cost 18–37MB per run (one sample point is ~30KB);

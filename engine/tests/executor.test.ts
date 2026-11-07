@@ -261,6 +261,59 @@ describe('a step that fails', () => {
   });
 });
 
+// A failed run says what failed, in parts the UI can show without wording
+// anything itself (errors.ts): the error's code, the step, the block it was
+// working on, the slices, the HTTP status and the server's own text.
+describe('what a failure carries', () => {
+  it('names the code, the step, the block, the status and the server text', async () => {
+    const base = answering();
+    const fake = fakeEndpoint((call) => (call.query.includes('VALUES ?facility {') ? refuse('out-of-memory') : base.run(call.endpoint, call.query, call.options)));
+    const result = await run(SAMPLES_NEAR_LANDFILLS, fake, undefined, undefined, false);
+
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') return;
+    expect(result.failure).toEqual({
+      code: 'out-of-memory',
+      step: { index: 3, total: 5, type: 'HYDRATE_ANCHOR_BY_IRI', description: 'Loading details for facilities' },
+      block: 'C',
+      slices: { failed: ['whole query'], skipped: [] },
+      status: 500,
+      raw: 'Tried to allocate 2.6 GB, but only 1 GB were available',
+    });
+  });
+
+  it('lists the slices of a step that could not be answered at all', async () => {
+    const result = await run(SAMPLES_NEAR_LANDFILLS, refusingWhole(30, { refuseFacility: 'http://ex.org/fac/1' }));
+    // Every slice still refused at one landfill fails; the rest answer, so
+    // this stays a partial success. A step where nothing answers is an error.
+    expect(result.status).toBe('success');
+
+    // Two landfills to slice on, and every slice still refused.
+    const none = fakeEndpoint(({ query }) => {
+      if (projected(query) === 'facilityP') return iriRows(['http://ex.org/f/1', 'http://ex.org/f/2']);
+      if (projected(query) === 'spP') return iriRows(Array.from({ length: 201 }, (_, i) => `http://ex.org/sp/p${i}`));
+      return refuse();
+    });
+    const failed = await run(SAMPLES_NEAR_LANDFILLS, none);
+    expect(failed.status).toBe('error');
+    if (failed.status !== 'error') return;
+    expect(failed.failure.code).toBe('timeout');
+    expect(failed.failure.block).toBe('A');
+    expect(failed.failure.slices.failed).toEqual(['facilities batch 1 (1/2)', 'facilities batch 1 (2/2)']);
+  });
+
+  it('has no block for decoration', async () => {
+    const base = answering();
+    const fake = fakeEndpoint((call) => (call.endpoint === 'spatialkg' ? refuse() : base.run(call.endpoint, call.query, call.options)));
+    const result = await run(SAMPLES_NEAR_LANDFILLS, fake, undefined, undefined, false);
+
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') return;
+    expect(result.failure.step?.type).toBe('GET_REGION_BOUNDARIES');
+    expect(result.failure.block).toBeUndefined();
+  });
+});
+
 describe('a cancelled run', () => {
   it('rejects instead of returning a result, and sends nothing after the cancel', async () => {
     const controller = new AbortController();

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useQueryStore } from '../store/queryStore';
 import type { PipelineResult } from '../../engine/executor';
 import { runQuestion } from '../../engine/run';
+import { unexpectedFailure } from '../../engine/errors';
 import { fetchCachedResult } from '../api/resultCacheClient';
 
 // Retry and split what the endpoint refuses (default on). Set
@@ -55,12 +56,8 @@ export function useQueryPipeline() {
         clearProgress();
         return null;
       }
-      const result: PipelineResult = {
-        status: 'error',
-        failedAtStep: -1,
-        message: err instanceof Error ? err.message : String(err),
-        error: err instanceof Error ? err : new Error(String(err)),
-      };
+      // A failure outside the steps is still worded by the engine (errors.ts).
+      const result: PipelineResult = unexpectedFailure(err);
       setPipelineResult(result);
       return result;
     } finally {

@@ -4,7 +4,7 @@ import type { EndpointKey } from './constants/endpoints';
 import type { PipelineStep, PipelineContext } from './planner';
 import type { Scope } from './slicing';
 import { executeSparql, type SparqlRunner } from './endpoint';
-import { type SparqlError, splittingWouldHelp, stepEmptyMessage, stepFailedMessage } from './errors';
+import { type Failure, type SparqlError, failureOf, splittingWouldHelp, stepEmptyMessage, stepFailedMessage } from './errors';
 import { foundIris, sliceMerger } from './merge';
 import { normalise } from './question';
 
@@ -69,8 +69,12 @@ export interface PipelineEmpty {
 export interface PipelineError {
   status: 'error';
   failedAtStep: number;
+  // A short log line for the scripts ("Error at step: ..."); no screen shows
+  // it. The UI shows outcomeMessage and failureDetail (errors.ts).
   message: string;
   error: Error;
+  // What failed, in parts (errors.ts Failure).
+  failure: Failure;
   queries?: SentQuery[];
   counts?: SideCounts;
   // Set when the run had chunking on refusal off: it stopped at the first
@@ -286,6 +290,11 @@ export async function executePipeline(
   const waiting = new Set(steps.keys());
   const running = new Map<number, Promise<Finished>>();
   const progressBase = (i: number) => ({ stepIndex: i, totalSteps: steps.length, description: steps[i].description });
+  // Where a failure happened, for errors.ts to word.
+  const where = (i: number) => ({
+    step: { index: i, total: steps.length, type: steps[i].type, description: steps[i].description },
+    block: steps[i].block,
+  });
 
   const start = (i: number) => {
     const step = steps[i];
@@ -352,6 +361,7 @@ export async function executePipeline(
         failedAtStep: i,
         message: stepFailedMessage(step.description),
         error: finished.thrown instanceof Error ? finished.thrown : new Error(String(finished.thrown)),
+        failure: failureOf(finished.thrown, where(i)),
         queries,
       });
     }
@@ -373,6 +383,7 @@ export async function executePipeline(
         failedAtStep: i,
         message: stepFailedMessage(step.description),
         error: outcome.stoppedAt,
+        failure: failureOf(outcome.stoppedAt, { ...where(i), failed: outcome.failedScopes, skipped: outcome.skippedScopes }),
         queries,
         chunkingOff: true,
       });
@@ -387,6 +398,7 @@ export async function executePipeline(
         failedAtStep: i,
         message: stepFailedMessage(step.description),
         error: outcome.lastError ?? new Error('Query failed'),
+        failure: failureOf(outcome.lastError ?? new Error('Query failed'), { ...where(i), failed: outcome.failedScopes, skipped: outcome.skippedScopes }),
         queries,
       });
     }
