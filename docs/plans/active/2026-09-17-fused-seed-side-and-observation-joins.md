@@ -5,7 +5,7 @@
 
 ## Problem
 
-Two independent defects in `src/engine/templates/fusedQueries.ts`, both found while
+Two independent defects in `engine/templates/fusedQueries.ts`, both found while
 running "What facilities are upstream from PFOS samples in York and Cumberland
 counties (Maine)?" (facilities block empty, samples block PFOS + ME + two counties,
 include non-detects on).
@@ -98,8 +98,8 @@ per-filter rule removes it.
 - [x] `scripts/check-query-joins.mts` (265 checks): join order across all 72 hydrology shapes x 2 projections, the pinned and distance-bounded exceptions, the per-filter join rule on hydrology and near, and that no prebuilt reorders. Wired into `package.json` and `.github/workflows/checks.yml`
 - [x] `docs/DEBUGGING.md`: both bugs, with the measurements and the two rejected designs
 - [ ] re-run `npm run health-check` and record the row-count movement in `docs/health/STATUS.md`
-- [ ] `npm run query-matrix` sweep, then `--index`, to price both fixes across the shape space
-- [ ] update `docs/QUERY-MATRIX.md` (error catalogue: the OOM that this removes)
+- [ ] `npm run query-sweep` sweep, then `--index`, to price both fixes across the shape space
+- [ ] update `docs/QUERY-SWEEP.md` (error catalogue: the OOM that this removes)
 - [ ] measure the distance-bounded shape reordered, and drop the `!maxDistanceKm`
       exclusion if it holds. This is the one condition in the gate that is a "we
       did not look", not a "we looked and it was worse": `boundedTrace` takes the

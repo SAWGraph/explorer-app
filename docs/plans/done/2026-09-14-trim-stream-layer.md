@@ -54,7 +54,7 @@ count but does not bound it.
 
 ## Notes
 
-Facts established while measuring, kept in `docs/QUERY-MATRIX.md` Part 8:
+Facts established while measuring, kept in `docs/QUERY-SWEEP.md` Part 8:
 `hyf:downstreamFlowPathTC` is reflexive; `A TC B` means B is downstream of A;
 and the network has genuine two-way connectivity in braided channels, so a
 single pair cannot be used to reason about trace direction.

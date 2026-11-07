@@ -127,10 +127,10 @@ Small states like Alabama (39 S2 cells) weren't in the arbitrary 5000 cells retu
 - Kept the explicit `filterS2ToRegionStep` as a fallback for endpoints that don't have region linkage data
 
 **Files Modified:**
-- `src/engine/templates/facilities.ts` - Added regionCode parameter and region filter clause
-- `src/engine/templates/samples.ts` - Added regionCode parameter and region filter clause
-- `src/engine/templates/waterBodies.ts` - Added regionCode parameter and region filter clause
-- `src/engine/planner.ts` - Modified getS2Step and planPipeline to pass region codes
+- `engine/templates/facilities.ts` - Added regionCode parameter and region filter clause
+- `engine/templates/samples.ts` - Added regionCode parameter and region filter clause
+- `engine/templates/waterBodies.ts` - Added regionCode parameter and region filter clause
+- `engine/planner.ts` - Modified getS2Step and planPipeline to pass region codes
 
 **Result:** Now queries for Alabama (and other small states) will work correctly. The S2 query filters to the region first, then returns those cells without arbitrary limits.
 
@@ -190,25 +190,25 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 **Symptom**: Opening the edit modal for a prebuilt query with `industryCodes: ['3253']` showed "Any industry..." placeholder instead of a chip for 3253.
 **Root cause**: `collapseSelections` assumed incoming codes were always fully expanded (parent + all descendants). When only the parent code `"3253"` was present without its child codes (`325311`, etc.), the function detected a "partial selection", recursed into children, found none selected, and returned an empty `userSelections` set.
 **Fix**: Simplified the logic — when a node's code is in `allCodes`, always add it to `userSelections` regardless of whether all descendants are also selected.
-**Files touched**: `src/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts`
+**Files touched**: `ui/components/QueryEditor/HierarchicalSelect/useNaicsTree.ts`
 **Prevention**: When writing selection collapse/expand logic, handle the case where stored data may not match the fully expanded representation.
 
 ---
 
 ## 2026-09-08 — Substance dropdown empty: required label predicate with zero triples
 
-**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`, and `useSubstances()` in `src/hooks/useDiscoveryQueries.ts`
+**Component**: `engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`, and `useSubstances()` in `ui/hooks/useDiscoveryQueries.ts`
 **Symptom**: The Substance dropdown rendered "No options available" with a state selected, and silently showed the seven-entry `FALLBACK_SUBSTANCES` list with no state selected.
 **Root cause**: The query required `?substance dcterms:alternative ?_label`. That predicate has **zero** triples on substances, on `sawgraph` and `federation` alike. Because it was a required pattern rather than `OPTIONAL`, the whole query returned 0 rows instead of returning substances without labels. Substance names live on `rdfs:label` (896,899 triples). The likely origin of the mistake is `docs/SCHEMA.md`'s facility table, where `dcterms:alternative` is a legitimate *facility* predicate: 3,824,195 triples in fiokg, 3,742,487 of them on `fio:Facility`, 0 on `comptox:ChemicalEntity`.
 **Fix**: Switched to `rdfs:label`, then made both label patterns `OPTIONAL` and added a DTXSID fallback in the hook. Fixing only the predicate still hid 32 of 101 substances (47,642 observations, 5.0% of everything with a substance link) because the label was still required. Live counts: 0 rows → 69 → 101 unfiltered, and 0 → 69 → 79 for Maine.
-**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
+**Files touched**: `engine/templates/regions.ts`, `ui/hooks/useDiscoveryQueries.ts`, `docs/wiki/Dropdowns Substance.md`, `docs/SCHEMA.md`
 **Prevention**: A label pattern in a discovery query must be `OPTIONAL` with a URI-tail fallback. A required label does not degrade, it deletes: the row disappears along with its data, and the dropdown looks merely short rather than broken. This one mistake caused both the total outage and the 32 hidden substances. Cross-repo confirmation: `SAWGraph/streamlit-app/filters/substance.py:67` carries the identical bug and returns 0 rows live today, while `core/sparql.py:586` and `analyses/pfas_upstream/queries.py:147` in the same repo use `rdfs:label`; `analyses/aquifer_wells/queries.py:96-97` asks for both predicates but marks each `OPTIONAL`, and therefore survives.
 
 ---
 
 ## 2026-09-09 — QLever aggregate quirks while building the substance label fallback
 
-**Component**: `src/engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
+**Component**: `engine/templates/regions.ts` — `buildDiscoverSubstancesQuery()`
 **Symptom**: Three separate failures while adding a fallback that borrows a substance name from the source parameter it was matched to.
 **Root cause**: All three are QLever aggregate behaviours, not SPARQL semantics.
 
@@ -217,21 +217,21 @@ For downstream/upstream, reverse directional trace is expensive — all anchors 
 3. `SAMPLE()` picks arbitrarily across the 41 substances matched by more than one parameter, so labels changed between runs. `MIN()` is deterministic and, because `X` sorts before `X_A`, happens to prefer the unsuffixed base form.
 
 **Fix**: Project the borrowed name as its own column with `MIN(?_viaParam)`, require `rdfs:label` inside the OPTIONAL, and coalesce in the hook rather than in SPARQL.
-**Files touched**: `src/engine/templates/regions.ts`, `src/hooks/useDiscoveryQueries.ts`
+**Files touched**: `engine/templates/regions.ts`, `ui/hooks/useDiscoveryQueries.ts`
 **Prevention**: Test aggregate expressions against **both** `sawgraph` and `federation`; they do not behave identically. And when an aggregate feeds a fallback chain, assert the expected coverage count rather than eyeballing the first few rows, since a silently unbound `SAMPLE` looks exactly like missing data.
 
 ---
 
 ## 2026-09-11 — A dead IRI returns 200 with no rows, it does not error
 
-**Component**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Component**: `engine/constants/prebuiltQueries.ts`, `engine/constants/materialTypes.ts`
 **Symptom**: The "PFHpA Groundwater Samples Downstream from Facilities in Cumberland County" card ran every pipeline step, reported success, and drew an empty map. No error anywhere.
 **Root cause**: The card's material filter pinned `http://w3id.org/sawgraph/v1/me-egad-data#sampleMaterialType.GW`, which matches zero triples. The August 2026 reload moved the two halves of the graph in opposite directions: instance data to `v2/me-egad-data#` and `v2/us-wqp-data#`, controlled vocabulary out of `-data` and into the roots `v1/me-egad#` and `v1/us-wqp#`. Material types are vocabulary, so the root form is the live one. All six `FALLBACK_MATERIAL_TYPES` entries carried the same dead namespace, and one also used `sampleMaterialType.SO` for sludge, a code that appears nowhere in the vocabulary — the real one is `.SU`.
 
 The failure mode is the point. The filter it builds is `VALUES ?matType { <dead-iri> }`, which is valid SPARQL. The endpoint answers 200 with zero rows, and nothing downstream can distinguish that from an honest "no data matches". Verified live: with the dead IRI, 0 sample points; with the root form, 65 sample points and 171 observations.
 
 **Fix**: `ef0c40b` — both files moved to `v1/me-egad#`, sludge corrected to `.SU`.
-**Files touched**: `src/constants/prebuiltQueries.ts`, `src/constants/materialTypes.ts`
+**Files touched**: `engine/constants/prebuiltQueries.ts`, `engine/constants/materialTypes.ts`
 **Prevention**: Same family as the `dcterms:alternative` bug above — *a required pattern that cannot match does not degrade, it deletes*. Extend that to IRIs: a hardcoded IRI is a silent single point of failure the moment a namespace moves. When a query returns nothing, count the triples on the IRIs it names (`SELECT (COUNT(*) AS ?n) WHERE { { <iri> ?p ?o } UNION { ?s ?p2 <iri> } }`) before investigating anything else. Source of truth for the source-specific vocabularies is `SAWGraph/pfas-kg` under `datasets/*/controlledVocab/`, not `contaminoso`, which defines only the shapes.
 
 ---
@@ -264,7 +264,7 @@ fix.
 a 30s limit. River-trace questions were half broken — 23 of 50 worked. Maine was
 the only healthy state: the same plain question failed in 5 of 6 others,
 including Indiana, which is one of our own dashboard cards. Full results and the
-catalogue of all nine failure responses are in `docs/QUERY-MATRIX.md`.
+catalogue of all nine failure responses are in `docs/QUERY-SWEEP.md`.
 
 **Root cause beyond the unused bindings** already noted above: `bindEntityInCell`
 (`templates/fusedQueries.ts`) served both the ID-finding queries and the hydrate
@@ -275,7 +275,7 @@ and discarded it.
 
 **Fix**: ID-finding queries drop those joins unless a filter needs them, and any
 query the engine refuses is split into slices and merged
-(`src/engine/scope.ts`). 34 of the 37 failures now work, none regressed.
+(`engine/scope.ts`). 34 of the 37 failures now work, none regressed.
 
 **Three traps worth knowing**
 
@@ -290,14 +290,14 @@ query the engine refuses is split into slices and merged
   token we do not have, so the 30s ceiling is not negotiable from our side.
 
 **Prevention**: benchmark against more than Maine, and re-run
-`npm run query-matrix` after any engine change, diffing against
-`docs/query-matrix/2026-09-14-raw-baseline.csv`.
+`npm run query-sweep` after any engine change, diffing against
+`docs/query-sweep/2026-09-14-raw-baseline.csv`.
 
 ---
 
 ## 2026-09-14 — Cached results served for the wrong question (FIXED)
 
-**Component**: `src/engine/cacheKey.ts` — `canonicalQuestion`
+**Component**: `engine/cacheKey.ts` — `canonicalQuestion`
 
 **Symptom**: none visible. That is the point of this entry. A map would render a
 complete, plausible answer that belonged to a *different* question, with no
@@ -354,7 +354,7 @@ entries cached earlier stay reachable.
   listing known-relevant ones — a whitelist silently drops whatever is added
   next, and adding a field to `AnalysisQuestion` is a normal thing to do.
 - Any new field on `AnalysisQuestion` that changes results must be reflected in
-  `scripts/check-cache-key.mts`. It now covers bounded vs unbounded, two
+  `engine/tests/cacheKey.test.ts`. It now covers bounded vs unbounded, two
   different bounds, and that the unbounded key is unchanged — 19 checks.
 - The same reasoning applies to `WIRE_VERSION` in that file: bump it when the
   set of stored result keys changes, or cached entries will be missing data the
@@ -364,8 +364,8 @@ entries cached earlier stay reachable.
 
 ## 2026-09-16 — "Upstream from" answered the mirror question (FIXED)
 
-**Component**: `src/engine/planner.ts` — `buildFusedSteps`, and
-`src/engine/templates/fusedQueries.ts` — `buildFusedWellQuery`
+**Component**: `engine/planner.ts` — `buildFusedSteps`, and
+`engine/templates/fusedQueries.ts` — `buildFusedWellQuery`
 
 **Symptom**: reported by Torsten: "the upstream query seems to be switched: I
 asked for facilities upstream of stream but seem to get stream upstream of
@@ -425,7 +425,7 @@ it.
 
 **Caught**: by a user, on a shape nothing automated runs. The 9 prebuilt
 dashboard questions are 7 `near` and 2 `downstream`, zero `upstream`, so the
-weekly health check and the warm cache never touched it. `docs/QUERY-MATRIX.md`
+weekly health check and the warm cache never touched it. `docs/QUERY-SWEEP.md`
 3.3 *did* measure all 36 upstream shapes and passed them: a mirror answer
 returns a plausible row count in a plausible time, and the sweep records status,
 duration and rows, never semantics.
@@ -480,7 +480,7 @@ north of Chicago and nothing downstream of it.
   the other, which is what overloaded variables do.
 - **Plausible output is not verification.** The only assertion that would have
   caught this is one about the *query*, not the result. That is
-  `scripts/check-trace-direction.mts`: across all 180 planner shapes, every
+  `engine/tests/traceDirection.test.ts`: across all 180 planner shapes, every
   query carrying `hyf:downstreamFlowPathTC` must trace downstream from the seed,
   and a `near` question must not trace at all. It reads the emitted SPARQL, so
   it covers all three builders that trace (discovery, the flowline layer, well
@@ -559,7 +559,7 @@ it did before (6.88s vs 6.59s).
 - **Textual triple order is a semantic-free change with a non-semantic-free
   cost.** It cannot alter the answer, and it decided whether this question
   answered at all. That makes it cheap to try and worth asserting:
-  `scripts/check-query-joins.mts` reads the emitted SPARQL and fails if the
+  `engine/tests/queryJoins.test.ts` reads the emitted SPARQL and fails if the
   unconstrained side leads, or if the unit join appears without a concentration
   range.
 - **Measure the fix against the shapes it touches, not the one that prompted
@@ -620,7 +620,7 @@ because connectivity dominates the cap at that range; at 5km the cap still bites
 (2,314), so the two constraints compose. The shipped bounded query had been
 drawing a Merrimack segment straight through its own 25km cap.
 
-`scripts/check-flowline-scope.mts` asserts both ends are bound for all 100
+`engine/tests/flowlineScope.test.ts` asserts both ends are bound for all 100
 shapes that draw the layer, bounded and unbounded.
 
 **Also fixed here: `includeNondetects: true` counted as a filter.** The
@@ -697,11 +697,11 @@ Measured before trusting the speed:
 **What it did not fix.** Step 0 of the statewide MD shapes still fails; both
 rescued rows are step 1. `facilities upstream(30km) streams [ME on C]` changed
 failure mode rather than passing. Wells remains unchanged on all four bounded
-combinations. Details in `docs/QUERY-MATRIX.md` Part 10.
+combinations. Details in `docs/QUERY-SWEEP.md` Part 10.
 
 ### The tripwire this nearly disarmed
 
-`check-trace-direction.mts` kept `?_flEnd hyf:downstreamFlowPathTC ?_flMid` on a
+`traceDirection.test.ts` kept `?_flEnd hyf:downstreamFlowPathTC ?_flMid` on a
 blacklist of reversed traces. A block seeded from the target writes that exact
 triple while tracing correctly, so the string cannot decide it any more. Deleting
 the entry would have quietly removed the only guard against the 2026-09-16
@@ -714,7 +714,7 @@ where `?a <pred> ?b` always means a flows into b, and assert a path from
 standing in for, and it admits both seed sides. Verified by mutation:
 reintroducing the 2026-09-16 bug still fails it, and a half-applied reorder that
 moves the query text while leaving the aggregate seeded from the anchor fails
-the new `seedsFrom` assertion in `check-query-joins.mts`.
+the new `seedsFrom` assertion in `queryJoins.test.ts`.
 
 ### Two measurement traps worth not repeating
 
@@ -729,7 +729,7 @@ consecutive sweeps at identical code agreed on every row.
 **Your own load.** Three bounded queries were measured failing with
 out-of-memory, one reporting only 2.9 MB available, while a full pipeline run of
 mine was hammering the same endpoint. Re-run alone, they failed differently, as
-planning timeouts. The header of `query-matrix.mts` warns about this; it applies
+planning timeouts. The header of `query-sweep.mts` warns about this; it applies
 to ad-hoc curl measurements just as much.
 
 ## 2026-09-20: Adding an industry filter broke a question that worked (FIXED)
@@ -764,7 +764,7 @@ region made it small.
 **The fix** replaces the boolean with a rank: IRI pin 3, region 2, entity filter
 1, nothing 0, lead with the higher, ties keep anchor-first. Only questions with
 both sides constrained at different levels change plan. See
-`docs/QUERY-MATRIX.md` Part 11 for the measurements.
+`docs/QUERY-SWEEP.md` Part 11 for the measurements.
 
 **Long selections: measure before blaming the clause.** The first version of
 this entry said selections beyond about ten codes still fail. Re-measured after
@@ -777,3 +777,423 @@ transitively, so `?ic fio:subcodeOf? ?sel` is an exact rewrite of
 `FILTER(?ic = ?sel || EXISTS { ?ic fio:subcodeOf ?sel })`. Measured: 13s with
 the FILTER, query-planning timeout with the path. The FILTER is the fast form
 here; do not "optimise" it.
+
+---
+
+## 2026-10-21: Water bodies drawn once per S2 cell, old polygons left on the map (FIXED)
+
+**Reported by David.** Seven questions about wells and surface water bodies in
+Hancock County, Maine, run one after another from Customize. The seventh asked
+exactly what the first did, yet its map looked different.
+
+**Symptom.** The seventh map showed lakes the first did not. The data was not
+the cause: both runs returned the same rows (2264 wells, 1272 water body rows),
+and the cache served the right answer.
+
+**Root cause.** `buildWaterBodiesByIri` (`engine/templates/hydrate.ts`)
+projected `?s2cell` in `SELECT DISTINCT`. A water body touches many S2 cells, so
+the query returned one row per (water body, cell), each repeating the full
+polygon: 1272 rows for 234 water bodies, Graham Lake 90 times. Nothing read the
+column. `transformWaterBodiesToFeatures` kept every row, so `WaterBodyLayer`
+rendered many children with the same React key. With duplicate keys React
+cannot match old children to new ones and leaves some mounted, and the layer is
+not remounted between runs, so polygons from earlier runs stayed on the map.
+
+Measured by rendering the real layer with David's sequence of results:
+
+| Step | Water bodies in the answer | Polygons on the map | Distinct on the map |
+|---|---|---|---|
+| Question 1, fresh map | 234 | 1272 | 234 |
+| after questions 4, 5 and 6 | 371 | 5143 | 375 |
+| question 7 (same as 1) | 234 | 6044 | 332 |
+
+The same duplication inflated the legend ("Surface Water Bodies (1272)" for 234),
+stacked the 30% fills until large lakes looked solid, and sent 19.2MB of polygon
+WKT where 0.8MB is unique.
+
+**Fix.** Both ends. The query matches `?s2cell` but no longer projects it (234
+rows, same 234 water bodies, live on hydrologykg). The transformer dedupes by
+water body IRI, which also covers results already stored in the cache with the
+old row shape. Regression test: `ui/tests/waterBodyLayer.test.tsx`.
+
+**Lesson.** A variable in `SELECT DISTINCT` that no consumer reads is not free:
+it multiplies rows by its fan-out. Wells project `?s2cell` too, but a point sits
+in one cell, so it does not multiply there.
+
+## 2026-10-28: Stream and county popups opened under the map data (FIXED)
+
+**Reported in issue #86.** On "facilities upstream from streams in Cook County",
+a county popup sat behind the county outlines and the facility squares, and a
+stream popup sat behind the streams and the facilities. The issue called it
+long standing.
+
+**Symptom.** Measured on the live site: the DuPage County popup was the topmost
+element at 0 of 15 points inside its box (county fill 11, facility squares 3, a
+stream 1), so its close button could not be clicked. The Butterfield Creek popup
+had facility squares over its text. Tooltips were fine.
+
+**Root cause.** `ResultsMap` wrapped the county and stream layers in
+react-leaflet `<Pane>` elements (`regionPane` z 350, `streamsPane` z 380) so
+their lines draw below the other data. A `<Pane>` sets the default pane for
+every child, and react-leaflet hands that default to popups and tooltips too
+(`withPane(props, context)` in `@react-leaflet/core/lib/div-overlay.js`). So
+the popups opened inside the line panes, under `overlayPane` (400) and
+`markerPane` (600), and under the pane's own SVG (z 200 from leaflet.css).
+
+It recurred. Tooltips hit the same trap when `streamsPane` arrived (9350655,
+2026-05-02). A `z-index: 1000 !important` rule on `.leaflet-tooltip` did not
+help, because it only orders tooltips within one pane. The fix was
+`pane="tooltipPane"` on every tooltip (897c7cf). Three days later the content
+moved from tooltips into new popups (184c9ac) without that prop, and the bug
+was back. Nothing recorded the trap.
+
+The aquifer overlay had the same family of bug. Its canvas renderer
+(`L.canvas()`, 0284aef) had no pane, and a renderer draws in its own pane, not
+its layers'. So the canvas sat in `overlayPane` above streams and counties and
+took their clicks, even after aquifers were turned off: 0 of 142 stream points
+could be clicked. `aquiferPane` stayed empty.
+
+**Fix.** `ResultsMap` creates the three panes with childless
+`<Pane name="..." />` elements, and each layer names its own pane:
+`pane="regionPane"` on the county `<Polygon>`, `pane="streamsPane"` on the
+stream `<Polyline>`, and `pane: 'aquiferPane'` on the canvas renderer. A `pane`
+prop on a path does not reach its children, so popups and tooltips keep
+Leaflet's own panes. Measured on localhost after the fix: both popups on top at
+15 of 15 points, the county close button works, and streams stay clickable with
+aquifers on and after turning them off (142 of 142).
+
+**Prevention.** `ui/tests/mapPanes.test.tsx` renders `ResultsMap` with one feature
+of every layer type and checks the pane each shape, popup and tooltip lands in,
+and where the aquifer canvas sits. An ESLint `no-restricted-syntax` rule in
+`eslint.config.js` rejects layers nested inside `<Pane>`.
+
+**Lesson.** A react-leaflet `<Pane>` with children sets a default for a whole
+subtree, not a setting for one layer. Name the pane on the layer itself, and
+give a custom renderer its own `pane`.
+
+## 2026-10-29: Popups ran off the bottom of the map: Leaflet's cached map size (FIXED)
+
+**Found while fixing #88.** Capping each popup to the map's size fixed the
+width on a 390px phone, but popups still ran up to 33px off the bottom there,
+and up to 21px at desktop size, before and after the cap.
+
+**Symptom.** On the phone, Leaflet reported the map as 390x622 while the map
+on screen was 390x392, measured in the same run. Every popup was capped and
+panned for a map 230px taller than the one the user could see.
+
+**Root cause.** Leaflet reads the container's size once and caches it. It
+re-reads it only on a window resize or an explicit `invalidateSize()`. The map
+is created before the question text above it has laid out; on a phone that text
+wraps into a tall column, the map shrinks, and no window resize fires. Leaflet's
+own autoPan, the popup cap and `fitBounds` all used the stale size.
+
+**Fix.** `FitPopupsToMap` in `ui/components/Map/ResultsMap.tsx` observes the map container with a
+`ResizeObserver` and calls `map.invalidateSize()` on every change. Measured at
+1396x1009, 390x844 and 1280x560: every popup 0px cut, close button on the map.
+Test: `re-reads the map size whenever its container resizes` in
+`ui/tests/mapPanes.test.tsx`.
+
+**Lesson.** When something on a Leaflet map is off by a constant amount at the
+edges, compare `map.getSize()` with the container's `clientWidth` and
+`clientHeight` before suspecting the feature. Also, a size stub in a test must
+return a fresh `L.point` each call: Leaflet mutates the point `getSize()`
+returns, so a shared one shrinks toward zero.
+
+## 2026-11-05: A refused wells details step split into identical queries (FIXED)
+
+**Found while tracing the engine for the redesign** (and earlier in #94 for
+issue #82, where it was fixed on a branch that was closed unmerged).
+
+**Symptom.** When the server refused the wells details step (timeout, out of
+memory), the step kept "splitting" and resending for the whole 300s step
+budget, then failed. Issue #82's wells step spent 533s this way before failing.
+
+**Root cause.** Wells details do not load by IRI. `buildFusedWellQuery`
+re-derives the well set server-side and ignores the scope it is given. But
+`hydrateStep` in `engine/planner.ts` gave every entity type the by-IRI
+`divide`, wells included. Each refusal halved the IRI list into two slices,
+both slices built the byte-identical query, the server refused it again, and
+each was halved again.
+
+**Fix.** Wells get no `divide`, so a refused wells step fails on its first
+refusal with its error. Splitting comes back when wells load by IRI (engine
+redesign, Phase 2), where each slice really asks for less.
+
+**Prevention.** `engine/tests/stepDivide.test.ts` checks, for all 108 question
+shapes, that every divisible step builds a different query for every slice it
+divides into, and that no slice re-sends the undivided query. It fails on
+`samples near wells, HYDRATE_ANCHOR_BY_IRI` without the fix.
+
+**Lesson.** A step's `divide` and its `buildQuery` have to agree about the
+scope. If the query cannot see the scope, splitting is a loop, not a rescue.
+
+## 2026-11-06: Seeing a refused query as it is: chunking on refusal off
+
+**When to reach for it.** With chunking on (the default) the engine works
+around what the endpoint refuses: it retries a timeout once, splits a query
+that was too big into smaller ones, and stops a step after 300s keeping what it
+has. That rescue hides the refusal: a slow or partial answer is the only sign.
+To see which query was refused and why, turn it off.
+
+**How.** Run option `chunkOnRefusal: false` (`runQuestion` or
+`executePipeline`), or build the app with `VITE_CHUNK_ON_REFUSAL=false` (the
+Railway development environment, say). The run then either answers completely
+or shows the first error:
+
+- no retry: the endpoint is asked not to resend after a timeout or busy error
+- no splitting, and a query refused in an earlier run is sent whole anyway
+- no 300s step limit: every batch is sent, each with its own 60s request limit
+- any failure in any step, stream lines and boundaries included, fails the run
+  at once; no more batches are sent
+
+After a timeout, out of memory, too large or busy error, the message ends
+"Chunking is turned off for this run, so the question was not retried or split
+into smaller queries. Use Run again to try it once more." Request-size batches
+(1,000 IRIs a request) stay on: they are how detail steps send their IRIs, not
+chunking.
+
+**Tests.** The "with chunking on refusal turned off" block in
+`engine/tests/executor.test.ts`, the retry in `engine/tests/endpoint.test.ts`,
+and the chunking-off messages in `engine/tests/errors.test.ts`.
+
+## 2026-11-06: Decoration waited behind the answer (FIXED)
+
+**Symptom.** A run's last seconds went on things drawn around the answer, not
+the answer itself. The executor ran every step in plan order, so the region
+boundaries (they need only the state) waited for both discovery steps and both
+details steps, and the stream lines waited for the details they never read.
+Measured on 2026-11-05: boundaries were 24.8s of a 39.1s run on a cold cache.
+
+**Root cause.** The plan was a list, and the list order was the schedule. No
+step said what it read, so nothing could start early.
+
+**Fix.** Each step names the steps it waits for (`after` in `planner.ts`), and
+the executor starts every step whose wait is over. Boundaries start with the
+run; stream lines start once both sides are found, alongside the details. The
+main steps still wait for one another, one at a time. When the run has its
+outcome (an empty side, a failed step) the steps still running are stopped and
+reported skipped, and the SPARQL list stays in step order.
+
+**Measured** (8 dashboard questions, before and after alternated, 2 rounds,
+2026-11-06). Wall times are dominated by QLever's cache (whichever run went
+first in a pair paid it), so compare the decoration time left after the last
+main step:
+
+| Question | Before | After |
+| --- | --- | --- |
+| Facilities upstream, Cumberland (stream lines 7.5s to 25.9s) | 7.8s, 26.2s | 0.7s, 2.3s |
+| Samples downstream, Indiana (stream lines 1.6s to 14.4s) | 2.0s, 14.7s | 0s, 0s |
+| The 6 near and streams questions (boundaries only) | 0.3s to 0.4s | 0s |
+
+Boundaries now take 0.3s to 0.7s on a warm server cache, so the 24.8s saving
+shows only when that query is cold.
+
+**Prevention.** `engine/tests/stepWaits.test.ts` checks every shape's waits:
+only steps planned earlier, details after their side's discovery, stream lines
+after both, boundaries after nothing, and no main step waiting on decoration.
+The "decoration alongside the main steps" block in
+`engine/tests/executor.test.ts` fails if the boundaries or stream lines wait
+their turn again. `ui/tests/pipelineTimeline.test.tsx` keeps step numbers by
+plan position now that steps report out of order.
+
+## 2026-11-06: Counting both sides before a run
+
+**Why.** Three things the engine could not say without knowing how big each
+side is: that a block matches nothing (it ran discovery to find out, then said
+"No results found"), how big the sides of a refused question are (the advice
+guessed from whether a filter was set), and whether a side is worth probing
+before splitting a refused query (it probed both, then threw a full probe away).
+
+**What.** Every plan opens with `COUNT_TARGET` and `COUNT_ANCHOR`: the side's
+body from the probe query, counted (`buildEntityCountQuery`,
+`engine/templates/fusedQueries.ts`). Both start with the run; discovery waits for
+both.
+
+- A side at 0 ends the run as empty, before any discovery query: "No wells
+  match the first block, so the question has no answer."
+- A refused question's advice gives both counts and names the bigger block.
+  Without both counts it falls back to the old advice, which no longer counts
+  the default non-detect tick as a filter.
+- Splitting skips a 201-probe for a side counted over 200, and a bulk probe for
+  one counted over 5,000. The order (anchor first) is unchanged.
+- A count is advice: it is sent once with a 10s limit, and a count that fails
+  or runs out is dropped (the step reports skipped), with chunking on or off.
+  `countSides: false` plans without the counts.
+
+**Measured** (live, 2026-11-06). 57 of 58 cold counts took 1.1s or less, across
+the 8 dashboard questions' sides, every type with nothing set and in Maine, and
+4 types in 8 counties nobody had asked about. Wells in Marion County, Indiana
+near landfills now ends empty in 0.4s on one request. Under load the counts slow
+down with everything else: one run saw both hit the 10s limit (the boundaries
+took 60s in the same run) and went on without them. The first request of a
+process twice took 20s to 30s and the same query 0.2s right after, so expect
+the occasional dropped count.
+
+**Tests.** "counting both sides first" in `engine/tests/executor.test.ts`, the
+count-based advice and the empty-block message in `engine/tests/errors.test.ts`,
+the bulk-probe skip in `engine/tests/slicing.test.ts`, and the count steps'
+waits in `engine/tests/stepWaits.test.ts`.
+
+## 2026-11-06: A filtered samples side joined one row per measurement (FIXED)
+
+**Symptom.** Questions with a sample filter took minutes or failed. Issue #82's
+question, samples above 4 ng/L in Penobscot and Knox near wells in the same
+counties, failed after 626s; "wells near samples above 4 ng/L" in the same
+counties failed every run.
+
+**Root cause.** A side's bind repeated each entity once per value of a
+multi-valued field, and the repeats only collapsed at the final `DISTINCT`, so
+the spatial join multiplied them. Measured in Maine on 2026-11-06:
+
+| Side | Rows | Entities and cells |
+| --- | --- | --- |
+| Samples, PFOS | 20,000 | 4,101 |
+| Samples, 4 ng/L or more | 78,369 | 2,207 |
+| Facilities, no code filter | 5,811 | 2,976 |
+| Facilities, code 5622, nationwide | 13,413 | 6,372 |
+| Facilities, 562212 and 928110, nationwide | 5,922 | 5,908 |
+| Wells, water bodies, aquifers, streams | same | same |
+
+The wells step also joined every measurement on a samples side (the old
+`sampleObservations` flag) and attached its columns to the whole fan-out.
+
+**Fix** (decision 23 of the engine redesign, after the closed #94).
+
+- Each entity module says whether its bind fans out (`fansOut`): a filtered
+  samples side, and a facilities side with no code filter or a code shorter
+  than 6 digits. Such a side is collapsed to `SELECT DISTINCT ?entity ?cell`,
+  with its region and pin inside, before it meets the other side
+  (`collapsedSide`, `engine/templates/fusedQueries.ts`).
+- The wells step uses the trimmed bind and collapses its join before the well
+  columns attach.
+- Discovery counts only drawable sample points, like the details step: a
+  location, and a filtered match that names a chemical (a sum row such as
+  SUM_PFOA_PFOS no longer counts).
+
+**Measured** (live, best of 2, `development` at `1c884a3` against this change):
+#82's question 41.7s to 23.7s; wells near samples above 4 ng/L, failed to
+52.6s; samples above 4 ng/L with no region near wells in Somerset 65.4s to
+8.7s; facilities upstream of PFOS samples in York 38.9s to 4.2s; the dashboard's
+Cumberland question 49.9s to 5.8s, Cook 11.1s to 3.9s, the two Maine wells
+questions 22.2s to 11.4s and 25.6s to 16.4s. Collapsing a 6-digit-coded
+facilities side only cost: it took the Maine wells questions' discovery from
+6.4s to 19.9s, which is why those sides are left as they were.
+
+**What changed in answers.** The map draws the same samples. Discovery drops
+points it could not draw, and what sat only next to them: #82 finds 201 sample
+points instead of 207 and 2,597 wells instead of 2,614; the York 30 km traces
+lose 2 facility rows and 13 stream segments. Every dashboard row count is
+unchanged.
+
+**Not fixed.** Water bodies downstream of wells in Maine still fails or answers
+slowly (948s, partial): its wells step loads 74,348 rows server-side. Wells by
+IRI (Phase 2) is the fix.
+
+**Prevention.** `engine/tests/oneRowPerCell.test.ts` checks every question
+shape: each side that fans out is collapsed with its region inside, a 6-digit
+facilities side is not, and the wells step reads no measurement. The two #82
+questions are in `engine/tests/questions/critical.ts`.
+
+## 2026-11-06: A facility showed one industry code, and a leftover filter slot moved the trace (FIXED)
+
+**Symptom 1.** A facility's popup and tooltip named one industry code when it
+had several, and its marker colour came from whichever code the server sent
+first. Measured live on the dashboard: 405 of Indiana's 415 facilities have 2
+or more matching codes, 264 of Cook's 402, 81 of Cumberland's 140 (up to 7).
+
+**Root cause 1.** The details step returns one row per code that passes the
+block's industry filter, and `transformFacilitiesToFeatures` kept the first row
+per facility.
+
+**Fix 1.** Shape combines a facility's rows into one feature with every code
+(`MapFeature.industries`), sorted; the lowest code colours the marker. The
+popup lists each code on its own line, the tooltip lists the names. No SPARQL
+changed, and on the dashboard no marker changes colour group.
+
+**Symptom 2.** Which side a trace started from could depend on a filter slot
+the block does not use. The old rule (`anyFilterSlotSet`) read the first slot
+it found whatever the block's type, and counted a label map as a filter: a
+wells block with an empty leftover `facilityFilters` read as unfiltered with
+well categories set; a block whose codes were cleared but whose labels stayed
+read as filtered.
+
+**Fix 2.** Each entity module names its own slot and the fields a query reads
+(`filterSlot`, `ownFilterSet`). Normalise drops every other slot
+(`ownSlotOnly`, `engine/question.ts`), and so does the cache key, so a question
+with a leftover slot shares the clean question's entry. No dashboard or golden
+question carries a leftover slot: the golden snapshot did not move.
+
+**Tests.** `engine/tests/facilityFeatures.test.ts`, `ui/tests/facilityPopup.test.tsx`,
+and `engine/tests/filterSlots.test.ts`, which checks for all 108 shapes, with
+and without each block's own filter, that leftover slots send the same SPARQL
+as the clean question (it failed on "samples upstream of facilities" before).
+
+## 2026-11-06: A run's result is by block, not by step
+
+**Why.** The map read a result by pipeline step: `FIND_TARGET_ENTITIES` and
+`GET_ANCHOR_DETAILS`. Which block is the target flips for upstream
+(`engine/question.ts`), so block A sat under a different key for a third of the
+questions, and every reader had to know that.
+
+**What.** A successful run returns `blockA`, `blockC` (the details step's rows
+for each block) and `decoration` (`boundaries`, `streamLines`), with `partial`,
+`queries` and `counts` as before. The rows by step stay inside the executor.
+`WIRE_VERSION` is `w3`, so every cached question is recomputed until
+`npm run warm-cache` runs for that environment. `fromWire` still reads a result
+stored by step, placing it with the question: a published view's result is
+stored under its publish id and is not invalidated by the bump. Checked against
+the 8 dashboard results cached on the development API (all read, upstream ones
+on the right blocks).
+
+**If a map is blank after a deploy.** A result that reads as neither shape is
+treated as a cache miss and the question runs live. Check `isWireResult` in
+`engine/wire.ts` against the payload the API returns.
+
+**Tests.** `engine/tests/wire.test.ts` (both shapes, upstream placed by the
+question), "the answer, by block" in `engine/tests/executor.test.ts`, and
+`ui/tests/mapLayers.test.ts`. The health-check keeps recording the same four
+counts, worked out from the blocks, so its history stays comparable.
+
+## 2026-11-06: Reading a failed run
+
+**What a failure carries.** A failed run (`status: 'error'`) has a `failure`
+(`engine/errors.ts` `Failure`):
+
+- `code`: the classified error (`timeout`, `out-of-memory`, `payload-too-large`,
+  `sibling-failure`, `network`, `unknown`), the names the query-sweep CSVs use
+- `step`: its number, total, type and label; missing for a failure outside the
+  steps (`unexpectedFailure`)
+- `block`: `A` or `C`, the block the step was working on; missing for
+  decoration (boundaries, stream lines)
+- `slices`: the slices that failed and those never reached
+- `status` and `raw`: the HTTP status and the server's own text
+
+**Where the words come from.** Every word a user reads about a failure comes
+from `errors.ts`: `outcomeMessage` (the sentence, read from `failure.code`) and
+`failureDetail` ("Step 4 of 7, loading details for facilities (block C):
+timeout (HTTP 429)"). The edit modal shows both and the raw text; it used to
+write its own "Error:" label over the log line. `message` ("Error at step: ...")
+is the scripts' log line and no screen shows it.
+
+**Tests.** "what a failure carries" in `engine/tests/executor.test.ts`, "the
+detail of a failure" in `engine/tests/errors.test.ts`, and "1d" in
+`ui/tests/editModalFlows.test.tsx`.
+
+## 2026-11-06: "4 stream types streams" in the question sentence (FIXED)
+
+**Symptom.** A block with more than three picks read with its noun twice: "What
+4 stream types streams are within at most 2 miles of samples?", "4 industries
+facilities". Found by the P0.4b wording fixtures.
+
+**Root cause.** `summarize` returned the count with its own noun ("4 stream
+types"), and each module then appended the block's noun.
+
+**Fix.** `namedOrCounted` (`engine/entities/wording.ts`): up to three picks are
+named in front of the noun as before ("Stream / River streams"); past that the
+count follows the noun: "streams of 4 types", "facilities in 4 industries",
+"wells of 4 types", "surface water bodies of 4 types". Samples already read
+"samples with 4 substances". Only the four doubled sentences in the recorded
+wording moved.
+
+**Tests.** `engine/tests/blockWording.test.ts`, and the recorded sentences in
+`engine/tests/__snapshots__/question-text.txt`.

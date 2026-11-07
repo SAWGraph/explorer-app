@@ -139,7 +139,7 @@ all of them named, none falling through to a DTXSID.
   and the region part by
   [`buildSamplePointRegionPattern()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts#L46).
 * It runs through
-  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/sparqlClient.ts#L4),
+  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/engine/endpoint.ts),
   against the URLs in
   [`endpoints.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/endpoints.ts).
 * Prefixes come from
@@ -161,14 +161,14 @@ the Analysis Question sentence can say "PFOA" instead of a DSSTox URI.
 
 The whole priority order, `skos:altLabel`, then `rdfs:label`, then the source parameter's
 name with `***retired***` resolved, then the DTXSID, lives in `substanceLabel()` in
-`src/constants/substances.ts`. The map popup's sample table uses the same function.
+`engine/constants/substances.ts`. The map popup's sample table uses the same function.
 
 It did not always. The dropdown had the source parameter step and the popup did not, so the
 same substance read as "10-H-Perfluorodecanoic acid" in the dropdown and as a bare
 `DTXSID10630918` in the popup, which looked like a broken query rather than a missing label.
 The popup's query now projects the label parts instead of picking a winner in SPARQL, and
 aggregates each one, which also stops a substance with two labels from duplicating its
-observation's row. `npm run check-substance-labels` asserts the order.
+observation's row. `engine/tests/substanceLabels.test.ts` asserts the order.
 
 ## If it looks wrong
 
