@@ -16,7 +16,8 @@
     "flow-distance-check": "node engine/scripts/flow-distance-check.mjs",
     "test": "vitest run",
     "test:engine": "vitest run --dir engine",
-    "test:ui": "vitest run --dir ui"
+    "test:ui": "vitest run --dir ui",
+    "subdivision-coverage": "tsx engine/scripts/subdivision-coverage.mts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",

@@ -257,7 +257,7 @@ type-to-bucket links, and `MIN` resolves the 7 overlaps.
 | `hyf:HY_WaterBody` | 73K | Surface water bodies |
 | `hyf:HY_Lake` | 60K | Lakes subset |
 | `kwg-ont:AdministrativeRegion` | 39K | |
-| `kwg-ont:AdministrativeRegion_3` | 35K | Counties |
+| `kwg-ont:AdministrativeRegion_3` | 35K | County subdivisions |
 | `gwml2:GW_Aquifer` | 8.4K | Aquifers (ME 4,972 + IL 3,469) |
 | `gwml2:GW_AquiferSystem` | 1.9K | Aquifer systems (ME 1,502 + IL 439) |
 | `us-sdwis:PublicWaterSystem` | 6K | Public water systems |
@@ -338,11 +338,13 @@ Same predicates as HY_WaterBody (73K instances each, same entities with dual typ
 | Class | Count | Notes |
 |-------|-------|-------|
 | `kwg-ont:AdministrativeRegion` | 41,789 | All admin regions |
-| `kwg-ont:AdministrativeRegion_3` | 35,458 | Counties |
-| `kwg-ont:AdministrativeRegion_2` | 6,228 | States |
-| `kwg-ont:AdministrativeRegion_1` | 102 | Countries/territories |
+| `kwg-ont:AdministrativeRegion_3` | 35,458 | County subdivisions (towns, townships, census county divisions) |
+| `kwg-ont:AdministrativeRegion_2` | 6,228 | Counties, each under two IRIs (KWG and Data Commons) |
+| `kwg-ont:AdministrativeRegion_1` | 102 | States and territories |
 
-### Predicates FROM `kwg-ont:AdministrativeRegion_3` (counties, outgoing)
+In all 13 selectable states AR1 is the state, AR2 the county and AR3 the county subdivision (checked live 2026-11-07: Hancock County, `USA.23009`, is AR2). Every county exists as `kwgr:administrativeRegion.USA.23009` and as `https://datacommons.org/browser/geoId/23009`, both `administrativePartOf` the state, so a count of counties is doubled unless it filters by namespace. Subdivisions exist only as Data Commons IRIs (`geoId/2300902865`, Bar Harbor town).
+
+### Predicates FROM `kwg-ont:AdministrativeRegion_3` (county subdivisions, outgoing)
 
 | Predicate | Count | Notes |
 |-----------|-------|-------|
@@ -352,8 +354,8 @@ Same predicates as HY_WaterBody (73K instances each, same entities with dual typ
 | `kwg-ont:sfContains` | 6.3M | Region contains S2 cells |
 | `kwg-ont:sfOverlaps` | 2.3M | |
 | `rdf:type` | 213K | |
-| `kwg-ont:administrativePartOf` | 71K | County → state hierarchy |
-| `kwg-ont:sfWithin` | 71K | County within state |
+| `kwg-ont:administrativePartOf` | 71K | Subdivision → county (both county IRIs) |
+| `kwg-ont:sfWithin` | 71K | Subdivision within county |
 | `kwg-ont:hasFIPS` | 35K | FIPS code |
 | `geo:defaultGeometry` | 35K | |
 | `geo:hasGeometry` | 35K | For boundary WKT |
@@ -477,8 +479,8 @@ Measured on fiokg: 3,824,195 triples, of which 3,742,487 are on `fio:Facility` a
 | `coso:ContaminantObservation` | sawgraph | ~705K |
 | `comptox:ChemicalEntity` | sawgraph | 101 (69 with `rdfs:label`) |
 | `kwg-ont:S2Cell_Level13` | spatialkg/hydrologykg | ~7.4M |
-| `kwg-ont:AdministrativeRegion_3` | spatialkg | ~35K (counties) |
-| `kwg-ont:AdministrativeRegion_2` | spatialkg | ~6K (states) |
+| `kwg-ont:AdministrativeRegion_3` | spatialkg | ~35K (county subdivisions) |
+| `kwg-ont:AdministrativeRegion_2` | spatialkg | ~6K (counties, each under two IRIs) |
 | `gwml2:GW_Aquifer` | hydrologykg | ~8.4K (ME 4,972 + IL 3,469) |
 | `gwml2:GW_AquiferSystem` | hydrologykg | ~1.9K (ME 1,502 + IL 439) |
 | `us-sdwis:PublicWaterSystem` | hydrologykg | ~6K |
@@ -549,7 +551,56 @@ Top sample sources by count: DEP (6,163), HALEYWARD (3,101), MEDEP (3,074), MEDA
 | 17 | Illinois | 8,228 |
 | 23 | Maine | 6,612 |
 
-Water bodies are linked to counties (`AdministrativeRegion_2` in hydrologykg = county level, not state level). Full state breakdown requires federation queries. hydrologykg contains 3,142 county-level admin regions.
+Water bodies have no link to any administrative region, only to S2 cells (checked 2026-11-07 on hydrologykg and federation). See Subdivision link coverage below.
+
+### Subdivision link coverage
+
+A **subdivision link** (GLOSSARY.md) ties an entity to the county subdivision it sits in, which rolls up to its county and state. A region filter is exact only for a type that has them: wells use them since #96, every other type trusts the S2 cell, which lets in entities from across the county line. Measured for issue #123 with `npm run subdivision-coverage` (`engine/scripts/subdivision-coverage.mts`); paste its output over the tables below to refresh them.
+
+Measured 2026-11-07 on federation (3.5 min).
+
+**Combined**, the whole graph. Linked: at least one subdivision link. No link, S2 cell only: no subdivision link, located only by the S2 cell it sits in. Unplaced: neither. County link only: linked to a county but not to a subdivision (already counted in one of the middle columns). App can show: entities the engine's own cell bind for the type finds, so the most any question can put on the map.
+
+| Type | Total | Linked | No link, S2 cell only | Unplaced | County link only | App can show |
+|---|---:|---:|---:|---:|---:|---:|
+| Sample points | 20,345 | 8,731 (42.9%) | 4,445 (21.8%) | 7,169 (35.2%) | 0 (0.0%) | 8,730 (42.9%) |
+| Facilities | 627,188 | 457,883 (73.0%) | 1,994 (0.3%) | 167,311 (26.7%) | 58,564 (9.3%) | 459,877 (73.3%) |
+| Water bodies | 107,067 | 0 (0.0%) | 72,985 (68.2%) | 34,082 (31.8%) | 0 (0.0%) | 72,985 (68.2%) |
+| Wells | 532,771 | 515,287 (96.7%) | 1,093 (0.2%) | 16,391 (3.1%) | 0 (0.0%) | 462,535 (86.8%) |
+| Aquifers | 8,441 | 8,441 (100.0%) | 0 (0.0%) | 0 (0.0%) | 0 (0.0%) | 8,441 (100.0%) |
+| Stream flowlines | 468,583 | 0 (0.0%) | 434,384 (92.7%) | 34,199 (7.3%) | 0 (0.0%) | 434,384 (92.7%) |
+
+**By state**, linked / no link (share linked). An entity with no link counts in a state when its S2 cell touches that state, so one on a state line counts in both.
+
+| State | Sample points | Facilities | Water bodies | Wells | Aquifers | Stream flowlines |
+|---|---:|---:|---:|---:|---:|---:|
+| Alabama | 57 / 25 (69.5%) | 0 / 2 (0.0%) | no data | no data | no data | no data |
+| Arizona | 457 / 2,831 (13.9%) | 7,259 / 1 (100.0%) | no data | no data | no data | no data |
+| Arkansas | 24 / 4 (85.7%) | 9,688 / 10 (99.9%) | no data | no data | no data | no data |
+| Illinois | 62 / 5 (92.5%) | 22,273 / 15 (99.9%) | 0 / 8,228 (0.0%) | 378,404 / 219 (99.9%) | 3,469 / 0 (100.0%) | 0 / 61,927 (0.0%) |
+| Indiana | 359 / 27 (93.0%) | 9,539 / 11 (99.9%) | 0 / 4,866 (0.0%) | 0 / 880 (0.0%) | no data | 0 / 20,215 (0.0%) |
+| Kansas | 20 / 0 (100.0%) | 0 / 11 (0.0%) | no data | no data | no data | no data |
+| Maine | 4,526 / 2 (100.0%) | 2,902 / 1 (100.0%) | 0 / 6,612 (0.0%) | 136,883 / 1 (100.0%) | 4,972 / 0 (100.0%) | 0 / 29,677 (0.0%) |
+| Massachusetts | 255 / 14 (94.8%) | 13,434 / 6 (100.0%) | 0 / 4,559 (0.0%) | no data | no data | 0 / 11,434 (0.0%) |
+| Minnesota | 1,084 / 505 (68.2%) | 17,361 / 8 (100.0%) | 0 / 18,352 (0.0%) | no data | no data | 0 / 35,811 (0.0%) |
+| New Hampshire | 28 / 13 (68.3%) | 5,557 / 1 (100.0%) | 0 / 1,939 (0.0%) | 0 / 1 (0.0%) | no data | 0 / 12,577 (0.0%) |
+| Ohio | 0 / 310 (0.0%) | 13,882 / 9 (99.9%) | 0 / 3,516 (0.0%) | no data | no data | 0 / 39,024 (0.0%) |
+| South Carolina | 21 / 3 (87.5%) | 7,605 / 6 (99.9%) | no data | no data | no data | no data |
+| Vermont | 9 / 1 (90.0%) | 2,764 / 2 (99.9%) | 0 / 475 (0.0%) | no data | no data | 0 / 4,228 (0.0%) |
+
+What it shows:
+
+- **Aquifers** are fully linked (8,441 of 8,441), and **facilities** are 99.9% linked in every selectable state they appear in. Both still use the cell check, so both can get the #96 wells treatment.
+- **Water bodies and stream flowlines** have no link to any administrative region. Their region filter can only be the cell check until the data adds links.
+- **Sample points** are partly linked: 99.9% in Maine, 13.9% in Arizona, 0% in Ohio. A subdivision-only check would drop the rest.
+- **The app shows less than the graph holds.** Every type is found through its S2 cell, so an entity with no cell never reaches a map, whatever its links:
+  - Wells: 462,535 of 532,771. The 70,236 Maine wells with no cell (#96) are hidden, though most of them have a subdivision link.
+  - Sample points: 8,730 of 20,345. 4,428 sit in a cell only through `kwg-ont:sfContains`, and the samples bind asks for `spatial:connectedTo`; 5,698 have no geometry.
+  - Facilities: 459,877 of 627,188 with an industry code. Beyond those, 4,240,574 of the 4,867,762 `fio:Facility` entities have no NAICS industry code, which the facilities bind requires (Maine: 11,599 linked facilities, 2,902 with a code).
+- **Unit for facilities:** typed `fio:Facility`. 853,598 FRS records (`epa-frs:Record`) also carry `fio:ofIndustry`; they have no location and are not facilities. Of the 167,311 facilities with neither a link nor a cell, 9,615 have a geometry.
+- **Alabama and Kansas** have no linked facilities (2 and 11 located by cell only).
+- **Wells**: the 880 counted in Indiana with no link are all Illinois survey (ISGS) wells in Indiana cells that do not touch Illinois, so they sit in Indiana and no subdivision claims them.
+- Facilities sit in their cells through `kwg-ont:sfContains`, and 56,992 have no `spatial:connectedTo` to any cell, so the script's cell check accepts either predicate.
 
 ### Implications for UI
 - Facility S2 lookup (federation) covers many states, but facility details (fiokg) may only work for 13 states
