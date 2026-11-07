@@ -1153,3 +1153,28 @@ treated as a cache miss and the question runs live. Check `isWireResult` in
 question), "the answer, by block" in `engine/tests/executor.test.ts`, and
 `ui/tests/mapLayers.test.ts`. The health-check keeps recording the same four
 counts, worked out from the blocks, so its history stays comparable.
+
+## 2026-11-06: Reading a failed run
+
+**What a failure carries.** A failed run (`status: 'error'`) has a `failure`
+(`engine/errors.ts` `Failure`):
+
+- `code`: the classified error (`timeout`, `out-of-memory`, `payload-too-large`,
+  `sibling-failure`, `network`, `unknown`), the names the query-sweep CSVs use
+- `step`: its number, total, type and label; missing for a failure outside the
+  steps (`unexpectedFailure`)
+- `block`: `A` or `C`, the block the step was working on; missing for
+  decoration (boundaries, stream lines)
+- `slices`: the slices that failed and those never reached
+- `status` and `raw`: the HTTP status and the server's own text
+
+**Where the words come from.** Every word a user reads about a failure comes
+from `errors.ts`: `outcomeMessage` (the sentence, read from `failure.code`) and
+`failureDetail` ("Step 4 of 7, loading details for facilities (block C):
+timeout (HTTP 429)"). The edit modal shows both and the raw text; it used to
+write its own "Error:" label over the log line. `message` ("Error at step: ...")
+is the scripts' log line and no screen shows it.
+
+**Tests.** "what a failure carries" in `engine/tests/executor.test.ts`, "the
+detail of a failure" in `engine/tests/errors.test.ts`, and "1d" in
+`ui/tests/editModalFlows.test.tsx`.

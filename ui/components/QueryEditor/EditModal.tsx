@@ -4,6 +4,7 @@ import { useQueryPipeline } from '../../hooks/useQueryPipeline';
 import { QueryEditorContent } from './QueryEditorContent';
 import { PipelineTimeline } from '../Pipeline/PipelineTimeline';
 import { assessQueryBreadth } from '../../../engine/queryBreadth';
+import { failureDetail, outcomeMessage } from '../../../engine/errors';
 import { deepEqual } from '../../utils/clone';
 
 export function EditModal() {
@@ -82,8 +83,10 @@ export function EditModal() {
               {lastApplyError && (
                 <div className="pipeline-message pipeline-error apply-error-callout">
                   <div className="apply-error-content">
-                    <strong>Error:</strong> {lastApplyError.message}
-                    {lastApplyError.error && <pre>{lastApplyError.error.message}</pre>}
+                    {/* Every word here comes from engine/errors.ts. */}
+                    <strong>{outcomeMessage(lastApplyError, question)}</strong>
+                    <div className="apply-error-detail">{failureDetail(lastApplyError)}</div>
+                    {lastApplyError.failure.raw && <pre>{lastApplyError.failure.raw}</pre>}
                   </div>
                   <button
                     className="apply-error-dismiss"

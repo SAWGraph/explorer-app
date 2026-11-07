@@ -4,6 +4,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   RUN_AGAIN_LABEL,
+  failureDetail,
+  unexpectedFailure,
   SparqlError,
   canRunAgain,
   outcomeMessage,
@@ -11,7 +13,7 @@ import {
   stepEmptyMessage,
   stepFailedMessage,
 } from '../errors';
-import type { PipelineResult } from '../executor';
+import type { PipelineError, PipelineResult } from '../executor';
 import type { AnalysisQuestion } from '../types/query';
 
 // A run that answered, with nothing in it.
@@ -26,11 +28,12 @@ const question = (overrides: Partial<AnalysisQuestion> = {}): AnalysisQuestion =
   ...overrides,
 });
 
-const failed = (error: Error): PipelineResult => ({
+const failed = (error: Error): PipelineError => ({
   status: 'error',
   failedAtStep: 0,
   message: stepFailedMessage('Finding samples near facilities'),
   error,
+  failure: { code: error instanceof SparqlError ? error.kind : 'unknown', slices: { failed: [], skipped: [] }, raw: error.message },
 });
 
 const TOO_MUCH = 'This question covers too much data for the knowledge graph to answer at once.';
@@ -204,7 +207,7 @@ describe('the step messages a run carries', () => {
 });
 
 describe('the message when chunking on refusal is off', () => {
-  const off = (error: Error): PipelineResult => ({ status: 'error', failedAtStep: 0, message: stepFailedMessage('Finding samples near facilities'), error, chunkingOff: true });
+  const off = (error: Error): PipelineResult => ({ ...failed(error), chunkingOff: true });
   const NOT_RETRIED = 'Chunking is turned off for this run, so the question was not retried or split into smaller queries. Use Run again to try it once more.';
 
   it('says the question was not retried or split, after a timeout', () => {
@@ -236,5 +239,43 @@ describe('running a question again', () => {
     expect(canRunAgain({ status: 'empty', failedAtStep: 0, message: stepEmptyMessage('x') })).toBe(false);
     expect(canRunAgain(SUCCESS)).toBe(false);
     expect(canRunAgain(null)).toBe(false);
+  });
+});
+
+// The detail line under a failure's headline (the edit modal shows it), built
+// from the failure's parts so the UI words nothing itself.
+describe('the detail of a failure', () => {
+  const at = (failure: Partial<import('../errors').Failure>): PipelineResult => ({
+    ...failed(new SparqlError('timeout', 429, 'Operation timed out')),
+    failure: { code: 'timeout', slices: { failed: [], skipped: [] }, raw: 'Operation timed out', ...failure },
+  });
+
+  it('names the step, its block, the code and the HTTP status', () => {
+    const result = at({ step: { index: 3, total: 7, type: 'HYDRATE_TARGET_BY_IRI', description: 'Loading details for samples' }, block: 'A', status: 429 });
+    expect(failureDetail(result)).toBe('Step 4 of 7, loading details for samples (block A): timeout (HTTP 429)');
+  });
+
+  it('leaves out what it does not know', () => {
+    expect(failureDetail(at({ step: { index: 6, total: 7, type: 'GET_REGION_BOUNDARIES', description: 'Loading region boundaries' } }))).toBe(
+      'Step 7 of 7, loading region boundaries: timeout',
+    );
+    expect(failureDetail(at({}))).toBe('timeout');
+  });
+
+  it('names the slices that failed', () => {
+    const result = at({ step: { index: 2, total: 7, type: 'FIND_TARGET_IRIS', description: 'Finding samples near facilities' }, block: 'A', slices: { failed: ['York County, Maine'], skipped: [] } });
+    expect(failureDetail(result)).toBe('Step 3 of 7, finding samples near facilities (block A): timeout. Not answered: York County, Maine');
+  });
+
+  it('is absent for a run that did not fail', () => {
+    expect(failureDetail({ ...SUCCESS })).toBeNull();
+  });
+});
+
+describe('a run that failed outside its steps', () => {
+  it('is an unknown failure with no step, worded like any other', () => {
+    const result = unexpectedFailure(new TypeError('Cannot read properties of undefined'));
+    expect(result.failure).toEqual({ code: 'unknown', slices: { failed: [], skipped: [] }, raw: 'Cannot read properties of undefined' });
+    expect(outcomeMessage(result)).toBe('Something went wrong. You can edit the question and try again.');
   });
 });

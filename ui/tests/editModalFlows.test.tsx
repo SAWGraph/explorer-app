@@ -17,6 +17,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { PipelineResult } from '../../engine/executor';
+import { unexpectedFailure } from '../../engine/errors';
 import type { RunOptions } from '../../engine/run';
 
 const engine = vi.hoisted(() => ({ runQuestion: vi.fn() }));
@@ -58,7 +59,7 @@ const API = 'http://api.test';
 const initialStore = useQueryStore.getState();
 
 const ok = (tag: string): PipelineResult => ({ status: 'success', blockA: [], blockC: [], decoration: { boundaries: [], streamLines: [] }, queries: [{ step: 0, description: tag, endpoint: 'federation' as never, query: tag }] });
-const fail: PipelineResult = { status: 'error', failedAtStep: 0, message: 'boom', error: new Error('boom') };
+const fail: PipelineResult = unexpectedFailure(new Error('boom'));
 
 // The engine answers the next run with this; tests override it per run.
 let nextRun: (signal?: AbortSignal) => Promise<PipelineResult>;
@@ -194,6 +195,34 @@ describe('1 new analysis, nothing applied', () => {
     await expectStayed(router, '/q/new');
     expect(store().question.blockC).toEqual(EDIT);
     expect(store().pipelineResult?.status).toBe('error');
+  });
+});
+
+describe('1d Apply fails: the error in the modal', () => {
+  it('shows the outcome sentence and where it failed, worded by the engine', async () => {
+    await openNew();
+    edit();
+    nextRun = async () => ({
+      status: 'error',
+      failedAtStep: 3,
+      message: 'Error at step: Loading details for facilities',
+      error: new Error('Operation timed out'),
+      failure: {
+        code: 'timeout',
+        step: { index: 3, total: 7, type: 'HYDRATE_ANCHOR_BY_IRI', description: 'Loading details for facilities' },
+        block: 'C',
+        slices: { failed: ['whole query'], skipped: [] },
+        status: 429,
+        raw: 'Operation timed out',
+      },
+    });
+    await apply();
+    const callout = document.querySelector('.apply-error-callout')?.textContent ?? '';
+    expect(callout).toContain('This question covers too much data for the knowledge graph to answer at once.');
+    expect(callout).toContain('Step 4 of 7, loading details for facilities (block C): timeout (HTTP 429)');
+    expect(callout).toContain('Operation timed out');
+    // The log line is for the scripts, not the screen.
+    expect(callout).not.toContain('Error at step');
   });
 });
 

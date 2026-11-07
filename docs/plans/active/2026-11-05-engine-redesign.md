@@ -122,7 +122,7 @@ byte-identical in every PR.
 - [x] Fixes: combine facility industry codes (one feature per facility, every matching code, coloured by the lowest); leftover filter slots (each type reads only its own slot, label maps are not filters, normalise and the cache key drop the rest). (The non-detect tick counted as a filter in the advice: fixed with the live counts)
 - [x] Result by block, `WIRE_VERSION` bump: a run returns `blockA`, `blockC`, `decoration` (`boundaries`, `streamLines`), `partial`, `queries`, `counts`; results stored by step are still read (published views). `startSide` waits for Phase 2, where it gets counts and a reason
 - [ ] `warm-cache` on development after the merge (needs `CACHE_WRITE_TOKEN`), production at the next release
-- [ ] Structured failures (code, step, block, slices, raw text) in `errors.ts`, and the edit modal's Apply error worded there instead of in the UI
+- [x] Structured failures (code, step, block, slices, raw text) in `errors.ts`, and the edit modal's Apply error worded there instead of in the UI. Codes keep the classifier's names (`payload-too-large`, `sibling-failure`) so sweep CSVs stay comparable
 - [ ] Question wording: more than three picks reads "4 stream types streams" and "4 industries facilities" (the noun is said twice). Found by the P0.4b fixtures; changes copy, so needs sign-off
 
 **Phase 2: a `query-sweep` sweep decides each one before it ships.**
