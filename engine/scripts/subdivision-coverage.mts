@@ -7,10 +7,12 @@
 //   npm run subdivision-coverage            # prints both grids as markdown
 //
 // Paste the output into the "Subdivision link coverage" section of
-// docs/SCHEMA.md. Pure measurement, live, about 180 queries run one at a time.
+// docs/SCHEMA.md. Pure measurement, live, about 340 queries run one at a time
+// (about 25 minutes).
 //
 // Two grids:
-// - By state: linked vs unlinked in each selectable state. A linked entity
+// - By state: linked vs unlinked in every state, the selectable ones first. A
+//   linked entity
 //   counts in the state its subdivision rolls up to; an unlinked one in the
 //   state its S2 cell touches, the check the region filter uses today, so an
 //   unlinked entity in a cell on a state line counts in both.
@@ -63,9 +65,12 @@ const queries = {
   unplaced: (t: CoverageType) =>
     `${t.pattern} FILTER NOT EXISTS { ${SUBDIVISION_LINK} } FILTER NOT EXISTS { ${CELL_LINK} }`,
   countyOnly: (t: CoverageType) => `${t.pattern} ${COUNTY_LINK} FILTER NOT EXISTS { ${SUBDIVISION_LINK} }`,
-  // The subdivision rolls up through its county to the state.
-  linkedIn: (t: CoverageType, fips: string) =>
-    `${t.pattern} ${SUBDIVISION_LINK} ?_sub kwg-ont:administrativePartOf+ ${stateIri(fips)} .`,
+  // The subdivision rolls up through its county to the state. One query per
+  // type for every state: grouping is as fast as one state (5s for facilities).
+  linkedByState: (t: CoverageType) =>
+    `${t.pattern} ${SUBDIVISION_LINK} ?_sub kwg-ont:administrativePartOf+ ?state . ?state a kwg-ont:AdministrativeRegion_1 .`,
+  // Per state: grouped, the facilities query took 94s, past the client's 60s.
+
   unlinkedIn: (t: CoverageType, fips: string) =>
     `?_cell spatial:connectedTo ${stateIri(fips)} . ${CELL_LINK} ${t.pattern} FILTER NOT EXISTS { ${SUBDIVISION_LINK} }`,
 };
@@ -87,6 +92,35 @@ async function count(where: string, variable = '?e', attempt = 0): Promise<Count
       process.stderr.write(`  rate limited, waiting ${RATE_LIMIT_WAIT_MS / 1000}s\n`);
       await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_WAIT_MS));
       return count(where, variable, attempt + 1);
+    }
+    // A stall (no response in 60s) is not retried by executeSparql. Both
+    // stalls in the 2026-11-07 run answered in under 7s when sent again.
+    if (err instanceof SparqlError && err.kind === 'timeout' && err.status === 0 && attempt < 1) {
+      process.stderr.write('  stalled, sending once more\n');
+      return count(where, variable, attempt + 1);
+    }
+    process.stderr.write(`  ${err instanceof Error ? err.message : String(err)}\n`);
+    return err instanceof SparqlError && err.kind === 'timeout' ? 'timed out' : 'error';
+  }
+}
+
+// Counts per state, keyed by FIPS. A state exists under a KWG and a Data
+// Commons IRI; only the KWG one is kept.
+async function countByState(where: string, attempt = 0): Promise<Map<string, number> | 'timed out' | 'error'> {
+  const query = `${PREFIXES}\nSELECT ?state (COUNT(DISTINCT ?e) AS ?n) WHERE { ${where} } GROUP BY ?state`;
+  try {
+    const rows = await executeSparql('federation', query);
+    const byFips = new Map<string, number>();
+    for (const row of rows) {
+      const fips = /administrativeRegion\.USA\.(\d{2})$/.exec(row.state ?? '')?.[1];
+      if (fips) byFips.set(fips, Number(row.n));
+    }
+    return byFips;
+  } catch (err) {
+    if (err instanceof SparqlError && err.status === 429 && /rate limited/i.test(err.detail) && attempt < 3) {
+      process.stderr.write(`  rate limited, waiting ${RATE_LIMIT_WAIT_MS / 1000}s\n`);
+      await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_WAIT_MS));
+      return countByState(where, attempt + 1);
     }
     process.stderr.write(`  ${err instanceof Error ? err.message : String(err)}\n`);
     return err instanceof SparqlError && err.kind === 'timeout' ? 'timed out' : 'error';
@@ -119,34 +153,45 @@ async function combinedGrid(): Promise<string> {
   return lines.join('\n');
 }
 
-async function stateGrid(): Promise<string> {
-  const states = ALL_US_STATES.filter((s) => AVAILABLE_STATE_FIPS.has(s.fips));
-  const lines = [
+// The 50 states plus DC, which has facilities (1,765 located by cell only).
+const STATES = [...ALL_US_STATES, { fips: '11', name: 'District of Columbia', abbreviation: 'DC' }];
+
+async function stateGrids(): Promise<{ selectable: string; other: string }> {
+  const linked = new Map<string, Awaited<ReturnType<typeof countByState>>>();
+  for (const t of TYPES) {
+    process.stderr.write(`by state, linked: ${t.label}\n`);
+    linked.set(t.label, await countByState(queries.linkedByState(t)));
+  }
+  const header = [
     `| State | ${TYPES.map((t) => t.label).join(' | ')} |`,
     `|---|${TYPES.map(() => '---:').join('|')}|`,
   ];
-  for (const s of states) {
-    process.stderr.write(`by state: ${s.name}\n`);
+  const rows = new Map<string, string>();
+  for (const s of STATES) {
+    process.stderr.write(`by state, no link: ${s.name}\n`);
     const cells: string[] = [];
     for (const t of TYPES) {
-      const linked = await count(queries.linkedIn(t, s.fips));
-      const unlinked = await count(queries.unlinkedIn(t, s.fips));
-      if (linked === 0 && unlinked === 0) {
+      const byState = linked.get(t.label);
+      const l: Count = byState instanceof Map ? (byState.get(s.fips) ?? 0) : (byState ?? 'error');
+      const u = await count(queries.unlinkedIn(t, s.fips));
+      if (l === 0 && u === 0) {
         cells.push('no data');
         continue;
       }
-      const share = typeof linked === 'number' && typeof unlinked === 'number' ? pct(linked, linked + unlinked) : '';
-      cells.push(`${num(linked)} / ${num(unlinked)}${share ? ` (${share})` : ''}`);
+      const share = typeof l === 'number' && typeof u === 'number' ? pct(l, l + u) : '';
+      cells.push(`${num(l)} / ${num(u)}${share ? ` (${share})` : ''}`);
     }
-    lines.push(`| ${s.name} | ${cells.join(' | ')} |`);
+    rows.set(s.fips, `| ${s.name} | ${cells.join(' | ')} |`);
   }
-  return lines.join('\n');
+  const pick = (selectable: boolean) =>
+    [...header, ...STATES.filter((s) => AVAILABLE_STATE_FIPS.has(s.fips) === selectable).map((s) => rows.get(s.fips))].join('\n');
+  return { selectable: pick(true), other: pick(false) };
 }
 
 const startedAt = Date.now();
 const date = new Date().toISOString().slice(0, 10);
 const combined = await combinedGrid();
-const byState = await stateGrid();
+const byState = await stateGrids();
 const minutes = ((Date.now() - startedAt) / 60_000).toFixed(1);
 
 console.log(`Measured ${date} on federation (${minutes} min).
@@ -157,4 +202,10 @@ ${combined}
 
 **By state**, linked / no link (share linked). An entity with no link counts in a state when its S2 cell touches that state, so one on a state line counts in both.
 
-${byState}`);
+Selectable states:
+
+${byState.selectable}
+
+Other states (no state pick, but a side with no region can reach them):
+
+${byState.other}`);

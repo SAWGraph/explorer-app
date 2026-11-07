@@ -557,7 +557,7 @@ Water bodies have no link to any administrative region, only to S2 cells (checke
 
 A **subdivision link** (GLOSSARY.md) ties an entity to the county subdivision it sits in, which rolls up to its county and state. A region filter is exact only for a type that has them: wells use them since #96, every other type trusts the S2 cell, which lets in entities from across the county line. Measured for issue #123 with `npm run subdivision-coverage` (`engine/scripts/subdivision-coverage.mts`); paste its output over the tables below to refresh them.
 
-Measured 2026-11-07 on federation (3.5 min).
+Measured 2026-11-07 on federation (24.3 min). Two queries stalled (Montana facilities, Virginia wells); both answered when sent again by hand and are filled in.
 
 **Combined**, the whole graph. Linked: at least one subdivision link. No link, S2 cell only: no subdivision link, located only by the S2 cell it sits in. Unplaced: neither. County link only: linked to a county but not to a subdivision (already counted in one of the middle columns). App can show: entities the engine's own cell bind for the type finds, so the most any question can put on the map.
 
@@ -571,6 +571,8 @@ Measured 2026-11-07 on federation (3.5 min).
 | Stream flowlines | 468,583 | 0 (0.0%) | 434,384 (92.7%) | 34,199 (7.3%) | 0 (0.0%) | 434,384 (92.7%) |
 
 **By state**, linked / no link (share linked). An entity with no link counts in a state when its S2 cell touches that state, so one on a state line counts in both.
+
+Selectable states:
 
 | State | Sample points | Facilities | Water bodies | Wells | Aquifers | Stream flowlines |
 |---|---:|---:|---:|---:|---:|---:|
@@ -588,6 +590,49 @@ Measured 2026-11-07 on federation (3.5 min).
 | South Carolina | 21 / 3 (87.5%) | 7,605 / 6 (99.9%) | no data | no data | no data | no data |
 | Vermont | 9 / 1 (90.0%) | 2,764 / 2 (99.9%) | 0 / 475 (0.0%) | no data | no data | 0 / 4,228 (0.0%) |
 
+Other states (no state pick, but a side with no region can reach them):
+
+| State | Sample points | Facilities | Water bodies | Wells | Aquifers | Stream flowlines |
+|---|---:|---:|---:|---:|---:|---:|
+| Alaska | no data | no data | no data | no data | no data | no data |
+| California | 0 / 59 (0.0%) | 13,865 / 3 (100.0%) | no data | no data | no data | no data |
+| Colorado | 110 / 23 (82.7%) | 14,127 / 2 (100.0%) | no data | no data | no data | no data |
+| Connecticut | 28 / 0 (100.0%) | 4,498 / 0 (100.0%) | 0 / 2,781 (0.0%) | no data | no data | 0 / 8,318 (0.0%) |
+| Delaware | no data | 2,220 / 3 (99.9%) | no data | no data | no data | no data |
+| Florida | 0 / 8 (0.0%) | 17,888 / 3 (100.0%) | no data | no data | no data | no data |
+| Georgia | 0 / 1 (0.0%) | 23,061 / 17 (99.9%) | no data | no data | no data | no data |
+| Hawaii | no data | no data | no data | no data | no data | no data |
+| Idaho | no data | 4,484 / 5 (99.9%) | no data | no data | no data | no data |
+| Iowa | 111 / 7 (94.1%) | 9,590 / 8 (99.9%) | 0 / 3,593 (0.0%) | 0 / 36 (0.0%) | no data | 0 / 43,161 (0.0%) |
+| Kentucky | 26 / 8 (76.5%) | 9,654 / 26 (99.7%) | 0 / 2,369 (0.0%) | 0 / 24 (0.0%) | no data | 0 / 41,335 (0.0%) |
+| Louisiana | no data | 9,327 / 3 (100.0%) | no data | no data | no data | no data |
+| Maryland | 24 / 10 (70.6%) | 13,229 / 173 (98.7%) | 0 / 24 (0.0%) | no data | no data | 0 / 429 (0.0%) |
+| Michigan | 130 / 2 (98.5%) | 23,330 / 4 (100.0%) | 0 / 64 (0.0%) | 0 / 40 (0.0%) | no data | 0 / 17 (0.0%) |
+| Mississippi | no data | 7,499 / 4 (99.9%) | no data | no data | no data | no data |
+| Missouri | 55 / 19 (74.3%) | 13,740 / 11 (99.9%) | 0 / 1,899 (0.0%) | 0 / 30 (0.0%) | no data | 0 / 23,208 (0.0%) |
+| Montana | no data | 3,241 / 10 (99.7%) | no data | no data | no data | no data |
+| Nebraska | no data | 7,308 / 4 (99.9%) | no data | no data | no data | no data |
+| Nevada | 0 / 3 (0.0%) | 3,611 / 6 (99.8%) | no data | no data | no data | no data |
+| New Jersey | 0 / 7 (0.0%) | 10,640 / 4 (100.0%) | no data | no data | no data | no data |
+| New Mexico | 0 / 1 (0.0%) | 4,813 / 3 (99.9%) | no data | no data | no data | no data |
+| New York | 481 / 6 (98.8%) | 19,387 / 5 (100.0%) | 0 / 399 (0.0%) | no data | no data | 0 / 1,885 (0.0%) |
+| North Carolina | 55 / 290 (15.9%) | 10,797 / 4 (100.0%) | 0 / 20 (0.0%) | no data | no data | 0 / 906 (0.0%) |
+| North Dakota | 0 / 2 (0.0%) | 2,592 / 8 (99.7%) | no data | no data | no data | no data |
+| Oklahoma | no data | 12,699 / 3 (100.0%) | no data | no data | no data | no data |
+| Oregon | no data | 7,337 / 1 (100.0%) | no data | no data | no data | no data |
+| Pennsylvania | 433 / 32 (93.1%) | 15,372 / 5 (100.0%) | 0 / 1,165 (0.0%) | no data | no data | 0 / 21,646 (0.0%) |
+| Rhode Island | 14 / 0 (100.0%) | 3,160 / 5 (99.8%) | 0 / 584 (0.0%) | no data | no data | 0 / 1,861 (0.0%) |
+| South Dakota | 35 / 7 (83.3%) | 1,803 / 1 (99.9%) | 0 / 707 (0.0%) | no data | no data | 0 / 1,791 (0.0%) |
+| Tennessee | 154 / 13 (92.2%) | 10,506 / 18 (99.8%) | 0 / 436 (0.0%) | no data | no data | 0 / 12,900 (0.0%) |
+| Texas | no data | 19,405 / 12 (99.9%) | no data | no data | no data | no data |
+| Utah | no data | 5,974 / 3 (99.9%) | no data | no data | no data | no data |
+| Virginia | 41 / 223 (15.5%) | 11,805 / 62 (99.5%) | 0 / 42 (0.0%) | no data | no data | 0 / 5,562 (0.0%) |
+| Washington | no data | 14,724 / 2 (100.0%) | no data | no data | no data | no data |
+| West Virginia | 0 / 86 (0.0%) | 3,902 / 6 (99.8%) | 0 / 559 (0.0%) | no data | no data | 0 / 27,578 (0.0%) |
+| Wisconsin | 132 / 21 (86.3%) | 7,845 / 6 (99.9%) | 0 / 11,083 (0.0%) | 0 / 85 (0.0%) | no data | 0 / 40,922 (0.0%) |
+| Wyoming | no data | 2,186 / 17 (99.2%) | no data | no data | no data | no data |
+| District of Columbia | no data | 0 / 1,765 (0.0%) | no data | no data | no data | no data |
+
 What it shows:
 
 - **Aquifers** are fully linked (8,441 of 8,441), and **facilities** are 99.9% linked in every selectable state they appear in. Both still use the cell check, so both can get the #96 wells treatment.
@@ -598,7 +643,8 @@ What it shows:
   - Sample points: 8,730 of 20,345. 4,428 sit in a cell only through `kwg-ont:sfContains`, and the samples bind asks for `spatial:connectedTo`; 5,698 have no geometry.
   - Facilities: 459,877 of 627,188 with an industry code. Beyond those, 4,240,574 of the 4,867,762 `fio:Facility` entities have no NAICS industry code, which the facilities bind requires (Maine: 11,599 linked facilities, 2,902 with a code).
 - **Unit for facilities:** typed `fio:Facility`. 853,598 FRS records (`epa-frs:Record`) also carry `fio:ofIndustry`; they have no location and are not facilities. Of the 167,311 facilities with neither a link nor a cell, 9,615 have a geometry.
-- **Alabama and Kansas** have no linked facilities (2 and 11 located by cell only).
+- **Alabama and Kansas** have no linked facilities (2 and 11 located by cell only), nor do Alaska and Hawaii (none at all). The District of Columbia has 1,765 facilities and no subdivisions, so none is linked.
+- **Outside the 13 selectable states** the same pattern holds: facilities are 98.7% (Maryland) to 100% linked, water bodies and flowlines 0%. Sample points are 15.9% linked in North Carolina and 15.5% in Virginia. A side with no region picked can reach these states.
 - **Wells**: the 880 counted in Indiana with no link are all Illinois survey (ISGS) wells in Indiana cells that do not touch Illinois, so they sit in Indiana and no subdivision claims them.
 - Facilities sit in their cells through `kwg-ont:sfContains`, and 56,992 have no `spatial:connectedTo` to any cell, so the script's cell check accepts either predicate.
 

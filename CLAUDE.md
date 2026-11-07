@@ -22,7 +22,7 @@ npm run preview      # Preview production build
 npm run health-check -- <ref>   # Run every dashboard question, record the results
 npm run query-sweep            # Re-measure every query shape (slow)
 npm run flow-distance-check     # Bounded downstream trace vs the UC1_CQ2c notebook (live)
-npm run subdivision-coverage    # Subdivision link coverage per type and state (live, ~3 min)
+npm run subdivision-coverage    # Subdivision link coverage per type and state (live, ~25 min)
 npm run warm-cache              # Precompute dashboard results (needs CACHE_WRITE_TOKEN)
 npm run build-thumbnails        # Re-render prebuilt card thumbnails (live queries, ~4 min)
 npm run contrast-check          # WCAG contrast report for map and UI colours (report only)
