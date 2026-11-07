@@ -193,3 +193,17 @@ strings, config values) where LSP doesn't help.
 
 After writing or editing code, check LSP diagnostics before
 moving on. Fix any type errors or missing imports immediately.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `SAWGraph/explorer-app`, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created when a term or decision first needs one. See `docs/agents/domain.md`.
