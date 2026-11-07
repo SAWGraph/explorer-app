@@ -112,7 +112,8 @@ interface FusedBodyOpts extends FusedBaseOpts {
   targetIris?: string[];
   maxDistanceKm?: number;
   // Which side the body is written from, when the caller has decided it (the
-  // start-side sweep, and counts). Otherwise the side ranks decide (sides.ts).
+  // start-side sweep, and counts). Otherwise a trace follows the side ranks
+  // (sides.ts) and a near body is written anchor first.
   lead?: 'anchor' | 'target';
 }
 
@@ -239,10 +240,19 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   const anchorSide = anchorCollapsed ?? anchorCell;
   const targetSide = targetCollapsed ?? targetCell;
 
+  // A near body is written anchor first unless the caller says otherwise: near
+  // questions have no start-side rule yet, only the override (the start-side
+  // sweep). Target first walks the hop path from ?s2target back to ?s2anchor,
+  // which matches the same cell pairs only if sfTouches is stored both ways.
   if (opts.mode === 'near') {
-    const hopPath = neighborPath(opts.hops ?? 1, '?s2anchor', '?s2target');
+    const hops = opts.hops ?? 1;
+    if (opts.lead === 'target') {
+      return `${anchorPin}${targetPin}${targetSide}
+      ${neighborPath(hops, '?s2target', '?s2anchor')}
+      ${anchorSide}`;
+    }
     return `${anchorPin}${targetPin}${anchorSide}
-      ${hopPath}
+      ${neighborPath(hops, '?s2anchor', '?s2target')}
       ${targetSide}`;
   }
 
@@ -343,6 +353,7 @@ export interface FusedNearOpts extends FusedBaseOpts {
   project: 'anchor' | 'target';
   anchorIris?: string[];
   targetIris?: string[];
+  lead?: 'anchor' | 'target';
 }
 
 // Server-side "near" query. Projects either anchor or target entity IRIs as
@@ -357,6 +368,7 @@ export function buildFusedNearQuery(opts: FusedNearOpts): string {
     hops: opts.hops,
     anchorIris: opts.anchorIris,
     targetIris: opts.targetIris,
+    lead: opts.lead,
   });
   const projectVar =
     opts.project === 'anchor'

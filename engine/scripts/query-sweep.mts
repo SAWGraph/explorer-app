@@ -48,7 +48,7 @@ import { executePipeline, type PipelineResult } from '../executor';
 import { executeSparql, recordingEndpoint, type RequestRecord } from '../endpoint';
 import { sweepRows } from './sweepRows';
 import { normalise } from '../question';
-import { buildEntityCountQuery, buildFusedHydrologyQuery } from '../templates/fusedQueries';
+import { buildEntityCountQuery, buildFusedHydrologyQuery, buildFusedNearQuery } from '../templates/fusedQueries';
 import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
 import type { AnalysisQuestion, EntityType } from '../types/query';
 
@@ -264,8 +264,10 @@ if (phase === 'MS') {
   // rank the same (both in Maine, or neither with a region), does starting
   // from the side with fewer entities answer faster? Each discovery query runs
   // led by the anchor (today) and by the target, and the counts go in the
-  // filters column so the ratio can be read off. Downstream only: upstream
-  // builds the same queries with A and C swapped. Target projection only.
+  // filters column so the ratio can be read off. Traces are downstream only:
+  // upstream builds the same queries with A and C swapped. The near shapes at
+  // the end run the same pair, the hop path written from either cell. Target
+  // projection only.
   const MS_ONLY = process.env.QUERY_SWEEP_MS_ONLY
     ? new Set(readFileSync(process.env.QUERY_SWEEP_MS_ONLY, 'utf8').split('\n').filter(Boolean))
     : null;
@@ -282,6 +284,39 @@ if (phase === 'MS') {
     }
     return counted.get(key);
   };
+  // QUERY_SWEEP_MS_ORDER=target-first runs the target-led query first, to tell
+  // the start side from QLever's cache (the second query of a pair runs warm).
+  // QUERY_SWEEP_MS_ONLY names a file of shape labels to re-run, one per line.
+  const leads = process.env.QUERY_SWEEP_MS_ORDER === 'target-first' ? (['target', 'anchor'] as const) : (['anchor', 'target'] as const);
+  const bothLeads = async (label: string, q: AnalysisQuestion, region: string, hops: number | '') => {
+    if (MS_ONLY && !MS_ONLY.has(label)) return;
+    const n = normalise(q);
+    const anchorCount = await countOf(n.anchor, n.anchorRegion);
+    const targetCount = await countOf(n.target, n.targetRegion);
+    const rel = q.relationship.type;
+    for (const lead of leads) {
+      const sides = { anchor: n.anchor, target: n.target, anchorRegion: n.anchorRegion, targetRegion: n.targetRegion, project: 'target', lead } as const;
+      const query =
+        rel === 'near'
+          ? buildFusedNearQuery({ ...sides, hops: q.relationship.hops ?? 1 })
+          : buildFusedHydrologyQuery({ ...sides, maxDistanceKm: q.relationship.maxDistanceKm });
+      const step: PipelineStep = {
+        type: 'FIND_TARGET_IRIS',
+        endpoint: 'federation',
+        description: `lead ${lead}`,
+        after: [],
+        buildQuery: () => query,
+      };
+      await run(
+        'MS',
+        `${label} lead ${lead}`,
+        q,
+        { blockA: q.blockA.type, rel, hops, blockC: q.blockC.type, region, filters: `anchor=${anchorCount} target=${targetCount} lead=${lead}` },
+        0,
+        [step],
+      );
+    }
+  };
   const CONFIGS: { name: string; state?: string; km?: number }[] = [
     { name: 'ME both', state: '23' },
     { name: 'ME both 30km', state: '23', km: 30 },
@@ -297,43 +332,22 @@ if (phase === 'MS') {
           relationship: { type: 'downstream', ...(cfg.km ? { maxDistanceKm: cfg.km } : {}) },
           blockC: { type: c, ...region },
         } as AnalysisQuestion;
-        const n = normalise(q);
-        const anchorCount = await countOf(n.anchor, n.anchorRegion);
-        const targetCount = await countOf(n.target, n.targetRegion);
-        // QUERY_SWEEP_MS_ORDER=target-first runs the target-led query first,
-        // to tell the start side from QLever's cache (the second query of a
-        // pair runs warm). QUERY_SWEEP_MS_ONLY names a file of shape labels to
-        // re-run, one per line.
-        const label = `${a} downstream${cfg.km ? `(${cfg.km}km)` : ''} ${c} [${cfg.name}]`;
-        if (MS_ONLY && !MS_ONLY.has(label)) continue;
-        const leads = process.env.QUERY_SWEEP_MS_ORDER === 'target-first' ? (['target', 'anchor'] as const) : (['anchor', 'target'] as const);
-        for (const lead of leads) {
-          const query = buildFusedHydrologyQuery({
-            anchor: n.anchor,
-            target: n.target,
-            anchorRegion: n.anchorRegion,
-            targetRegion: n.targetRegion,
-            project: 'target',
-            maxDistanceKm: cfg.km,
-            lead,
-          });
-          const step: PipelineStep = {
-            type: 'FIND_TARGET_IRIS',
-            endpoint: 'federation',
-            description: `lead ${lead}`,
-            after: [],
-            buildQuery: () => query,
-          };
-          await run(
-            'MS',
-            `${label} lead ${lead}`,
-            q,
-            { blockA: a, rel: 'downstream', hops: '', blockC: c, region: cfg.name, filters: `anchor=${anchorCount} target=${targetCount} lead=${lead}` },
-            0,
-            [step],
-          );
-        }
+        await bothLeads(`${a} downstream${cfg.km ? `(${cfg.km}km)` : ''} ${c} [${cfg.name}]`, q, cfg.name, '');
       }
+  // Near shapes from the start-side test set (issue #135), both sides in
+  // Maine. A near question is not a trace, so A and C do not swap: block A is
+  // the target, block C the anchor, and the hop path runs between their cells.
+  const NEAR: [EntityType, number, EntityType][] = [
+    ['samples', 1, 'facilities'],
+    ['samples', 2, 'wells'],
+    ['wells', 3, 'facilities'],
+    ['waterBodies', 4, 'facilities'],
+  ];
+  for (const [a, hops, c] of NEAR) {
+    const region = { region: { stateCode: '23' } };
+    const q = { blockA: { type: a, ...region }, relationship: { type: 'near', hops }, blockC: { type: c, ...region } } as AnalysisQuestion;
+    await bothLeads(`${a} near(${hops}) ${c} [ME both]`, q, 'ME both', hops);
+  }
 }
 
 // --- the index -------------------------------------------------------------
