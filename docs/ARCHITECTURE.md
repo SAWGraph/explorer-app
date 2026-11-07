@@ -384,7 +384,7 @@ React components in `components/Map/` render features, one per entity type:
 - `FacilityLayer` — facility markers
 - `WaterBodyLayer` — water body polygons and lines
 - `WellLayer` — wells
-- `StreamLayer` — river reaches: the stream lines a trace draws, or the answer when a block is streams
+- `StreamLayer`: river reaches, the stream lines a trace draws or the answer when a block is streams
 - `AquiferBoundaryLayer` — aquifer polygons
 - `RegionBoundaryLayer` — county and state outlines
 
