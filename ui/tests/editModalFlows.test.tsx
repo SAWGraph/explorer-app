@@ -57,7 +57,7 @@ const PREBUILT = PREBUILT_QUERIES[0];
 const API = 'http://api.test';
 const initialStore = useQueryStore.getState();
 
-const ok = (tag: string): PipelineResult => ({ status: 'success', data: { tag: [] }, queries: [{ step: 0, description: tag, endpoint: 'federation' as never, query: tag }] });
+const ok = (tag: string): PipelineResult => ({ status: 'success', blockA: [], blockC: [], decoration: { boundaries: [], streamLines: [] }, queries: [{ step: 0, description: tag, endpoint: 'federation' as never, query: tag }] });
 const fail: PipelineResult = { status: 'error', failedAtStep: 0, message: 'boom', error: new Error('boom') };
 
 // The engine answers the next run with this; tests override it per run.

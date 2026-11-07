@@ -21,6 +21,7 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } fr
 import { dirname } from 'node:path';
 import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
 import { runQuestion } from '../run';
+import { normalise } from '../question';
 
 // The keys useMapLayers renders (wire.ts RENDERED_KEYS). Counting anything else
 // would flag drift in intermediate bookkeeping the user never sees.
@@ -138,7 +139,16 @@ async function attempt(prebuilt: (typeof PREBUILT_QUERIES)[number], n: number): 
     const result = await runQuestion(prebuilt.question);
     const counts: Record<string, number> = {};
     if (result.status === 'success') {
-      for (const key of COUNTED) if (result.data[key]?.length) counts[key] = result.data[key].length;
+      // The same four counts as before results came by block, so the history
+      // stays comparable: the target is block A for near and downstream.
+      const targetIsA = normalise(prebuilt.question).targetIs === 'A';
+      const rows: Record<(typeof COUNTED)[number], unknown[]> = {
+        FIND_TARGET_ENTITIES: targetIsA ? result.blockA : result.blockC,
+        GET_ANCHOR_DETAILS: targetIsA ? result.blockC : result.blockA,
+        GET_REGION_BOUNDARIES: result.decoration.boundaries,
+        GET_FLOWLINE_GEOMETRIES: result.decoration.streamLines,
+      };
+      for (const key of COUNTED) if (rows[key].length) counts[key] = rows[key].length;
     }
     return {
       ...base,

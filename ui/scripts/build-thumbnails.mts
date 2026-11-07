@@ -18,6 +18,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { PREBUILT_QUERIES } from '../../engine/constants/prebuiltQueries';
 import { runQuestion } from '../../engine/run';
+import type { PipelineSuccess } from '../../engine/executor';
 import { questionThumbnailUrl, boundsForQuestion } from '../constants/regionBounds';
 
 const W = 440;
@@ -50,12 +51,12 @@ interface Marks {
   lines: Pt[][];
 }
 
-function collect(data: Record<string, any[]>): Marks {
+function collect(result: PipelineSuccess): Marks {
   const points: Marks['points'] = [];
   const lines: Marks['lines'] = [];
-  for (const [key, rows] of Object.entries(data)) {
-    if (key === 'GET_REGION_BOUNDARIES') continue; // county outlines are noise at this size
-    for (const row of rows ?? []) {
+  // County outlines are noise at this size, so the boundaries are left out.
+  for (const rows of [result.blockA, result.blockC, result.decoration.streamLines]) {
+    for (const row of rows) {
       for (const [field, value] of Object.entries(row)) {
         if (typeof value !== 'string' || !/^\s*(POINT|LINESTRING|MULTILINESTRING|POLYGON|MULTIPOLYGON)/i.test(value)) continue;
         const pts = coordsIn(value);
@@ -158,7 +159,7 @@ for (const q of queries) {
   try {
     const result = await runQuestion(q.question);
     if (result.status !== 'success') throw new Error(result.status);
-    const marks = collect(result.data);
+    const marks = collect(result);
     const stats = await render(q.id, marks, boundsForQuestion(q.question));
     const secs = ((Date.now() - started) / 1000).toFixed(0);
     console.log(`ok   ${q.id} ${stats.points}pts ${stats.lines}lines ${(stats.bytes / 1024).toFixed(0)}KB ${secs}s`);

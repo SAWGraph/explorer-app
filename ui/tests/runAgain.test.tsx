@@ -26,7 +26,7 @@ const FAILED: PipelineResult = {
 
 beforeEach(() => {
   useQueryStore.setState(initial, true);
-  engine.runQuestion.mockReset().mockResolvedValue({ status: 'success', data: {} });
+  engine.runQuestion.mockReset().mockResolvedValue({ status: 'success', blockA: [], blockC: [], decoration: { boundaries: [], streamLines: [] } });
   engine.fetchCachedResult.mockReset().mockResolvedValue(null);
 });
 afterEach(cleanup);

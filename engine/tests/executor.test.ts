@@ -65,9 +65,45 @@ describe('a question that answers', () => {
     expect(pinned(sent('VALUES ?facility {'), 'facility')).toEqual(FACILITIES);
 
     // The two keys the map reads.
-    expect(result.data['FIND_TARGET_ENTITIES']).toHaveLength(3);
-    expect(result.data['GET_ANCHOR_DETAILS']).toHaveLength(2);
+    expect(result.blockA).toHaveLength(3);
+    expect(result.blockC).toHaveLength(2);
     expect(result.partial).toBeUndefined();
+  });
+});
+
+// A run answers by block (plan decision 15): block A's rows, block C's rows,
+// and the decoration drawn around them. Which block is the target flips for
+// upstream (engine/question.ts), so a result keyed by step put block A under a
+// different key for a third of the questions.
+describe('the answer, by block', () => {
+  it('gives block A, block C and the decoration of a near question', async () => {
+    const result = await run(SAMPLES_NEAR_LANDFILLS, answering());
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') return;
+    expect(result.blockA.map((r) => r.sp)).toEqual(SAMPLES);
+    expect(result.blockC.map((r) => r.facility)).toEqual(FACILITIES);
+    expect(result.decoration.boundaries).toHaveLength(1);
+    expect(result.decoration.streamLines).toEqual([]);
+  });
+
+  it('keeps block A as block A when upstream makes it the anchor', async () => {
+    const upstream: AnalysisQuestion = { ...SAMPLES_NEAR_LANDFILLS, relationship: { type: 'upstream' } };
+    const base = answering();
+    const fake = fakeEndpoint((call) => {
+      // Upstream: the samples (block A) are the anchor, the facilities the target.
+      if (projected(call.query) === 'spA') return iriRows(SAMPLES);
+      if (projected(call.query) === 'facilityC') return iriRows(FACILITIES);
+      if (call.query.includes('?flowlineWKT')) return [{ flowline: 'http://ex.org/r/1', flowlineWKT: 'LINESTRING(0 0, 1 1)' }];
+      return base.run(call.endpoint, call.query, call.options);
+    });
+    const result = await run(upstream, fake);
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') return;
+    expect(result.blockA.map((r) => r.sp)).toEqual(SAMPLES);
+    expect(result.blockC.map((r) => r.facility)).toEqual(FACILITIES);
+    expect(result.decoration.streamLines).toHaveLength(1);
   });
 });
 
@@ -116,6 +152,10 @@ const refusingWhole = (
   });
 };
 
+// The IRIs the details step was asked for: what discovery found, merged.
+const detailsPinned = (fake: FakeEndpoint, variable: 'sp' | 'facility') =>
+  fake.calls.filter((c) => c.query.includes(`VALUES ?${variable} {`)).flatMap((c) => pinned(c.query, variable));
+
 const uncachedRepeats = (fake: FakeEndpoint) => {
   const sent = fake.calls.filter((c) => !c.options.cache).map((c) => c.query);
   return sent.filter((q, i) => sent.indexOf(q) !== i).length;
@@ -129,9 +169,10 @@ describe('a question too big to run whole', () => {
     expect(result.status).toBe('success');
     if (result.status !== 'success') return;
     expect(result.partial).toBeUndefined();
-    // 30 landfills over two slices reach the same 3 samples; each kept once.
-    expect(result.data['FIND_TARGET_IRIS']).toEqual(iriRows([SAMPLES[1], SAMPLES[2], SAMPLES[0]]));
-    expect(result.data['FIND_ANCHOR_IRIS']).toHaveLength(30);
+    // 30 landfills over two slices reach the same 3 samples; each kept once,
+    // and the details step loads exactly those.
+    expect(detailsPinned(fake, 'sp')).toEqual([SAMPLES[1], SAMPLES[2], SAMPLES[0]]);
+    expect(detailsPinned(fake, 'facility')).toHaveLength(30);
     expect(result.queries?.filter((q) => q.step === 0).map((q) => q.scope)).toEqual([
       undefined,
       'facilities batch 1',
@@ -153,7 +194,7 @@ describe('a question too big to run whole', () => {
       failed: ['facilities batch 1 (2/2)'],
       skipped: [],
     });
-    expect(result.data['FIND_TARGET_IRIS']).toEqual(iriRows([SAMPLES[1]]));
+    expect(detailsPinned(fake, 'sp')).toEqual([SAMPLES[1]]);
   });
 
   it('skips the slices left when a step passes its 300s budget, and says they were skipped', async () => {
@@ -200,7 +241,7 @@ describe('a step that fails', () => {
     expect(result.status).toBe('success');
     if (result.status !== 'success') return;
     expect(result.partial).toEqual([{ step: 'Loading region boundaries', failed: ['whole query'], skipped: [] }]);
-    expect(result.data['FIND_TARGET_ENTITIES']).toHaveLength(3);
+    expect(result.blockA).toHaveLength(3);
   });
 
   it('fails the run at a required step that cannot be answered at all', async () => {
@@ -334,7 +375,7 @@ describe('a question too big to run whole, with neither side listable', () => {
       'Penobscot County, Maine',
       'Penobscot County, Maine part 1',
     ]);
-    expect(result.data['FIND_TARGET_IRIS']).toEqual(iriRows([SAMPLES[0], ...PENOBSCOT_SAMPLES]));
+    expect(detailsPinned(fake, 'sp')).toEqual([SAMPLES[0], ...PENOBSCOT_SAMPLES]);
     // The anchor side is never narrowed to a county: landfills outside it can
     // still be near samples inside it.
     expect(
@@ -390,7 +431,7 @@ describe('a trace question', () => {
     // Never sliced on the samples: a partial target list would shrink the drawn network.
     const flowlineCalls = fake.calls.filter((c) => c.query.includes('?flowlineWKT'));
     expect(flowlineCalls.every((c) => pinned(c.query, 'spC').join() === SAMPLES.join())).toBe(true);
-    expect(result.data['GET_FLOWLINE_GEOMETRIES'].map((r) => r.flowline)).toEqual([
+    expect(result.decoration.streamLines.map((r) => r.flowline)).toEqual([
       'http://ex.org/r/1',
       'http://ex.org/fac/1/reach',
       'http://ex.org/fac/2/reach',
@@ -405,8 +446,8 @@ describe('a trace question', () => {
     expect(result.partial).toEqual([
       { step: 'Loading downstream stream geometries', failed: ['all (1/2)', 'all (2/2)'], skipped: [] },
     ]);
-    expect(result.data['FIND_TARGET_ENTITIES']).toHaveLength(3);
-    expect(result.data['GET_ANCHOR_DETAILS']).toHaveLength(2);
+    expect(result.blockA).toHaveLength(3);
+    expect(result.blockC).toHaveLength(2);
   });
 });
 
@@ -441,7 +482,7 @@ describe('decoration alongside the main steps', () => {
 
     expect(result.status).toBe('success');
     if (result.status !== 'success') return;
-    expect(result.data['GET_REGION_BOUNDARIES']).toHaveLength(1);
+    expect(result.decoration.boundaries).toHaveLength(1);
   });
 
   it('sends the stream lines once both sides are found, while the details are still loading', async () => {
@@ -459,7 +500,7 @@ describe('decoration alongside the main steps', () => {
     if (result.status !== 'success') return;
     const order = (marker: (q: string) => boolean) => fake.calls.findIndex((c) => marker(c.query));
     expect(order((q) => q.includes('?flowlineWKT'))).toBeGreaterThan(order((q) => projected(q) === 'facilityA'));
-    expect(result.data['GET_FLOWLINE_GEOMETRIES']).toHaveLength(3);
+    expect(result.decoration.streamLines).toHaveLength(3);
   });
 
   it('stops the decoration still loading when the run ends, and reports it skipped', async () => {

@@ -8,7 +8,7 @@ import { ownSlotOnly } from './question';
 //
 // Bump WIRE_VERSION when the set of result keys we store changes (see wire.ts) —
 // old entries would then be missing data the map expects.
-const WIRE_VERSION = 'w2'; // w2: results carry the SPARQL that produced them
+const WIRE_VERSION = 'w3'; // w3: results by block (blockA, blockC, decoration); w2: results carry their SPARQL
 
 // Bump DATA_VERSION after a knowledge-graph reload, or after an engine change
 // that changes answers to questions already cached, to make every existing key
