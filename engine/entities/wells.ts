@@ -1,5 +1,5 @@
 import { buildWellCategoryFilter } from '../templates/wells';
-import { anyFilterSlotSet, type EntityModule } from './types';
+import { ownFilterSet, type EntityModule } from './types';
 import { extractLabel, summarize } from './wording';
 
 const LABEL = 'wells';
@@ -21,7 +21,8 @@ export const wells: EntityModule = {
   },
   // One row per entity and cell already (measured in Maine, 2026-11-06).
   fansOut: () => false,
-  isFiltered: anyFilterSlotSet,
+  filterSlot: 'wellFilters',
+  isFiltered: ownFilterSet('wellFilters', ['wellCategories']),
   describe(block) {
     const tokens = block.wellFilters?.wellCategories ?? [];
     if (!tokens.length) return LABEL;

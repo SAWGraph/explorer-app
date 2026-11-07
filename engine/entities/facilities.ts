@@ -2,7 +2,7 @@ import type { FacilityFilters } from '../types/query';
 import { buildIndustryValues } from '../templates/facilities';
 import { buildFacilitiesByIri } from '../templates/hydrate';
 import { NAICS_SECTOR_SHORT } from '../constants/naics';
-import { anyFilterSlotSet, type EntityModule } from './types';
+import { ownFilterSet, type EntityModule } from './types';
 import { summarize } from './wording';
 
 const LABEL = 'facilities';
@@ -39,7 +39,8 @@ export const facilities: EntityModule = {
     const codes = (block.facilityFilters as FacilityFilters | undefined)?.industryCodes ?? [];
     return codes.length === 0 || codes.some((code) => code.length < 6);
   },
-  isFiltered: anyFilterSlotSet,
+  filterSlot: 'facilityFilters',
+  isFiltered: ownFilterSet('facilityFilters', ['industryCodes']),
   describe(block, totals) {
     const codes = block.facilityFilters?.industryCodes;
     const labels = block.facilityFilters?.industryLabels ?? {};

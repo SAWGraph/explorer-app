@@ -25,8 +25,8 @@ describe('which block each role is', () => {
     ['downstream, bounded', { type: 'downstream', maxDistanceKm: 30 }, 'trace'],
   ] as const)('%s: the trace starts from block C and reaches block A', (_name, relationship, kind) => {
     const q = normalise(ask(relationship));
-    expect(q.anchor).toBe(LANDFILLS);
-    expect(q.target).toBe(SAMPLES);
+    expect(q.anchor).toEqual(LANDFILLS);
+    expect(q.target).toEqual(SAMPLES);
     expect(q.targetIs).toBe('A');
     expect(q.kind).toBe(kind);
   });
@@ -36,8 +36,8 @@ describe('which block each role is', () => {
     ['upstream, bounded', { type: 'upstream', maxDistanceKm: 30 }],
   ] as const)('%s: block A is the upstream end, so the trace starts from it', (_name, relationship) => {
     const q = normalise(ask(relationship));
-    expect(q.anchor).toBe(SAMPLES);
-    expect(q.target).toBe(LANDFILLS);
+    expect(q.anchor).toEqual(SAMPLES);
+    expect(q.target).toEqual(LANDFILLS);
     expect(q.targetIs).toBe('C');
     expect(q.kind).toBe('trace');
   });

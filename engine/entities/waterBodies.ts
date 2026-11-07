@@ -1,6 +1,6 @@
 import { buildWaterBodiesByIri } from '../templates/hydrate';
 import { WATER_BODY_FTYPES } from '../constants/featureTypes';
-import { anyFilterSlotSet, type EntityModule } from './types';
+import { ownFilterSet, type EntityModule } from './types';
 import { ftypeLabels, summarize } from './wording';
 
 const LABEL = 'surface water bodies';
@@ -28,7 +28,8 @@ export const waterBodies: EntityModule = {
   },
   // One row per entity and cell already (measured in Maine, 2026-11-06).
   fansOut: () => false,
-  isFiltered: anyFilterSlotSet,
+  filterSlot: 'waterBodyFilters',
+  isFiltered: ownFilterSet('waterBodyFilters', ['ftypes']),
   describe(block) {
     const ftypes = block.waterBodyFilters?.ftypes ?? [];
     if (!ftypes.length) return LABEL;

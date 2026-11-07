@@ -1093,3 +1093,37 @@ IRI (Phase 2) is the fix.
 shape: each side that fans out is collapsed with its region inside, a 6-digit
 facilities side is not, and the wells step reads no measurement. The two #82
 questions are in `engine/tests/questions/critical.ts`.
+
+## 2026-11-06: A facility showed one industry code, and a leftover filter slot moved the trace (FIXED)
+
+**Symptom 1.** A facility's popup and tooltip named one industry code when it
+had several, and its marker colour came from whichever code the server sent
+first. Measured live on the dashboard: 405 of Indiana's 415 facilities have 2
+or more matching codes, 264 of Cook's 402, 81 of Cumberland's 140 (up to 7).
+
+**Root cause 1.** The details step returns one row per code that passes the
+block's industry filter, and `transformFacilitiesToFeatures` kept the first row
+per facility.
+
+**Fix 1.** Shape combines a facility's rows into one feature with every code
+(`MapFeature.industries`), sorted; the lowest code colours the marker. The
+popup lists each code on its own line, the tooltip lists the names. No SPARQL
+changed, and on the dashboard no marker changes colour group.
+
+**Symptom 2.** Which side a trace started from could depend on a filter slot
+the block does not use. The old rule (`anyFilterSlotSet`) read the first slot
+it found whatever the block's type, and counted a label map as a filter: a
+wells block with an empty leftover `facilityFilters` read as unfiltered with
+well categories set; a block whose codes were cleared but whose labels stayed
+read as filtered.
+
+**Fix 2.** Each entity module names its own slot and the fields a query reads
+(`filterSlot`, `ownFilterSet`). Normalise drops every other slot
+(`ownSlotOnly`, `engine/question.ts`), and so does the cache key, so a question
+with a leftover slot shares the clean question's entry. No dashboard or golden
+question carries a leftover slot: the golden snapshot did not move.
+
+**Tests.** `engine/tests/facilityFeatures.test.ts`, `ui/tests/facilityPopup.test.tsx`,
+and `engine/tests/filterSlots.test.ts`, which checks for all 108 shapes, with
+and without each block's own filter, that leftover slots send the same SPARQL
+as the clean question (it failed on "samples upstream of facilities" before).

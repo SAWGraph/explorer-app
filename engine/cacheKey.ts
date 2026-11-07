@@ -1,4 +1,5 @@
 import type { AnalysisQuestion } from './types/query';
+import { ownSlotOnly } from './question';
 
 // Two questions that produce the same SPARQL must produce the same cache key,
 // and a question that produces different SPARQL must not. Raw JSON.stringify
@@ -90,7 +91,9 @@ export function canonicalQuestion(question: AnalysisQuestion): unknown {
     rel.type === 'near' || rel.type === 'within'
       ? { ...restOfRelationship, hops: hops ?? 1 }
       : restOfRelationship;
-  return canonical({ ...question, relationship });
+  // A leftover filter slot reaches no query (question.ts ownSlotOnly), so it
+  // must not split the key either.
+  return canonical({ ...question, blockA: ownSlotOnly(question.blockA), blockC: ownSlotOnly(question.blockC), relationship });
 }
 
 export async function cacheKey(question: AnalysisQuestion): Promise<string> {
