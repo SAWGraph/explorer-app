@@ -266,6 +266,9 @@ if (phase === 'MS') {
   // led by the anchor (today) and by the target, and the counts go in the
   // filters column so the ratio can be read off. Downstream only: upstream
   // builds the same queries with A and C swapped. Target projection only.
+  const MS_ONLY = process.env.QUERY_SWEEP_MS_ONLY
+    ? new Set(readFileSync(process.env.QUERY_SWEEP_MS_ONLY, 'utf8').split('\n').filter(Boolean))
+    : null;
   const counted = new Map<string, number | string>();
   const countOf = async (block: AnalysisQuestion['blockA'], region?: string[]) => {
     const key = JSON.stringify([block, region]);
@@ -297,7 +300,14 @@ if (phase === 'MS') {
         const n = normalise(q);
         const anchorCount = await countOf(n.anchor, n.anchorRegion);
         const targetCount = await countOf(n.target, n.targetRegion);
-        for (const lead of ['anchor', 'target'] as const) {
+        // QUERY_SWEEP_MS_ORDER=target-first runs the target-led query first,
+        // to tell the start side from QLever's cache (the second query of a
+        // pair runs warm). QUERY_SWEEP_MS_ONLY names a file of shape labels to
+        // re-run, one per line.
+        const label = `${a} downstream${cfg.km ? `(${cfg.km}km)` : ''} ${c} [${cfg.name}]`;
+        if (MS_ONLY && !MS_ONLY.has(label)) continue;
+        const leads = process.env.QUERY_SWEEP_MS_ORDER === 'target-first' ? (['target', 'anchor'] as const) : (['anchor', 'target'] as const);
+        for (const lead of leads) {
           const query = buildFusedHydrologyQuery({
             anchor: n.anchor,
             target: n.target,
@@ -316,7 +326,7 @@ if (phase === 'MS') {
           };
           await run(
             'MS',
-            `${a} downstream${cfg.km ? `(${cfg.km}km)` : ''} ${c} [${cfg.name}] lead ${lead}`,
+            `${label} lead ${lead}`,
             q,
             { blockA: a, rel: 'downstream', hops: '', blockC: c, region: cfg.name, filters: `anchor=${anchorCount} target=${targetCount} lead=${lead}` },
             0,
