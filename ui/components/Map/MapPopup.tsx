@@ -228,6 +228,11 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
     // the NAICS code is plain text.
     const registryId = frsRegistryId(feature.id);
     const label = `${props.name || 'Facility'}${registryId ? ` (${registryId})` : ''}`;
+    // Every code the facility came back with; a feature shaped before codes
+    // were combined carries only the one in its properties.
+    const industries =
+      feature.industries ??
+      (props.industryCode ? [{ code: String(props.industryCode), name: String(props.industryName || '') }] : []);
     return (
       <div className="map-popup">
         <table className="popup-table">
@@ -244,12 +249,15 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
                 )}
               </td>
             </tr>
-            {props.industryCode && (
+            {industries.length > 0 && (
               <tr>
                 <td className="popup-label">Industry</td>
                 <td>
-                  {props.industryName || 'Industry'} (NAICS{' '}
-                  {String(props.industryCode).split('-').pop()})
+                  {industries.map((industry) => (
+                    <div key={industry.code}>
+                      {industry.name || 'Industry'} (NAICS {industry.code.split('-').pop()})
+                    </div>
+                  ))}
                 </td>
               </tr>
             )}

@@ -15,6 +15,15 @@ export interface MapFeature {
   geometry: PointGeometry | LineGeometry | PolygonGeometry;
   properties: Record<string, string | number>;
   sampleDetails?: SamplePointDetail;
+  // A facility's industry codes that passed the block's filter (all of them
+  // with no filter), lowest code first. `properties.industryCode` is the first.
+  industries?: Industry[];
+}
+
+export interface Industry {
+  // The NAICS IRI, e.g. http://w3id.org/fio/v1/naics#NAICS-562212.
+  code: string;
+  name: string;
 }
 
 export interface SampleObservation {

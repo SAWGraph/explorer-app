@@ -23,6 +23,12 @@ function getStroke(feature: MapFeature): string {
   return INDUSTRY_STROKE_MAP[getNaicsPrefix(feature)] || FACILITY_STROKE_DEFAULT;
 }
 
+// Every industry the facility came back with, by name.
+function industryNames(feature: MapFeature): string {
+  if (feature.industries?.length) return feature.industries.map((i) => i.name).filter(Boolean).join(', ');
+  return String(feature.properties.industryName || '');
+}
+
 export function FacilityLayer({ features }: FacilityLayerProps) {
   return (
     <LayerGroup>
@@ -37,7 +43,7 @@ export function FacilityLayer({ features }: FacilityLayerProps) {
           </Popup>
           <Tooltip>
             <strong>{f.properties.name || 'Facility'}</strong>
-            {f.properties.industryName && <div>{f.properties.industryName}</div>}
+            {industryNames(f) && <div>{industryNames(f)}</div>}
           </Tooltip>
         </Marker>
       ))}

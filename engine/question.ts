@@ -1,4 +1,6 @@
 import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from './types/query';
+import { entityFor } from './entities';
+import type { FilterSlot } from './entities/types';
 
 // Stage 1 of a run: the question in the terms the rest of the engine works in.
 //
@@ -33,7 +35,9 @@ export interface NormalisedQuestion {
 }
 
 export function normalise(question: AnalysisQuestion): NormalisedQuestion {
-  const { blockA, blockC, relationship } = question;
+  const { relationship } = question;
+  const blockA = ownSlotOnly(question.blockA);
+  const blockC = ownSlotOnly(question.blockC);
   const anchorIsA = relationship.type === 'upstream';
   const anchor = anchorIsA ? blockA : blockC;
   const target = anchorIsA ? blockC : blockA;
@@ -46,6 +50,25 @@ export function normalise(question: AnalysisQuestion): NormalisedQuestion {
     anchorRegion: regionCodes(anchor),
     targetRegion: regionCodes(target),
   };
+}
+
+const FILTER_SLOTS: FilterSlot[] = [
+  'sampleFilters',
+  'facilityFilters',
+  'waterBodyFilters',
+  'wellFilters',
+  'aquiferFilters',
+  'streamFilters',
+];
+
+// The block with only its own type's filter slot. A leftover slot (an older
+// save, a published link) reaches no query; dropping it here means nothing
+// past this point can read it, and the cache key ignores it too (cacheKey.ts).
+export function ownSlotOnly(block: EntityBlock): EntityBlock {
+  const own = entityFor(block.type).filterSlot;
+  const out: EntityBlock = { ...block };
+  for (const slot of FILTER_SLOTS) if (slot !== own) delete out[slot];
+  return out;
 }
 
 function regionCodes(block: EntityBlock): string[] | undefined {

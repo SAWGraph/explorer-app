@@ -99,6 +99,7 @@ export const samples: EntityModule = {
   // nothing, so only `=== false` counts. sampleJoinsNeeded draws that line; a
   // generic "any field is non-null" scan does not, and read
   // `includeNondetects: true` alone as a reason to reorder the whole body.
+  filterSlot: 'sampleFilters',
   isFiltered: (block) => sampleJoinsNeeded(block.sampleFilters).observation,
   describe(block, totals) {
     const conc = describeConcentration(block.sampleFilters);

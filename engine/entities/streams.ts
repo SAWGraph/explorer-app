@@ -1,7 +1,7 @@
 import type { StreamFilters } from '../types/query';
 import { buildStreamsByIri } from '../templates/hydrate';
 import { STREAM_FTYPES } from '../constants/featureTypes';
-import { anyFilterSlotSet, type EntityModule } from './types';
+import { ownFilterSet, type EntityModule } from './types';
 import { ftypeLabels, summarize } from './wording';
 
 const LABEL = 'streams';
@@ -32,7 +32,8 @@ export const streams: EntityModule = {
   },
   // One row per entity and cell already (measured in Maine, 2026-11-06).
   fansOut: () => false,
-  isFiltered: anyFilterSlotSet,
+  filterSlot: 'streamFilters',
+  isFiltered: ownFilterSet('streamFilters', ['ftypes']),
   describe(block) {
     const ftypes = block.streamFilters?.ftypes ?? [];
     if (!ftypes.length) return LABEL;

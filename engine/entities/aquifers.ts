@@ -1,6 +1,6 @@
 import type { AquiferFilters } from '../types/query';
 import { AQUIFER_TYPE_VALUES, buildAquifersByIri } from '../templates/aquifers';
-import { anyFilterSlotSet, type EntityModule } from './types';
+import { ownFilterSet, type EntityModule } from './types';
 
 const LABEL = 'aquifers';
 // One kind selected reads as an adjective ("bedrock aquifers").
@@ -38,7 +38,8 @@ export const aquifers: EntityModule = {
   },
   // One row per entity and cell already (measured in Maine, 2026-11-06).
   fansOut: () => false,
-  isFiltered: anyFilterSlotSet,
+  filterSlot: 'aquiferFilters',
+  isFiltered: ownFilterSet('aquiferFilters', ['aquiferTypes']),
   describe(block) {
     const kinds = block.aquiferFilters?.aquiferTypes ?? [];
     // None or both selected: the bare label.

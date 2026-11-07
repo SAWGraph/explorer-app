@@ -28,7 +28,9 @@ export interface EntityModule {
   // multiplies entities, not their fields. Multi-valued fields are read only
   // by the details step.
   fansOut(block: EntityBlock): boolean;
-  // Whether the block narrows this type at all.
+  // The slot of the block this type's filters live in.
+  readonly filterSlot: FilterSlot;
+  // Whether the block narrows this type at all, read from its own slot only.
   isFiltered(block: EntityBlock): boolean;
   // The block in words, filters included ("PFOS samples", "landfill
   // facilities"), for the question sentence. `totals` lets a selection of
@@ -55,18 +57,27 @@ export interface RegionMatch {
   region: string;
 }
 
-// "Any filter field set" across every filter slot the block carries, whatever
-// its type. This is today's rule for every type but samples, kept as is in the
-// move to modules; it reads a stale slot left by a type change as a filter, and
-// fixing that changes which side a query starts from, so it is a Phase 1 fix.
-export function anyFilterSlotSet(block: EntityBlock): boolean {
-  const filters =
-    block.facilityFilters ??
-    block.waterBodyFilters ??
-    block.wellFilters ??
-    block.aquiferFilters ??
-    block.streamFilters;
-  return Boolean(
-    filters && Object.values(filters).some((v) => (Array.isArray(v) ? v.length > 0 : v != null)),
-  );
+// The filter slot each type reads. Any other slot a block carries is a
+// leftover (an older save, a published link) and reaches no query.
+export type FilterSlot =
+  | 'sampleFilters'
+  | 'facilityFilters'
+  | 'waterBodyFilters'
+  | 'wellFilters'
+  | 'aquiferFilters'
+  | 'streamFilters';
+
+// Whether any of `fields` is set in the block's own slot. Only fields a query
+// reads count: a label map (industryLabels, wellCategoryLabels) is display text,
+// and one left after its codes were cleared used to read as a filter. The old
+// rule also read the first slot it found whatever the type, so a leftover slot
+// decided which side a trace started from (engine/tests/filterSlots.test.ts).
+export function ownFilterSet(slot: FilterSlot, fields: string[]): (block: EntityBlock) => boolean {
+  return (block) => {
+    const filters = block[slot] as Record<string, unknown> | undefined;
+    return fields.some((field) => {
+      const value = filters?.[field];
+      return Array.isArray(value) ? value.length > 0 : value != null;
+    });
+  };
 }

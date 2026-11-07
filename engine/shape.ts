@@ -1,5 +1,5 @@
 import type { SparqlRow } from './types/sparql';
-import type { LatLon, MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from './types/map';
+import type { Industry, LatLon, MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from './types/map';
 import { substanceLabel } from './constants/substances';
 
 function parseWKTPoint(wkt: string): LatLon | null {
@@ -68,26 +68,52 @@ export function transformSamplesToFeatures(rows: SparqlRow[]): MapFeature[] {
     .filter(nonNull);
 }
 
+// One feature per facility, with every industry code it came back with. The
+// details step returns one row per code that passes the block's filter (and
+// one per cell a facility touches): Indiana's dashboard question has 882 rows
+// for 415 facilities. Keeping only the first row dropped the other codes, and
+// coloured the marker by whichever code the server sent first, so a facility
+// could change colour between runs. Codes are sorted, and the lowest one
+// colours the marker.
 export function transformFacilitiesToFeatures(rows: SparqlRow[]): MapFeature[] {
-  // Deduplicate by facility URI — same facility may appear with multiple industry codes
-  const seen = new Map<string, MapFeature>();
+  const byFacility = new Map<string, { feature: MapFeature; industries: Map<string, Industry> }>();
   for (const row of rows) {
     if (!row.facWKT) continue;
-    if (seen.has(row.facility)) continue;
-    const coords = parseWKTPoint(row.facWKT);
-    if (!coords) continue;
-    seen.set(row.facility, {
-      id: row.facility,
-      geometry: { type: 'Point', coordinates: coords },
-      properties: {
-        type: 'facility',
-        name: row.facilityName || '',
-        industryCode: row.industryCode || '',
-        industryName: row.industryName || '',
-      },
-    });
+    let entry = byFacility.get(row.facility);
+    if (!entry) {
+      const coords = parseWKTPoint(row.facWKT);
+      if (!coords) continue;
+      entry = {
+        feature: {
+          id: row.facility,
+          geometry: { type: 'Point', coordinates: coords },
+          properties: { type: 'facility', name: row.facilityName || '' },
+        },
+        industries: new Map(),
+      };
+      byFacility.set(row.facility, entry);
+    }
+    if (row.industryCode && !entry.industries.has(row.industryCode)) {
+      entry.industries.set(row.industryCode, { code: row.industryCode, name: row.industryName || '' });
+    }
   }
-  return Array.from(seen.values());
+  return [...byFacility.values()].map(({ feature, industries }) => {
+    const sorted = [...industries.values()].sort((a, b) => naicsCode(a.code).localeCompare(naicsCode(b.code)));
+    return {
+      ...feature,
+      properties: {
+        ...feature.properties,
+        industryCode: sorted[0]?.code ?? '',
+        industryName: sorted[0]?.name ?? '',
+      },
+      industries: sorted,
+    };
+  });
+}
+
+// "562212" from http://w3id.org/fio/v1/naics#NAICS-562212.
+function naicsCode(iri: string): string {
+  return iri.split('-').pop() ?? iri;
 }
 
 export function transformWaterBodiesToFeatures(rows: SparqlRow[]): MapFeature[] {
