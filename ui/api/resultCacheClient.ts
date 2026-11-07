@@ -22,13 +22,14 @@ export function cacheDisabled(): boolean {
   return new URLSearchParams(window.location.search).get('cache') === 'off';
 }
 
-async function readCache(url: string, signal?: AbortSignal): Promise<CachedResult | null> {
+// `question` places a result stored before results came by block (wire.ts).
+async function readCache(url: string, question: AnalysisQuestion, signal?: AbortSignal): Promise<CachedResult | null> {
   const res = await fetch(url, { signal });
   if (!res.ok) return null; // 404 is the normal miss; anything else is also just a miss
   const body: unknown = await res.json();
   if (!isWireResult(body)) return null;
   return {
-    result: fromWire(body),
+    result: fromWire(body, question),
     computedAt: res.headers.get('X-Result-Computed-At') ?? body.computedAt ?? null,
     partial: res.headers.get('X-Result-Partial') === '1',
   };
@@ -42,16 +43,16 @@ export async function fetchCachedResult(
 ): Promise<CachedResult | null> {
   if (cacheDisabled()) return null;
   try {
-    return await readCache(`${getApiBase()}/api/results/${await cacheKey(question)}`, signal);
+    return await readCache(`${getApiBase()}/api/results/${await cacheKey(question)}`, question, signal);
   } catch {
     return null;
   }
 }
 
-export async function fetchPublishedResult(publishId: string): Promise<CachedResult | null> {
+export async function fetchPublishedResult(publishId: string, question: AnalysisQuestion): Promise<CachedResult | null> {
   if (cacheDisabled()) return null;
   try {
-    return await readCache(`${getApiBase()}/api/publish/${publishId}/result`);
+    return await readCache(`${getApiBase()}/api/publish/${publishId}/result`, question);
   } catch {
     return null;
   }

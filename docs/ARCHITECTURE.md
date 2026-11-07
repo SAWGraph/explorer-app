@@ -384,12 +384,18 @@ React components in `components/Map/` render features, one per entity type:
 - `FacilityLayer` — facility markers
 - `WaterBodyLayer` — water body polygons and lines
 - `WellLayer` — wells
-- `StreamLayer` — river reaches from `GET_FLOWLINE_GEOMETRIES`
+- `StreamLayer` — river reaches: the stream lines a trace draws, or the answer when a block is streams
 - `AquiferBoundaryLayer` — aquifer polygons
 - `RegionBoundaryLayer` — county and state outlines
 
-`useMapLayers.ts` decides which to build by row shape: a `spWKT` column means
-samples, `facWKT` facilities, `wbWKT` water bodies.
+A run answers by block: `blockA` and `blockC` (each block's detail rows,
+whichever of anchor or target it was) and `decoration` (`boundaries`,
+`streamLines`). The rows grouped by pipeline step stay inside the executor.
+`useMapLayers.ts` draws both blocks and the decoration, and decides which layer
+a row goes to by its shape: a `spWKT` column means samples, `facWKT`
+facilities, `wbWKT` water bodies. The result cache stores the same shape
+(`engine/wire.ts`, `WIRE_VERSION` w3) and still reads a result stored by step
+(a published view's, saved before w3).
 
 ---
 

@@ -14,6 +14,9 @@ import {
 import type { PipelineResult } from '../executor';
 import type { AnalysisQuestion } from '../types/query';
 
+// A run that answered, with nothing in it.
+const SUCCESS = { status: 'success', blockA: [], blockC: [], decoration: { boundaries: [], streamLines: [] } } as const satisfies PipelineResult;
+
 const MAINE = { stateCode: '23' };
 
 const question = (overrides: Partial<AnalysisQuestion> = {}): AnalysisQuestion => ({
@@ -126,8 +129,7 @@ describe('the advice when a question is too big, with both sides counted', () =>
 
   it('gives the counts in the notice for an incomplete answer too', () => {
     const result: PipelineResult = {
-      status: 'success',
-      data: {},
+      ...SUCCESS,
       partial: [{ step: 'Finding samples near facilities', failed: ['York County, Maine'], skipped: [] }],
       counts: { A: 4528, C: 459877 },
     };
@@ -154,14 +156,13 @@ describe('the message for a run with no answer', () => {
   });
 
   it('is absent for a run that answered', () => {
-    expect(outcomeMessage({ status: 'success', data: {} }, question())).toBeNull();
+    expect(outcomeMessage(SUCCESS, question())).toBeNull();
   });
 });
 
 describe('the notice for an incomplete answer', () => {
   const partial = (failedLabels: string[], skippedLabels: string[]): PipelineResult => ({
-    status: 'success',
-    data: {},
+    ...SUCCESS,
     partial: [{ step: 'Finding samples near facilities', failed: failedLabels, skipped: skippedLabels }],
   });
 
@@ -191,7 +192,7 @@ describe('the notice for an incomplete answer', () => {
   });
 
   it('is absent for a complete answer', () => {
-    expect(partialNotice({ status: 'success', data: {} }, question())).toBeNull();
+    expect(partialNotice(SUCCESS, question())).toBeNull();
   });
 });
 
@@ -233,7 +234,7 @@ describe('running a question again', () => {
 
   it('is not offered after an empty or a complete run', () => {
     expect(canRunAgain({ status: 'empty', failedAtStep: 0, message: stepEmptyMessage('x') })).toBe(false);
-    expect(canRunAgain({ status: 'success', data: {} })).toBe(false);
+    expect(canRunAgain(SUCCESS)).toBe(false);
     expect(canRunAgain(null)).toBe(false);
   });
 });

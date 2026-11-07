@@ -52,7 +52,7 @@ export function PublishedView() {
         // A published result the publisher already computed. Without this every
         // visitor re-ran the whole pipeline in their own browser (26-218s, and
         // sometimes failing) to rebuild an answer that never changes.
-        const cached = data.result_key ? await fetchPublishedResult(data.id) : null;
+        const cached = data.result_key ? await fetchPublishedResult(data.id, data.question) : null;
         if (cancelled) return;
 
         useQueryStore

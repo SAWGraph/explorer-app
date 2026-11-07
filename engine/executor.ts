@@ -6,6 +6,7 @@ import type { Scope } from './slicing';
 import { executeSparql, type SparqlRunner } from './endpoint';
 import { type SparqlError, splittingWouldHelp, stepEmptyMessage, stepFailedMessage } from './errors';
 import { foundIris, sliceMerger } from './merge';
+import { normalise } from './question';
 
 export interface PartialFailure {
   step: string;
@@ -35,9 +36,20 @@ export interface SideCounts {
   C?: number;
 }
 
+// What a run draws around the answer: county outlines and the river network
+// between the two sides. Empty when not asked for (no region, a near question).
+export interface Decoration {
+  boundaries: SparqlRow[];
+  streamLines: SparqlRow[];
+}
+
+// A run answers by block (plan decision 15): the rows the details step loaded
+// for block A and for block C, whichever role (anchor or target) each played.
 export interface PipelineSuccess {
   status: 'success';
-  data: Record<string, SparqlRow[]>;
+  blockA: SparqlRow[];
+  blockC: SparqlRow[];
+  decoration: Decoration;
   // Set when some slices of the work failed but enough succeeded to show a map.
   partial?: PartialFailure[];
   queries?: SentQuery[];
@@ -430,22 +442,23 @@ export async function executePipeline(
       context.anchorIris = foundIris(results);
     }
 
-    // Hydrate results are aliased into the legacy keys that useMapLayers
-    // (ui/hooks/useMapLayers.ts:38-42) consumes unchanged.
-    if (step.type === 'HYDRATE_TARGET_BY_IRI') {
-      context.results['FIND_TARGET_ENTITIES'] = results;
-    }
-    if (step.type === 'HYDRATE_ANCHOR_BY_IRI') {
-      context.results['GET_ANCHOR_DETAILS'] = results;
-    }
-
     onProgress({ ...base, status: 'done', resultCount });
     done.add(step.type);
   }
 
+  // The details steps' rows by block: the target is block A for near and
+  // downstream, block C for upstream (engine/question.ts).
+  const target = context.results['HYDRATE_TARGET_BY_IRI'] ?? [];
+  const anchor = context.results['HYDRATE_ANCHOR_BY_IRI'] ?? [];
+  const targetIsA = normalise(question).targetIs === 'A';
   return end({
     status: 'success',
-    data: context.results,
+    blockA: targetIsA ? target : anchor,
+    blockC: targetIsA ? anchor : target,
+    decoration: {
+      boundaries: context.results['GET_REGION_BOUNDARIES'] ?? [],
+      streamLines: context.results['GET_FLOWLINE_GEOMETRIES'] ?? [],
+    },
     ...(partial.length > 0 ? { partial } : {}),
     queries,
   });

@@ -1127,3 +1127,29 @@ question carries a leftover slot: the golden snapshot did not move.
 and `engine/tests/filterSlots.test.ts`, which checks for all 108 shapes, with
 and without each block's own filter, that leftover slots send the same SPARQL
 as the clean question (it failed on "samples upstream of facilities" before).
+
+## 2026-11-06: A run's result is by block, not by step
+
+**Why.** The map read a result by pipeline step: `FIND_TARGET_ENTITIES` and
+`GET_ANCHOR_DETAILS`. Which block is the target flips for upstream
+(`engine/question.ts`), so block A sat under a different key for a third of the
+questions, and every reader had to know that.
+
+**What.** A successful run returns `blockA`, `blockC` (the details step's rows
+for each block) and `decoration` (`boundaries`, `streamLines`), with `partial`,
+`queries` and `counts` as before. The rows by step stay inside the executor.
+`WIRE_VERSION` is `w3`, so every cached question is recomputed until
+`npm run warm-cache` runs for that environment. `fromWire` still reads a result
+stored by step, placing it with the question: a published view's result is
+stored under its publish id and is not invalidated by the bump. Checked against
+the 8 dashboard results cached on the development API (all read, upstream ones
+on the right blocks).
+
+**If a map is blank after a deploy.** A result that reads as neither shape is
+treated as a cache miss and the question runs live. Check `isWireResult` in
+`engine/wire.ts` against the payload the API returns.
+
+**Tests.** `engine/tests/wire.test.ts` (both shapes, upstream placed by the
+question), "the answer, by block" in `engine/tests/executor.test.ts`, and
+`ui/tests/mapLayers.test.ts`. The health-check keeps recording the same four
+counts, worked out from the blocks, so its history stays comparable.

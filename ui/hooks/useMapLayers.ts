@@ -36,15 +36,11 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
 
     if (!result || result.status !== 'success') return empty;
 
-    const data = result.data;
-
-    const targetRows = data['FIND_TARGET_ENTITIES'] || [];
-    const anchorRows = data['GET_ANCHOR_DETAILS'] || [];
-    const boundaryRows = data['GET_REGION_BOUNDARIES'] || [];
-    const flowlineRows = data['GET_FLOWLINE_GEOMETRIES'] || [];
+    const boundaryRows = result.decoration.boundaries;
+    const flowlineRows = result.decoration.streamLines;
 
     // Determine what types came back by checking row shapes
-    const allRows = [...targetRows, ...anchorRows];
+    const allRows = [...result.blockA, ...result.blockC];
 
     const sampleRows = allRows.filter((r) => r.spWKT);
     const facilityRows = allRows.filter((r) => r.facWKT);
