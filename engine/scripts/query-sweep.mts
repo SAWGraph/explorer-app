@@ -47,6 +47,8 @@ import { planPipeline, type PipelineStep } from '../planner';
 import { executePipeline, type PipelineResult } from '../executor';
 import { executeSparql, recordingEndpoint, type RequestRecord } from '../endpoint';
 import { sweepRows } from './sweepRows';
+import { normalise } from '../question';
+import { buildEntityCountQuery, buildFusedHydrologyQuery } from '../templates/fusedQueries';
 import { PREBUILT_QUERIES } from '../constants/prebuiltQueries';
 import type { AnalysisQuestion, EntityType } from '../types/query';
 
@@ -116,7 +118,7 @@ const csv = (s: unknown) => `"${String(s).replace(/"/g, "'").replace(/\s+/g, ' '
 // for every request it sent. Most phases measure step 0 alone (discovery,
 // where almost every failure is); M5 runs the whole question; MD measures
 // steps 0 and 1 each on their own, since the two projections fail apart.
-async function run(phase: string, label: string, q: AnalysisQuestion, meta: Record<string, unknown>, stepIdx: number | 'all') {
+async function run(phase: string, label: string, q: AnalysisQuestion, meta: Record<string, unknown>, stepIdx: number | 'all', custom?: PipelineStep[]) {
   const prefix = [RUN_AT, COMMIT, phase, csv(label), meta.blockA, meta.rel, meta.hops, meta.blockC, meta.region, csv(meta.filters)];
   const records: RequestRecord[] = [];
   const endpoint = recordingEndpoint(executeSparql, (r) => records.push(r));
@@ -127,7 +129,7 @@ async function run(phase: string, label: string, q: AnalysisQuestion, meta: Reco
     // Step 0 and 1 are the two discovery steps, picked by type: the plan opens
     // with the two side counts, which these phases do not measure.
     const discovery = plan.filter((s) => s.type === 'FIND_TARGET_IRIS' || s.type === 'FIND_ANCHOR_IRIS');
-    steps = stepIdx === 'all' ? plan : [discovery[stepIdx]];
+    steps = custom ?? (stepIdx === 'all' ? plan : [discovery[stepIdx]]);
     result = await executePipeline(steps, q, { endpoint, chunkOnRefusal: CHUNKING === 'on' });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -255,6 +257,73 @@ if (phase === 'MD') { // flow-distance bounds, both narrowing directions
             { blockA: a, rel, hops: '', blockC: c, region: `ME on ${regionOn}`, filters: km ? `${km}km` : 'none' },
             step,
           );
+}
+
+if (phase === 'MS') {
+  // Start side (engine redesign, decisions 8 and 9): when both sides of a trace
+  // rank the same (both in Maine, or neither with a region), does starting
+  // from the side with fewer entities answer faster? Each discovery query runs
+  // led by the anchor (today) and by the target, and the counts go in the
+  // filters column so the ratio can be read off. Downstream only: upstream
+  // builds the same queries with A and C swapped. Target projection only.
+  const counted = new Map<string, number | string>();
+  const countOf = async (block: AnalysisQuestion['blockA'], region?: string[]) => {
+    const key = JSON.stringify([block, region]);
+    if (!counted.has(key)) {
+      try {
+        const rows = await executeSparql('federation', buildEntityCountQuery(block, region), { retry: false });
+        counted.set(key, Number(rows[0]?.count));
+      } catch (e) {
+        counted.set(key, `count failed: ${e instanceof Error ? e.message.slice(0, 40) : e}`);
+      }
+    }
+    return counted.get(key);
+  };
+  const CONFIGS: { name: string; state?: string; km?: number }[] = [
+    { name: 'ME both', state: '23' },
+    { name: 'ME both 30km', state: '23', km: 30 },
+    { name: 'no region', state: undefined },
+  ];
+  for (const cfg of CONFIGS)
+    for (const a of TYPES)
+      for (const c of TYPES) {
+        if (a === c) continue;
+        const region = cfg.state ? { region: { stateCode: cfg.state } } : {};
+        const q = {
+          blockA: { type: a, ...region },
+          relationship: { type: 'downstream', ...(cfg.km ? { maxDistanceKm: cfg.km } : {}) },
+          blockC: { type: c, ...region },
+        } as AnalysisQuestion;
+        const n = normalise(q);
+        const anchorCount = await countOf(n.anchor, n.anchorRegion);
+        const targetCount = await countOf(n.target, n.targetRegion);
+        for (const lead of ['anchor', 'target'] as const) {
+          const query = buildFusedHydrologyQuery({
+            anchor: n.anchor,
+            target: n.target,
+            anchorRegion: n.anchorRegion,
+            targetRegion: n.targetRegion,
+            project: 'target',
+            maxDistanceKm: cfg.km,
+            lead,
+          });
+          const step: PipelineStep = {
+            type: 'FIND_TARGET_IRIS',
+            endpoint: 'federation',
+            description: `lead ${lead}`,
+            after: [],
+            buildQuery: () => query,
+          };
+          await run(
+            'MS',
+            `${a} downstream${cfg.km ? `(${cfg.km}km)` : ''} ${c} [${cfg.name}] lead ${lead}`,
+            q,
+            { blockA: a, rel: 'downstream', hops: '', blockC: c, region: cfg.name, filters: `anchor=${anchorCount} target=${targetCount} lead=${lead}` },
+            0,
+            [step],
+          );
+        }
+      }
 }
 
 // --- the index -------------------------------------------------------------

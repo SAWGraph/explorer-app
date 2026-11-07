@@ -111,6 +111,9 @@ interface FusedBodyOpts extends FusedBaseOpts {
   anchorIris?: string[];
   targetIris?: string[];
   maxDistanceKm?: number;
+  // Which side the body is written from, when the caller has decided it (the
+  // start-side sweep, and counts). Otherwise the side ranks decide (sides.ts).
+  lead?: 'anchor' | 'target';
 }
 
 // Extends the trace one flowline past the cutoff ("+1"). The budget runs out at
@@ -289,10 +292,12 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   // docs/query-sweep): timeouts in query planning, or 4.3 GB allocation
   // failures. Reordered, the same three shapes answer in seconds.
   // Which side leads is the Assess stage's call (engine/sides.ts).
-  const lead = leadSide(
-    { block: opts.anchor, region: opts.anchorRegion, pins: opts.anchorIris },
-    { block: opts.target, region: opts.targetRegion, pins: opts.targetIris },
-  );
+  const lead =
+    opts.lead ??
+    leadSide(
+      { block: opts.anchor, region: opts.anchorRegion, pins: opts.anchorIris },
+      { block: opts.target, region: opts.targetRegion, pins: opts.targetIris },
+    );
   if (lead === 'target') {
     // The target's own entity and filters come first, then the hop onto the
     // river network. A streams target *is* the flowline, so it needs no hop.
@@ -371,6 +376,7 @@ export interface FusedHydrologyOpts extends FusedBaseOpts {
   anchorIris?: string[];
   targetIris?: string[];
   maxDistanceKm?: number;
+  lead?: 'anchor' | 'target';
 }
 
 // Server-side trace query: the target downstream of the anchor. An "upstream"
@@ -385,6 +391,7 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
     anchorIris: opts.anchorIris,
     targetIris: opts.targetIris,
     maxDistanceKm: opts.maxDistanceKm,
+    lead: opts.lead,
   });
   const projectVar =
     opts.project === 'anchor'
