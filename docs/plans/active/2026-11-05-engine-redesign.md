@@ -76,7 +76,7 @@ Around the stages:
 | 8 | Start side: rank first; within the same rank level, the side with the clearly smaller count. Every choice records its reason in plain words. |
 | 9 | The count rule applies to both trace families first. A `query-sweep` sweep sets the "clearly smaller" ratio (start at 3x). |
 | 10 | Keep two discovery queries. Confirmed 2026-11-07: QLever's cache already shares the join between them (the second query took 0.6s to 3.3s after a first of 3.9s to 6.4s), so a paired query saves about one query, and on traces it returns 20 to 700 times more rows (Lake County: 49,447 pairs against 1,190 IRIs). |
-| 11 | Wells load by IRI in 1,000-IRI chunks like samples. A sweep sets the size above which they re-derive the join. |
+| 11 | ~~Wells load by IRI in 1,000-IRI chunks like samples.~~ Dropped 2026-11-06: wells keep re-deriving the join in one request. Measured after the one-row change, by IRI tied or lost on 5 of 6 wells questions and took 51 requests (158.7s) for 50,174 wells, where re-deriving took 56.9s; a statewide set (800,000 wells) would be 800 requests. |
 | 12 | Decoration (stream lines, boundaries) runs alongside the main steps, started as soon as what it waits for is done. |
 | 13 | Keep the boundaries query. Static county outlines are a later UI job. |
 | 14 | Merge removes exact copies across slices; Shape makes one feature per entity and combines its rows. |
@@ -121,13 +121,13 @@ byte-identical in every PR.
 - [x] One row per (entity, cell) before the join for samples, wells and facilities, plus the rule test and the shared drawable rule. Bar to match: #94's 626s to 23.6s (#82 question) and 74.3s to 15.7s (Penobscot landfills). Met: #82 41.7s to 23.7s (best of 2); Penobscot landfills is 3.4s to 5.9s either way today. Facilities collapse only under a prefix code or no code filter; water bodies downstream of wells left for wells by IRI (Phase 2)
 - [x] Fixes: combine facility industry codes (one feature per facility, every matching code, coloured by the lowest); leftover filter slots (each type reads only its own slot, label maps are not filters, normalise and the cache key drop the rest). (The non-detect tick counted as a filter in the advice: fixed with the live counts)
 - [x] Result by block, `WIRE_VERSION` bump: a run returns `blockA`, `blockC`, `decoration` (`boundaries`, `streamLines`), `partial`, `queries`, `counts`; results stored by step are still read (published views). `startSide` waits for Phase 2, where it gets counts and a reason
-- [ ] `warm-cache` on development after the merge (needs `CACHE_WRITE_TOKEN`), production at the next release
+- [x] `warm-cache` on development after the merge (run from GitHub, 2026-11-07: all 8 dashboard questions cached by block); production at the next release
 - [x] Structured failures (code, step, block, slices, raw text) in `errors.ts`, and the edit modal's Apply error worded there instead of in the UI. Codes keep the classifier's names (`payload-too-large`, `sibling-failure`) so sweep CSVs stay comparable
 - [x] Question wording: more than three picks reads "4 stream types streams" and "4 industries facilities" (the noun is said twice). Now "streams of 4 types", "facilities in 4 industries" (wells and water bodies "of 4 types"); signed off 2026-11-06
 
 **Phase 2: a `query-sweep` sweep decides each one before it ships.**
 
-- [ ] Wells by IRI and its size limit (measured after the one-row change)
+- [x] ~~Wells by IRI and its size limit~~: dropped, see decision 11. Live, re-derived vs by IRI: 751 wells 4.4s vs 5.4s; 2,431 wells 3.9s vs 13.4s; 2,597 wells 13.0s vs 13.9s and 13.8s vs 6.2s; 758 wells 6.0s vs 5.4s; 50,174 wells 56.9s vs 158.7s (51 requests). Water bodies downstream of wells is slow in discovery (633s, then 366s), not in the wells step. Its 50,174 against 74,348 wells was a partial discovery (the 300s step limit skipped slices); a full discovery found the same 74,348 the wells step re-derives. When discovery's wells side is partial, the re-derived wells step still loads every well, so the map can show more wells than the partial notice implies
 - [ ] Start side from counts for traces, and the ratio
 - [x] One paired discovery query: rejected, see decision 10. Live on 10 fresh shapes (5 near, 5 traces), order alternated, QLever `cache_status` read on every step. Not measured: both lists in one request as a `UNION` of two `SELECT DISTINCT` subqueries (same rows as today, worth at most one round trip per question)
 
