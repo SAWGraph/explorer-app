@@ -1,7 +1,9 @@
 # Temporary reports
 
 One-off HTML reports for the team, served as static files at
-`/reports/<name>.html` on the deployed app. They are not linked from the app.
+`/reports/<name>.html` on the **development** deployment only. A build
+pointed at the production API leaves this folder out (`vite.reports.ts`,
+checked by `ui/tests/reportsDevOnly.test.ts`). They are not linked from the app.
 
 Each report is a single self-contained `.html` file that carries its own
 expiry date:
