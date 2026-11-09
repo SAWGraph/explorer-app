@@ -639,10 +639,10 @@ What it shows:
 - **Water bodies and stream flowlines** have no link to any administrative region. Their region filter can only be the cell check until the data adds links.
 - **Sample points** are partly linked: 99.9% in Maine, 13.9% in Arizona, 0% in Ohio. A subdivision-only check would drop the rest.
 - **The app shows less than the graph holds.** Every type is found through its S2 cell, so an entity with no cell never reaches a map, whatever its links:
-  - Wells: 462,535 of 532,771. The 70,236 Maine wells with no cell (#96) are hidden, though most of them have a subdivision link.
+  - Wells: 462,535 of 532,771. The 70,236 Maine wells with no cell (#96) are hidden: 61,700 have no coordinates and 8,536 have coordinates but no cell. 53,845 of them still link to their town.
   - Sample points: 8,730 of 20,345. 4,428 sit in a cell only through `kwg-ont:sfContains`, and the samples bind asks for `spatial:connectedTo`; 5,698 have no geometry.
   - Facilities: 459,877 of 627,188 with an industry code. Beyond those, 4,240,574 of the 4,867,762 `fio:Facility` entities have no NAICS industry code, which the facilities bind requires (Maine: 11,599 linked facilities, 2,902 with a code).
-- **Unit for facilities:** typed `fio:Facility`. 853,598 FRS records (`epa-frs:Record`) also carry `fio:ofIndustry`; they have no location and are not facilities. Of the 167,311 facilities with neither a link nor a cell, 9,615 have a geometry.
+- **Unit for facilities:** typed `fio:Facility`. 853,598 FRS records (`epa-frs:Record`) also carry `fio:ofIndustry`; they have no location and are not facilities. Of the 167,311 facilities with neither a link nor a cell, 9,615 have coordinates (a WKT point), 9,099 of them in Kansas: located, but never given a cell or link.
 - **Alabama and Kansas** have no linked facilities (2 and 11 located by cell only), nor do Alaska and Hawaii (none at all). The District of Columbia has 1,765 facilities and no subdivisions, so none is linked.
 - **Outside the 13 selectable states** the same pattern holds: facilities are 98.7% (Maryland) to 100% linked, water bodies and flowlines 0%. Sample points are 15.9% linked in North Carolina and 15.5% in Virginia. A side with no region picked can reach these states.
 - **Wells**: the 880 counted in Indiana with no link are all Illinois survey (ISGS) wells in Indiana cells that do not touch Illinois, so they sit in Indiana and no subdivision claims them.
