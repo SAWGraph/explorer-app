@@ -13,7 +13,7 @@ Said of a question whose two sides have the same rank (pinned, region, filter or
 _Avoid_: same-rank, even
 
 **Subdivision link**:
-An entity's direct tie to the county subdivision it sits in (a town, a township, or a census county division where a state has neither), through which it belongs to a county and a state.
+An entity's direct tie to the county subdivision it sits in (a town, a township, or a census county division where a state has neither), through which it belongs to a county and a state. A point (a well) has one. A polygon (an aquifer) has one for every subdivision it lies within, overlaps or contains, and is in a region when any of them is.
 _Avoid_: AR3 integration, county link
 
 **Cold run**:

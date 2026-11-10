@@ -1229,15 +1229,33 @@ the wells query text is unchanged. The cell check stays because it narrows
 first, and since the link check dropped nothing the cell check kept, the
 answer is the subdivision answer.
 
+The check joins an aquifer to each of its subdivisions in the region, so an
+aquifers side with a region is no longer one row per aquifer and cell.
+`aquifers.fansOut` now says so, and the side is collapsed to `SELECT DISTINCT
+?aquifer ?cell` before the join, like a filtered samples side (#82). Left
+uncollapsed, the check made traces 2 to 3.5 times slower; collapsed, they are
+faster than before the fix, because the side carries fewer aquifers into the
+trace. Hancock, one query at a time on federation, 2026-11-10:
+
+| Query | No check | Check, uncollapsed | Check, collapsed |
+|---|---:|---:|---:|
+| Samples within 10 km downstream of aquifers, aquifer IRIs | 9.4 to 11.1s, 50 | 31.8 to 38.4s, 48 | 2.3 to 3.1s, 48 |
+| Same, sample IRIs | 9.1 to 9.7s, 32 | 31.9 to 33.9s, 32 | 2.1 to 2.3s, 32 |
+| Samples downstream of aquifers, no bound | 3.4 to 4.0s, 63 | 12.6 to 13.2s, 63 | 0.8 to 1.1s, 63 |
+| Aquifers near streams, Cumberland and York | 0.4 to 0.5s, 2,755 | | 0.4 to 0.8s, 2,739 |
+
 **What "in the region" means.** Any overlap. An aquifer's links to its
-subdivisions, across the graph, are `sfWithin` (5,317), `sfOverlaps` (10,999) and `sfContains`
-(559), and all three are also `spatial:connectedTo`, which the check reads. Of
+subdivisions, across the graph, are `sfWithin` (5,317 links from 5,314
+aquifers), `sfOverlaps` (10,999 from 3,130) and `sfContains` (559 from 13; #123
+counted the aquifers), and all three are also `spatial:connectedTo`, which the check reads. Of
 the 9,797 pairs kept, 4,482 hold through an overlap or contain link only, and
 1,018 of the 8,441 aquifers link to subdivisions in more than one county (three
 link to 24, 52 and 53 counties). "Entirely inside" would drop 2,374 of the kept
 pairs and make the largest aquifers belong to no county. "Mostly inside" needs
 polygon areas, which the links do not carry.
 
-**Tests.** `engine/tests/aquiferRegion.test.ts`: every query shape with a
-region on an aquifers side carries the check (fails without the fix), and with
-`LIVE_SPARQL=1` the Hancock (181) and Sagadahoc (10) side counts.
+**Tests.** `engine/tests/aquiferRegion.test.ts`: a region on an aquifers side
+carries the check near and in a trace (bounded or not), as block A and as
+block C, on one county, several and a state, and in the side count and the
+chunk probe (fails without the fix). With `LIVE_SPARQL=1` it also checks the
+Hancock (181) and Sagadahoc (10) side counts.

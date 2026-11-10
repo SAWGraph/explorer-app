@@ -36,5 +36,5 @@ export const wells: EntityModule = {
   // alone lets in wells from the next county (35 of 2,264 for Hancock, #96).
   // Wells link to the county subdivision they sit in, which rolls up to county
   // and state. The cell check stays too, because it narrows first.
-  regionCheck: (suffix, anyOf) => subdivisionRegionCheck(iriVar(suffix), `?_wellRegion${suffix}`, suffix, anyOf),
+  regionCheck: subdivisionRegionCheck(iriVar, 'well'),
 };

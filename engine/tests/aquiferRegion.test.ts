@@ -14,7 +14,8 @@ import {
   buildFusedNearQuery,
 } from '../templates/fusedQueries';
 import { executeSparql } from '../endpoint';
-import type { EntityBlock } from '../types/query';
+import { planPipeline } from '../planner';
+import type { AnalysisQuestion, EntityBlock } from '../types/query';
 
 const HANCOCK = ['23009'];
 const SAGADAHOC = ['23023'];
@@ -69,6 +70,32 @@ describe('a region on aquifers checks the aquifer', () => {
     expect(checksAquifer(buildEntityProbeQuery(aquifers, HANCOCK, 100), '?aquiferP')).toBe(true);
   });
 
+  // The check joins an aquifer to each of its subdivisions in the region (up
+  // to 53 counties' worth for the largest), so the side is collapsed to one row
+  // per aquifer and cell before the join. Carried in uncollapsed, Hancock
+  // "samples downstream of aquifers" (10 km) went from 9s to 34s; collapsed it
+  // took 2s (2026-11-10).
+  it('collapses the side to one row per aquifer and cell, check inside', () => {
+    const region = { stateCode: '23', countyCodes: HANCOCK };
+    const questions: AnalysisQuestion[] = [
+      { blockA: { type: 'aquifers', region }, relationship: { type: 'near', hops: 1 }, blockC: samples },
+      { blockA: samples, relationship: { type: 'downstream' }, blockC: { type: 'aquifers', region } },
+      { blockA: samples, relationship: { type: 'downstream', maxDistanceKm: 10 }, blockC: { type: 'aquifers', region } },
+      { blockA: { type: 'aquifers', region }, relationship: { type: 'downstream', maxDistanceKm: 10 }, blockC: facilities },
+    ];
+    let checked = 0;
+    for (const question of questions) {
+      for (const step of planPipeline(question, { countSides: false }).filter((s) => s.type.startsWith('FIND_'))) {
+        const query = flat(step.buildQuery({ question, targetIris: [], anchorIris: [], results: {} }, undefined));
+        const collapsed = /\{ SELECT DISTINCT (\?aquifer[AC]) \?s2\w+ WHERE \{ (.*?)\} \}/.exec(query);
+        expect(collapsed, `${step.type}: aquifers side not collapsed`).not.toBeNull();
+        expect(checksAquifer(collapsed![2], collapsed![1]), `${step.type}: check outside the subquery`).toBe(true);
+        checked++;
+      }
+    }
+    expect(checked).toBe(questions.length * 2);
+  });
+
   it('only when that aquifers side has a region', () => {
     expect(flat(buildEntityCountQuery(aquifers, undefined))).not.toContain('administrativePartOf');
     const q = buildFusedNearQuery({ anchor: samples, target: aquifers, anchorRegion: HANCOCK, hops: 0, project: 'target' });
@@ -93,10 +120,12 @@ describe.skipIf(!process.env.LIVE_SPARQL)('on federation', () => {
 
   it('keeps an aquifer that only overlaps the county', async () => {
     // Hancock's aquifers linked by sfOverlaps alone (no sfWithin) still count.
-    const overlapOnly = flat(buildEntityCountQuery(aquifers, HANCOCK)).replace(
+    const side = flat(buildEntityCountQuery(aquifers, HANCOCK));
+    const overlapOnly = side.replace(
       /\}\s*$/,
-      `FILTER NOT EXISTS { ?aquiferP kwg-ont:sfWithin ?_w . ?_w kwg-ont:administrativePartOf+ kwgr:administrativeRegion.USA.23009 . } }`,
+      `FILTER NOT EXISTS { ?aquiferP kwg-ont:sfWithin ?_w . ?_w kwg-ont:administrativePartOf+ kwgr:administrativeRegion.USA.${HANCOCK[0]} . } }`,
     );
+    expect(overlapOnly).not.toBe(side);
     expect(await count(overlapOnly)).toBeGreaterThan(0);
   }, 60_000);
 });
