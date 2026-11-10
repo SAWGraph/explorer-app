@@ -62,7 +62,7 @@ function sideBody(block: EntityBlock, regionCodes: string[] | undefined): string
 
 // Restricts a block's cell to the region. A type whose entity can sit in a cell
 // that crosses the region's edge adds its own check that the entity itself is
-// inside (wells, engine/entities/wells.ts).
+// inside (wells, aquifers: subdivisionRegionCheck in engine/entities/types.ts).
 function regionClause(
   block: EntityBlock,
   regionCodes: string[] | undefined,

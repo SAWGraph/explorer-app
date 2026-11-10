@@ -1197,3 +1197,47 @@ wording moved.
 
 **Tests.** `engine/tests/blockWording.test.ts`, and the recorded sentences in
 `engine/tests/__snapshots__/question-text.txt`.
+
+## 2026-11-10: A county filter on aquifers let in aquifers from the next county (FIXED)
+
+**Issue #144**, the aquifer half of the #96 wells leak. Found by the
+subdivision link coverage report (#123).
+
+**Symptom.** "Aquifers in Hancock County" listed 197 aquifers. 16 of them have
+no subdivision link in Hancock: 11 lie in Washington County, 3 in Waldo, 2 in
+Penobscot. Sagadahoc was worst by share: 15 of its 25 were in other counties.
+
+**Root cause.** The region clause (`regionClause`, `engine/templates/fusedQueries.ts`)
+only checks the S2 cell. A cell that crosses the county line touches the
+county, so every aquifer in that cell passed. Wells got their own check in #96;
+aquifers had none.
+
+**Measured** on federation, 2026-11-10, every county in Maine and Illinois (118):
+the app's own side query per county against each aquifer's subdivision links.
+
+| | County and aquifer pairs |
+|---|---:|
+| Cell check (before) | 10,432 |
+| Linked to a subdivision in the county (after) | 9,797 |
+| Let in from another county | 635 (6.1%), in 109 of 118 counties |
+| Linked, but missed by the cell check | 0 |
+
+**Fix.** Aquifers get a `regionCheck` (`engine/entities/aquifers.ts`): the
+aquifer links to a subdivision that rolls up to a selected region. Wells and
+aquifers now share it (`subdivisionRegionCheck`, `engine/entities/types.ts`);
+the wells query text is unchanged. The cell check stays because it narrows
+first, and since the link check dropped nothing the cell check kept, the
+answer is the subdivision answer.
+
+**What "in the region" means.** Any overlap. An aquifer's links to its
+subdivisions, across the graph, are `sfWithin` (5,317), `sfOverlaps` (10,999) and `sfContains`
+(559), and all three are also `spatial:connectedTo`, which the check reads. Of
+the 9,797 pairs kept, 4,482 hold through an overlap or contain link only, and
+1,018 of the 8,441 aquifers link to subdivisions in more than one county (three
+link to 24, 52 and 53 counties). "Entirely inside" would drop 2,374 of the kept
+pairs and make the largest aquifers belong to no county. "Mostly inside" needs
+polygon areas, which the links do not carry.
+
+**Tests.** `engine/tests/aquiferRegion.test.ts`: every query shape with a
+region on an aquifers side carries the check (fails without the fix), and with
+`LIVE_SPARQL=1` the Hancock (181) and Sagadahoc (10) side counts.

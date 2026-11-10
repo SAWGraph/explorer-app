@@ -57,6 +57,26 @@ export interface RegionMatch {
   region: string;
 }
 
+// The region check for a type with subdivision links (GLOSSARY.md): the entity
+// links to a county subdivision that rolls up to a selected region. An entity
+// linked to several subdivisions (an aquifer polygon) passes when any one of
+// them does.
+//
+// The region gets its own variable, `regionVar`, so the entity's region need
+// not be the one its cell touches. Sharing ?_region lost 1 of 17,092 wells in
+// York, Cumberland and Androscoggin, 1 cell away (#96).
+export function subdivisionRegionCheck(
+  entityVar: string,
+  regionVar: string,
+  suffix: string,
+  anyOf: (variable: string) => RegionMatch,
+): string {
+  const match = anyOf(regionVar);
+  const subdivision = `?_subdivision${suffix}`;
+  return `${match.values}${entityVar} spatial:connectedTo ${subdivision} .
+      ${subdivision} kwg-ont:administrativePartOf+ ${match.region} .`;
+}
+
 // The filter slot each type reads. Any other slot a block carries is a
 // leftover (an older save, a published link) and reaches no query.
 export type FilterSlot =
