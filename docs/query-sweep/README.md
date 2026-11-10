@@ -25,6 +25,7 @@ M9 county scopes, MD flow-distance bounds.
 | --- | --- | --- | --- | ---: | ---: | ---: | --- |
 | [`2026-09-14`](./2026-09-14-raw-baseline.csv) | raw-baseline | `unrecorded` | M1 to M9 | 124 | 87 | 37 | _first sweep in this mode_ |
 | [`2026-09-14`](./2026-09-14-engine.csv) | engine | `unrecorded` | M1 to M9 | 124 | 112 | 9 | _first sweep in this mode_ |
+| [`2026-11-07`](./2026-11-07-chunking-off-d3233e1.csv) | chunking-off | `d3233e1` | M1 to M9, MD | 156 | 129 | 27 | **4 broke** (wells downstream samples [ME], waterBodies upstream samples [ME], …) · 23 fixed |
 | [`2026-11-06`](./2026-11-06-chunking-off-c13831e.csv) | chunking-off | `c13831e` | M1 to M9, MD | 156 | 110 | 46 | _first sweep in this mode_ |
 | [`2026-09-20`](./2026-09-20-raw-e84a11f.csv) | raw | `e84a11f` | MD | 32 | 12 | 20 | **2 broke** (facilities upstream(30km) samples [ME on C] step1, samples downstream(30km) facilities [ME on A] step1) |
 | [`2026-09-20`](./2026-09-20-raw-ec221d9.csv) | raw | `ec221d9` | MD | 32 | 14 | 18 | 3 fixed |
@@ -86,4 +87,4 @@ runner logged local time — and was merged back by hand. The runner should fix
 the output path once and export it, as the warm-sweep runner does.
 
 
-Generated 2026-11-06.
+Generated 2026-11-07.
