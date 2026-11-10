@@ -11,7 +11,10 @@
 //    today's start side), the other straight after. Any cache advantage then
 //    goes to the larger side.
 //  - Time is QLever's total, planning included; planning and saved time are
-//    recorded too, with the client's wall time.
+//    recorded too, with the client's wall time. estColdMs (total plus saved)
+//    is a second reading for warm runs, added after round 1 left only 2 of 14
+//    shapes cold on both sides: the cached nodes' times were measured on an
+//    earlier run, so it is an estimate, never the comparison itself.
 //  - Chunking off: each query sent once, whole, capped at 60s like the engine.
 //  - Rounds at least 12 hours apart. Nothing here clears the cache.
 //
@@ -182,7 +185,7 @@ function otherJobs(): string {
 const csv = (v: unknown) => `"${String(v ?? '').replace(/"/g, "'").replace(/\s+/g, ' ').slice(0, 180)}"`;
 writeFileSync(
   OUT,
-  'runAt,commit,round,shape,label,rel,hops,km,region,anchorCount,targetCount,startSide,order,status,errorKind,serverMs,planningMs,savedMs,savedShare,warm,clientMs,rows,errorMsg\n',
+  'runAt,commit,round,shape,label,rel,hops,km,region,anchorCount,targetCount,startSide,order,status,errorKind,serverMs,planningMs,savedMs,savedShare,warm,clientMs,rows,errorMsg,estColdMs\n',
 );
 
 const cacheBefore = await cacheStats();
@@ -210,7 +213,7 @@ for (const s of SHAPES) {
     if (o.kind === 'ok') rowsBy[lead] = o.rows;
     appendFileSync(
       OUT,
-      [at, COMMIT, round, s.n, csv(label(s)), s.rel, s.hops ?? '', s.km ?? '', s.state ? STATE_NAME[s.state] : 'none', anchorCount ?? '', targetCount ?? '', lead, i + 1, o.status, o.kind, o.serverMs ?? '', o.planningMs ?? '', o.savedMs, share.toFixed(3), warm, o.clientMs, o.rows ?? '', csv(o.message)].join(',') + '\n',
+      [at, COMMIT, round, s.n, csv(label(s)), s.rel, s.hops ?? '', s.km ?? '', s.state ? STATE_NAME[s.state] : 'none', anchorCount ?? '', targetCount ?? '', lead, i + 1, o.status, o.kind, o.serverMs ?? '', o.planningMs ?? '', o.savedMs, share.toFixed(3), warm, o.clientMs, o.rows ?? '', csv(o.message), o.serverMs !== null ? o.serverMs + o.savedMs : ''].join(',') + '\n',
     );
     console.log(
       `${String(s.n).padStart(2)} ${label(s).padEnd(46)} ${lead.padEnd(6)} ${String(o.status).padStart(3)} ${o.kind.padEnd(14)} ${String(o.serverMs ?? '-').padStart(6)}ms plan=${String(o.planningMs ?? '-').padStart(5)} saved=${String(o.savedMs).padStart(6)} ${warm ? 'WARM' : 'cold'} rows=${o.rows ?? '-'}`,
