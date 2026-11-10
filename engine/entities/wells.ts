@@ -1,5 +1,5 @@
 import { buildWellCategoryFilter } from '../templates/wells';
-import { ownFilterSet, type EntityModule } from './types';
+import { ownFilterSet, subdivisionRegionCheck, type EntityModule } from './types';
 import { extractLabel, namedOrCounted } from './wording';
 
 const LABEL = 'wells';
@@ -36,14 +36,5 @@ export const wells: EntityModule = {
   // alone lets in wells from the next county (35 of 2,264 for Hancock, #96).
   // Wells link to the county subdivision they sit in, which rolls up to county
   // and state. The cell check stays too, because it narrows first.
-  //
-  // Its own variable, so the well's region need not be the one its cell
-  // touches. Sharing ?_region lost 1 of 17,092 wells in York, Cumberland and
-  // Androscoggin, 1 cell away.
-  regionCheck(suffix, anyOf) {
-    const well = anyOf(`?_wellRegion${suffix}`);
-    const subdivision = `?_subdivision${suffix}`;
-    return `${well.values}${iriVar(suffix)} spatial:connectedTo ${subdivision} .
-      ${subdivision} kwg-ont:administrativePartOf+ ${well.region} .`;
-  },
+  regionCheck: subdivisionRegionCheck(iriVar, 'well'),
 };
