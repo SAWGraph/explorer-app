@@ -1,9 +1,24 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useMap } from 'react-leaflet';
 import { Popup as LeafletPopup } from 'leaflet';
 import type { MapFeature, SamplePointDetail, SampleRecord } from '../../../engine/types/map';
 import { useSampleDetails } from '../../hooks/useSampleDetails';
 import { useQueryStore } from '../../store/queryStore';
+import { safeHref } from '../../utils/safeHref';
+
+interface IriLinkProps {
+  iri: string;
+  children: ReactNode;
+}
+
+// Every link built from result data goes through here: a published view's
+// result is whatever its publisher uploaded (#155). An IRI that safeHref
+// refuses renders as the same text with no link.
+function IriLink({ iri, children }: IriLinkProps) {
+  const href = safeHref(iri);
+  if (!href) return <span>{children}</span>;
+  return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+}
 
 interface MapPopupProps {
   feature: MapFeature;
@@ -106,7 +121,7 @@ function SampleDetailPopup({
       {id && (
         <div className="sample-section-field">
           <span className="sample-field-label">Sample Point URI</span>:{' '}
-          <a href={id} target="_blank" rel="noopener noreferrer">{id}</a>
+          <IriLink iri={id}>{id}</IriLink>
         </div>
       )}
 
@@ -151,7 +166,7 @@ function SampleSection({ sample }: { sample: SampleRecord }) {
     <div className="sample-section">
       {sample.sampleUri && (
         <div className="sample-section-field">
-          <span className="sample-field-label">Sample URI</span>: <a href={sample.sampleUri} target="_blank" rel="noopener noreferrer">{sample.sampleUri.split('#').pop()}</a>
+          <span className="sample-field-label">Sample URI</span>: <IriLink iri={sample.sampleUri}>{sample.sampleUri.split('#').pop()}</IriLink>
         </div>
       )}
       {sample.sampleId && (
@@ -397,7 +412,7 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
             {feature.id && (
               <tr>
                 <td className="popup-label">Flowline</td>
-                <td><a href={feature.id} target="_blank" rel="noopener noreferrer">{feature.id}</a></td>
+                <td><IriLink iri={feature.id}>{feature.id}</IriLink></td>
               </tr>
             )}
           </tbody>
