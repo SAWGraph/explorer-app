@@ -1,0 +1,29 @@
+runAt,commit,round,shape,label,rel,hops,km,region,anchorCount,targetCount,startSide,order,status,errorKind,serverMs,planningMs,savedMs,savedShare,warm,clientMs,rows,errorMsg,estColdMs
+2026-11-11T18:30:27,0a9262e,2,1,"facilities downstream(30km) aquifers [ME both]",downstream,,30,ME,4972,2976,target,1,200,ok,32465,2287,150,0.005,false,32535,1743,"",32615
+2026-11-11T18:30:59,0a9262e,2,1,"facilities downstream(30km) aquifers [ME both]",downstream,,30,ME,4972,2976,anchor,2,200,ok,44894,2223,688,0.015,false,44956,1743,"",45582
+2026-11-11T18:31:45,0a9262e,2,2,"facilities downstream(30km) waterBodies [ME both]",downstream,,30,ME,6612,2976,target,1,200,ok,3383,1878,28655,8.470,true,3533,1861,"",32038
+2026-11-11T18:31:48,0a9262e,2,2,"facilities downstream(30km) waterBodies [ME both]",downstream,,30,ME,6612,2976,anchor,2,0,timeout,,,0,0.000,false,60003,,"No response within 60s",
+2026-11-11T18:32:49,0a9262e,2,3,"facilities downstream(30km) wells [ME both]",downstream,,30,ME,83037,2976,target,1,200,ok,38899,22563,28711,0.738,true,38960,1986,"",67610
+2026-11-11T18:33:28,0a9262e,2,3,"facilities downstream(30km) wells [ME both]",downstream,,30,ME,83037,2976,anchor,2,200,ok,50482,17808,5968,0.118,true,50560,1986,"",56450
+2026-11-11T18:34:19,0a9262e,2,4,"waterBodies downstream(30km) facilities [ME both]",downstream,,30,ME,2976,6612,anchor,1,200,ok,19232,1790,2405,0.125,true,19379,1861,"",21637
+2026-11-11T18:34:39,0a9262e,2,4,"waterBodies downstream(30km) facilities [ME both]",downstream,,30,ME,2976,6612,target,2,200,ok,21017,1561,653,0.031,false,21083,1857,"",21670
+2026-11-11T18:35:00,0a9262e,2,5,"waterBodies downstream(30km) samples [ME both]",downstream,,30,ME,4521,6612,anchor,1,0,timeout,,,0,0.000,false,60002,,"No response within 60s",
+2026-11-11T18:36:00,0a9262e,2,5,"waterBodies downstream(30km) samples [ME both]",downstream,,30,ME,4521,6612,target,2,200,ok,33100,18541,19163,0.579,true,33376,1461,"",52263
+2026-11-11T18:36:34,0a9262e,2,6,"samples downstream(30km) facilities [ME both]",downstream,,30,ME,2976,4521,anchor,1,200,ok,13381,2861,9216,0.689,true,13451,2394,"",22597
+2026-11-11T18:36:48,0a9262e,2,6,"samples downstream(30km) facilities [ME both]",downstream,,30,ME,2976,4521,target,2,200,ok,18206,2603,526,0.029,false,18266,2390,"",18732
+2026-11-11T18:37:07,0a9262e,2,7,"wells downstream samples [no region]",downstream,,,none,8730,462535,anchor,1,200,ok,35407,4287,1743,0.049,false,35557,56110,"",37150
+2026-11-11T18:37:42,0a9262e,2,7,"wells downstream samples [no region]",downstream,,,none,8730,462535,target,2,200,ok,32636,4189,2685,0.082,false,32709,56110,"",35321
+2026-11-11T18:38:16,0a9262e,2,8,"waterBodies downstream samples [no region]",downstream,,,none,8730,72985,anchor,1,200,ok,30354,1448,125,0.004,false,30411,8577,"",30479
+2026-11-11T18:38:46,0a9262e,2,8,"waterBodies downstream samples [no region]",downstream,,,none,8730,72985,target,2,200,ok,30051,1553,757,0.025,false,30115,8577,"",30808
+2026-11-11T18:39:17,0a9262e,2,9,"waterBodies downstream(30km) facilities [IL both]",downstream,,30,IL,22574,8228,target,1,0,timeout,,,0,0.000,false,60003,,"No response within 60s",
+2026-11-11T18:40:17,0a9262e,2,9,"waterBodies downstream(30km) facilities [IL both]",downstream,,30,IL,22574,8228,anchor,2,0,timeout,,,0,0.000,false,60001,,"No response within 60s",
+2026-11-11T18:41:18,0a9262e,2,10,"facilities downstream(30km) waterBodies [IL both]",downstream,,30,IL,8228,22574,anchor,1,0,timeout,,,0,0.000,false,60002,,"No response within 60s",
+2026-11-11T18:42:18,0a9262e,2,10,"facilities downstream(30km) waterBodies [IL both]",downstream,,30,IL,8228,22574,target,2,500,out-of-memory,,,0,0.000,false,57875,,"Tried to allocate 12.1 GB, but only 6.2 GB were available",
+2026-11-11T18:43:16,0a9262e,2,11,"samples near(1) facilities [ME both]",near,1,,ME,2976,4521,anchor,1,200,ok,583,312,86,0.148,true,731,2270,"",669
+2026-11-11T18:43:17,0a9262e,2,11,"samples near(1) facilities [ME both]",near,1,,ME,2976,4521,target,2,200,ok,496,313,180,0.363,true,564,2270,"",676
+2026-11-11T18:43:18,0a9262e,2,12,"samples near(2) wells [ME both]",near,2,,ME,83037,4521,target,1,200,ok,24751,19687,182,0.007,false,24816,4431,"",24933
+2026-11-11T18:43:43,0a9262e,2,12,"samples near(2) wells [ME both]",near,2,,ME,83037,4521,anchor,2,200,ok,20859,20362,2007,0.096,false,20913,4431,"",22866
+2026-11-11T18:44:04,0a9262e,2,13,"wells near(3) facilities [ME both]",near,3,,ME,2976,83037,anchor,1,200,ok,15985,3219,1754,0.110,true,16044,59763,"",17739
+2026-11-11T18:44:20,0a9262e,2,13,"wells near(3) facilities [ME both]",near,3,,ME,2976,83037,target,2,200,ok,27053,3324,2096,0.077,false,27109,59763,"",29149
+2026-11-11T18:44:48,0a9262e,2,14,"waterBodies near(4) facilities [ME both]",near,4,,ME,2976,6612,anchor,1,200,ok,5337,315,107,0.020,false,5464,2726,"",5444
+2026-11-11T18:44:53,0a9262e,2,14,"waterBodies near(4) facilities [ME both]",near,4,,ME,2976,6612,target,2,200,ok,6069,312,2560,0.422,true,6109,2726,"",8629
