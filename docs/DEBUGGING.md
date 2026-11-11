@@ -1259,3 +1259,53 @@ carries the check near and in a trace (bounded or not), as block A and as
 block C, on one county, several and a state, and in the side count and the
 chunk probe (fails without the fix). With `LIVE_SPARQL=1` it also checks the
 Hancock (181) and Sagadahoc (10) side counts.
+
+## 2026-11-11: Popup links took their href from a published result unchecked (FIXED)
+
+**Symptom.** Issue #155. Anyone can publish a view, and `PUT
+/api/publish/:id/result` stores the uploaded result after checking only its
+size. The client checks only its outer shape (`isWireResult`). Two popup links
+then used an IRI from that result as their `href`:
+
+| Link | `href` before | Reached from a stored result |
+|---|---|---|
+| Stream "Flowline" (`MapPopup.tsx`) | `feature.id` (`flowline` column) | directly |
+| Sample "Sample Point URI" | `feature.id` (`sp` column) | once the detail query returns rows |
+| Sample "Sample URI" | `?sample` from the live endpoint | no, but checked anyway |
+
+A `data:`, `ftp:`, `file:` or relative value rendered as a working link.
+React already neutralises `javascript:`.
+
+**Root cause, and why a scheme check is not enough.** `wrapUri` puts any
+`http` string in `<...>` without escaping `>`. The sample point id
+`https://evil.example/x> <http://w3id.org/sawgraph/v2/me-egad-data#d.egad.samplePoint.133650`
+becomes two IRIs in `VALUES ?sp`, and the real one gets its rows: 25 rows,
+HTTP 200, 11.3s on federation (the real id alone: 25 rows, 12.8s). So the
+popup opens in full and links to `evil.example`, and the id starts with
+`https`.
+
+**Fix.** `safeHref` (`ui/utils/safeHref.ts`) passes an IRI only when it is
+`http` or `https` and holds none of the characters SPARQL's IRIREF forbids
+(control and space, `< > " { } | ^` backtick, backslash). `IriLink` in
+`MapPopup.tsx` renders the link, or the same text with no link, and all three
+links above go through it. The FRS and ISGS links are built from digit-only
+regex matches and are unchanged.
+
+**No real link is lost.** Measured 2026-11-11, with the same pattern:
+
+| Set | IRIs | Refused |
+|---|---:|---:|
+| Sample points, federation | 20,345 | 0 |
+| Samples (`coso:fromSamplePoint`), federation | 108,612 | 0 |
+| Flowlines (`hyf:HY_FlowPath`), hydrologykg | 434,501 | 0 |
+| Every IRI in the 8 cached dashboard results (development API), through `safeHref` | 34,005 | 0 |
+
+**Tests.** `ui/tests/popupLinks.test.tsx`: `safeHref` cases, the stream and
+sample popups with real and unsafe ids (including the crafted one above), and
+a rule test that no popup type links anything `safeHref` refuses, whatever id
+the feature carries (16 of 62 fail without the fix).
+
+**Still open.** `wrapUri` lets result data rewrite the popup's detail query.
+The endpoint is public and read-only, so this gains nothing a direct query
+could not, but it breaks the rule in `.claude/rules/sparql/queries.md`.
+Separate issue, because the fix changes query generation.
