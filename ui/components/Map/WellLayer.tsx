@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { CircleMarker, LayerGroup, Popup, Tooltip } from 'react-leaflet';
 import type { MapFeature } from '../../../engine/types/map';
 import type { LatLngExpression } from 'leaflet';
-import { MapPopupContent } from './MapPopup';
+import { PointPopupContent, StackedTooltipNote } from './StackedPopup';
+import { stacksById } from './stackedPoints';
 import { WATER_COLORS } from './mapColors';
 
 interface WellLayerProps {
@@ -9,10 +11,13 @@ interface WellLayerProps {
 }
 
 export function WellLayer({ features }: WellLayerProps) {
+  const stacks = useMemo(() => stacksById(features), [features]);
+
   return (
     <LayerGroup>
       {features.map((f) => {
         if (f.geometry.type !== 'Point') return null;
+        const stack = stacks.get(f.id) ?? [f];
         return (
           <CircleMarker
             key={f.id}
@@ -22,10 +27,11 @@ export function WellLayer({ features }: WellLayerProps) {
             pathOptions={{ color: WATER_COLORS.well, fillColor: WATER_COLORS.aquifer, fillOpacity: 0.7, weight: 2 }}
           >
             <Popup maxWidth={500}>
-              <MapPopupContent feature={f} />
+              <PointPopupContent feature={f} stack={stack} />
             </Popup>
             <Tooltip>
               <strong>{f.properties.name || 'Well'}</strong>
+              <StackedTooltipNote stack={stack} />
             </Tooltip>
           </CircleMarker>
         );
