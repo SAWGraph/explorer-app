@@ -1,4 +1,8 @@
-name: Sync wiki
+name: Sync docs/wiki to GitHub Wiki
+
+# Copies docs/wiki/ into the repository's GitHub Wiki, so the wiki is edited
+# through pull requests like any other doc. Runs when a push to main touches
+# docs/wiki/, or by hand. Offline: no SPARQL endpoints, no API.
 
 on:
   push:
@@ -8,6 +12,7 @@ on:
 
 jobs:
   sync:
+    name: Copy docs/wiki into the wiki repo
     runs-on: ubuntu-latest
     permissions:
       contents: write

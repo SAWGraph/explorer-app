@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="expires" content="2026-12-07" />
+<title>Subdivision link coverage</title>
+<style>
+  /* Standalone theme: the Paradev page this came from injected these tokens. */
+  :root {
+    color-scheme: light dark;
+    --sp-bg: #fcfcfb; --sp-surface: #f2f1ee; --sp-text: #141413; --sp-muted: #5f5e5a; --sp-border: #dcdad5;
+    --sp-code-bg: rgba(20, 20, 19, 0.07); --sp-radius: 8px;
+    --sp-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --sp-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --sp-bg: #121212; --sp-surface: #1e1e1d; --sp-text: #ecebe7; --sp-muted: #a3a29d; --sp-border: #3a3936; --sp-code-bg: rgba(236, 235, 231, 0.09); }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { color: var(--sp-text); font-family: var(--sp-font-sans); line-height: 1.5; }
+  table { border-collapse: collapse; }
+  th, td { padding: 7px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--sp-border); }
+  thead th { font-size: 0.8rem; color: var(--sp-muted); }
+  code { font-family: var(--sp-font-mono); font-size: 0.88em; background: var(--sp-code-bg); padding: 1px 5px; border-radius: 4px; }
+  a { color: inherit; }
+</style>
+<style>
+  :root {
+    --s1: #2a78d6; --s1b: #9ec5f4; --s2: #eb6834; --s3: #8a8984;
+    --q0: #eef0f3; --q1: #cde2fb; --q2: #9ec5f4; --q3: #5598e7; --q4: #256abf; --q5: #104281;
+    --sp-measure: 70ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --s1: #3987e5; --s1b: #184f95; --s2: #d95926; --s3: #6e6d68; --q0: #26272a; --q1: #0d366b; --q2: #184f95; --q3: #256abf; --q4: #3987e5; --q5: #86b6ef; }
+  }
+  body { margin: 0; background: var(--sp-bg, #fff); }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 1.9rem; letter-spacing: -0.01em; }
+  .lede { color: var(--sp-muted, #6b6a66); margin: 0 0 36px; max-width: var(--sp-measure); }
+  section { margin: 0 0 48px; }
+  h2 { font-size: 1.05rem; margin: 0 0 4px; }
+  .cap { color: var(--sp-muted, #6b6a66); margin: 0 0 14px; font-size: 0.92rem; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--sp-surface, #f4f4f2); border-radius: var(--sp-radius, 8px); padding: 14px 16px; }
+  .tile .v { font-size: 2rem; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .tile .k { font-weight: 600; margin-top: 2px; }
+  .tile .d { color: var(--sp-muted, #6b6a66); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.88rem; margin: 0 0 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .bars { display: grid; grid-template-columns: minmax(110px, 140px) 1fr minmax(80px, 96px); gap: 8px 12px; align-items: center; }
+  .bars .lab { font-weight: 600; font-size: 0.92rem; }
+  .bars .tot { color: var(--sp-muted, #6b6a66); font-size: 0.85rem; text-align: right; font-variant-numeric: tabular-nums; }
+  .track { display: flex; gap: 2px; height: 18px; }
+  .track span { height: 100%; min-width: 0; }
+  .hatch, .track span.hatch { background: repeating-linear-gradient(45deg, var(--s1) 0 3px, transparent 3px 6px); box-shadow: inset 0 0 0 1.5px var(--s1); }
+  .mbars { display: grid; grid-template-columns: minmax(150px, max-content) 1fr max-content; gap: 12px 16px; align-items: center; }
+  .mbars .lab { font-weight: 600; font-size: 0.95rem; white-space: nowrap; }
+  .mbars .lab small, .mbars .tot small { font-weight: 400; color: var(--sp-muted, #6b6a66); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .mbars .tot { font-size: 0.95rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mbars .track { height: 24px; }
+  .mbars .lab, .mbars .tot { cursor: help; }
+  .mbars .track span { min-width: 5px; }
+  .track span:first-child { border-radius: 4px 0 0 4px; }
+  .track span:last-child { border-radius: 0 4px 4px 0; }
+  .scroll { overflow-x: auto; }
+  table.heat { border-collapse: separate; border-spacing: 2px; font-variant-numeric: tabular-nums; min-width: 640px; width: 100%; }
+  table.heat th { font-size: 0.82rem; font-weight: 600; color: var(--sp-muted, #6b6a66); text-align: left; padding: 4px 6px; border: 0; background: none; }
+  table.heat td { text-align: center; font-size: 0.85rem; padding: 7px 4px; border: 0; border-radius: 3px; cursor: default; }
+  table.heat tr.total th, table.heat tr.total td { font-weight: 700; border-top: 2px solid var(--sp-text, #111); }
+  table.heat tr.total small { color: inherit; opacity: 1; font-weight: 500; font-size: 0.8rem; }
+  table.heat tr.toggle td { padding: 6px 0; text-align: left; }
+  table.heat tr.toggle button { font: inherit; font-size: 0.88rem; font-weight: 600; background: none; color: var(--sp-text, #111); border: 1px solid var(--sp-border, #d8d7d3); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  .formula { font-size: 0.9rem; margin: -6px 0 14px; padding: 8px 12px; background: var(--sp-surface, #f4f4f2); border-radius: 6px; display: inline-block; }
+  .formula span { color: var(--sp-muted, #6b6a66); font-size: 0.84rem; }
+  table.heat td.nd { color: var(--sp-muted, #6b6a66); background: repeating-linear-gradient(45deg, transparent 0 4px, var(--sp-border, #d8d7d3) 4px 5px); font-size: 0.75rem; }
+  .scale { display: flex; gap: 2px; align-items: center; font-size: 0.8rem; color: var(--sp-muted, #6b6a66); margin-top: 8px; }
+  .scale span { width: 34px; height: 10px; border-radius: 2px; }
+  table.next { width: 100%; }
+  table.next td:first-child { font-weight: 600; white-space: nowrap; }
+  .tag { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--sp-border, #d8d7d3); white-space: nowrap; }
+  svg text { fill: var(--sp-text, #111); font-family: var(--sp-font-sans); }
+  svg .m { fill: var(--sp-muted, #6b6a66); }
+  #tip { white-space: pre-wrap; position: fixed; pointer-events: none; background: var(--sp-text, #111); color: var(--sp-bg, #fff); font-size: 0.8rem; padding: 6px 9px; border-radius: 6px; opacity: 0; transition: opacity .08s; max-width: 260px; z-index: 9; }
+</style>
+</head>
+<body class="auto">
+<main>
+  <h1>Subdivision link coverage</h1>
+  <p class="lede">Which entity types are tied to the county subdivision (town, township or census division) they sit in. The region filter can only be exact for those types. Measured live on federation, 7 Nov 2026, issue #123.</p>
+
+  <section>
+    <h2>Share linked, whole graph</h2>
+    <p class="cap">Aquifers and wells are linked; water bodies and stream flowlines have no links at all.</p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <h2>What the app can show, and what is linked</h2>
+    <p class="cap">Blue has a subdivision link, orange is located only by its S2 cell; striped and grey bars are never shown.</p>
+    <div class="legend">
+      <span><i style="background:var(--s1)"></i>Shown, subdivision link (exact region filter)</span>
+      <span><i style="background:var(--s2)"></i>Shown, located only by S2 cell (cell-only region filter)</span>
+      <span><i class="hatch"></i>Hidden (no S2 cell), has a link</span>
+      <span><i style="background:var(--s3)"></i>Hidden, neither</span>
+    </div>
+    <div class="mbars" id="merged"></div>
+    <div class="scroll" style="margin-top:18px">
+    <table class="next">
+      <thead><tr><th>Type</th><th>Never shown</th><th>Why</th><th>When a state or county is picked</th></tr></thead>
+      <tbody>
+        <tr><td>Aquifers</td><td style="cursor:help" data-tip="0 of 8,441 aquifers in the graph (0%)">0</td><td>Every aquifer has a subdivision link and an S2 cell.</td><td>Kept if its S2 cell touches it; could check the subdivision link (#144)</td></tr>
+        <tr><td>Stream flowlines</td><td style="cursor:help" data-tip="34,199 of 468,583 stream flowlines in the graph (7.3%)">34,199</td><td>No S2 cell. No flowline has a link to any region in the data.</td><td>Kept if its S2 cell touches it; no link to check until the data adds one</td></tr>
+        <tr><td>Wells</td><td style="cursor:help" data-tip="70,236 of 532,771 wells in the graph (13.2%)">70,236</td><td>All in Maine, none in an S2 cell. 61,700 have no coordinates; 8,536 have coordinates but were never given a cell. 53,845 still link to their town (striped).</td><td>Kept if its subdivision is in it (#96)</td></tr>
+        <tr><td>Facilities</td><td style="cursor:help" data-tip="167,311 of 627,188 facilities in the graph (26.7%)">167,311</td><td>No link and no S2 cell. 9,615 do have coordinates (9,099 in Kansas) but were never given a cell or link. Another 4,240,574 facilities have no industry code, which the facility type requires, so they are outside these counts.</td><td>Kept if its S2 cell touches it; could check the subdivision link (#145)</td></tr>
+        <tr><td>Water bodies</td><td style="cursor:help" data-tip="34,082 of 107,067 water bodies in the graph (31.8%)">34,082</td><td>No S2 cell. No water body has a link to any region in the data.</td><td>Kept if its S2 cell touches it; no link to check until the data adds one</td></tr>
+        <tr><td>Sample points</td><td style="cursor:help" data-tip="11,615 of 20,345 sample points in the graph (57.1%)">11,615</td><td>4,428 sit in a cell only through <code>sfContains</code>, but the app asks for <code>connectedTo</code> (#146); 5,698 have no geometry.</td><td>Kept if its S2 cell touches it; only 42.9% linked (0% in Ohio), so a link check needs a decision</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>How much of each state is linked</h2>
+    <p class="cap">Of the entities placed in a state, the share tied to a town. Facilities are near 100% in every state but Alabama, Kansas and DC; samples run from 99.9% (Maine) to 0% (Ohio).</p>
+    <p class="formula">Share = <b>linked to a subdivision</b> ÷ (<b>linked to a subdivision</b> + <b>located only by S2 cell</b>)<br><span>Entities with neither are in no state and are left out. An entity located only by S2 cell on a state line counts in both states.</span></p>
+    <div class="scroll"><table class="heat" id="heat"></table></div>
+    <div class="scale">0% <span style="background:var(--q0)"></span><span style="background:var(--q1)"></span><span style="background:var(--q2)"></span><span style="background:var(--q3)"></span><span style="background:var(--q4)"></span><span style="background:var(--q5)"></span> 100% &nbsp;·&nbsp; hatched: no data in that state</div>
+  </section>
+
+  <section>
+    <h2>Why the link matters (schematic)</h2>
+    <p class="cap">A cell on the county line touches both counties, so the cell check lets in the well next door; the subdivision link does not.</p>
+    <div class="scroll">
+    <svg viewBox="0 0 720 230" width="100%" style="max-width:720px;min-width:520px" role="img" aria-label="Schematic: a cell crossing a county line">
+      <rect x="20" y="30" width="300" height="170" rx="6" fill="none" stroke="var(--sp-border, #d8d7d3)" stroke-width="2"/>
+      <rect x="320" y="30" width="300" height="170" rx="6" fill="none" stroke="var(--sp-border, #d8d7d3)" stroke-width="2"/>
+      <text x="30" y="22" font-size="13" font-weight="600">Hancock County (selected)</text>
+      <text x="330" y="22" font-size="13" class="m">Penobscot County</text>
+      <line x1="365" y1="130" x2="396" y2="128" stroke="var(--sp-muted, #6b6a66)" stroke-width="1"/>
+      <line x1="320" y1="30" x2="320" y2="200" stroke="var(--sp-text, #111)" stroke-width="2" stroke-dasharray="5 4"/>
+      <rect x="250" y="80" width="140" height="80" fill="var(--s1)" fill-opacity="0.12" stroke="var(--s1)" stroke-width="2"/>
+      <text x="258" y="98" font-size="12" class="m">one S2 cell</text>
+      <circle cx="285" cy="130" r="8" fill="var(--s1)"/>
+      <text x="236" y="134" font-size="12" text-anchor="end">kept</text>
+      <circle cx="355" cy="130" r="8" fill="var(--s2)"/>
+      <text x="400" y="126" font-size="12">cell check: kept (wrong)</text>
+      <text x="400" y="142" font-size="12">subdivision link: dropped</text>
+      <text x="30" y="222" font-size="12" class="m">Wells, #96: 35 of 2,264 wells in a Hancock answer sat in Penobscot, Waldo or Washington.</text>
+    </svg>
+    </div>
+  </section>
+
+  <section>
+    <h2>Next step per type</h2>
+    <p class="cap">Two types are ready for the wells fix, two need data first, samples need a decision.</p>
+    <table class="next">
+      <thead><tr><th>Type</th><th>Next step</th><th>Because</th></tr></thead>
+      <tbody>
+        <tr><td>Wells</td><td><span class="tag">done, #96</span></td><td>96.7% linked; the region filter already uses the link.</td></tr>
+        <tr><td>Aquifers</td><td><span class="tag">engine fix</span></td><td>8,441 of 8,441 linked; region filter still uses the cell.</td></tr>
+        <tr><td>Facilities</td><td><span class="tag">engine fix</span></td><td>99.9% linked in every state they appear in. None at all in Alabama and Kansas.</td></tr>
+        <tr><td>Sample points</td><td><span class="tag">decide</span></td><td>42.9% linked overall, 0% in Ohio and 13.9% in Arizona: a link-only check would drop the rest. Separately, accepting <code>sfContains</code> cells would show up to 3,599 more (the 4,428 water quality portal points found that way, less 829 without geometry).</td></tr>
+        <tr><td>Water bodies</td><td><span class="tag">data request</span></td><td>No link to any region, only S2 cells.</td></tr>
+        <tr><td>Stream flowlines</td><td><span class="tag">data request</span></td><td>No link to any region, only S2 cells.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Region levels in the graph</h2>
+    <p class="cap">Our schema doc called AR3 "counties"; it is the level below, and every county exists under two IRIs.</p>
+    <table>
+      <thead><tr><th>Class</th><th>Is</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><code>AdministrativeRegion_1</code></td><td>State</td><td>Maine, <code>USA.23</code></td></tr>
+        <tr><td><code>AdministrativeRegion_2</code></td><td>County (KWG and Data Commons IRI)</td><td>Hancock, <code>USA.23009</code> and <code>geoId/23009</code></td></tr>
+        <tr><td><code>AdministrativeRegion_3</code></td><td>County subdivision: town, township, or census county division</td><td>Bar Harbor town, <code>geoId/2300902865</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <p class="cap">Temporary report for issue #123, expires 7 Dec 2026 (see <code>public/reports/README.md</code>). Re-measure: <code>npm run subdivision-coverage</code> (about 25 minutes). Full tables in <code>docs/SCHEMA.md</code>, Subdivision link coverage.</p>
+</main>
+<div id="tip"></div>
+<script>
+const COMBINED = [
+  ["Aquifers", 8441, 8441, 0, 0],
+  ["Wells", 532771, 515287, 1093, 16391],
+  ["Sample points", 20345, 8731, 4445, 7169],
+  ["Facilities", 627188, 457883, 1994, 167311],
+  ["Water bodies", 107067, 0, 72985, 34082],
+  ["Stream flowlines", 468583, 0, 434384, 34199],
+];
+
+const TYPES = ["Sample points", "Facilities", "Water bodies", "Wells", "Aquifers", "Stream flowlines"];
+// [state, [linked, unlinked] per type (null = no data), selectable]
+const STATES = [
+  ["Alabama", [[57,25],[0,2],null,null,null,null], true],
+  ["Arizona", [[457,2831],[7259,1],null,null,null,null], true],
+  ["Arkansas", [[24,4],[9688,10],null,null,null,null], true],
+  ["Illinois", [[62,5],[22273,15],[0,8228],[378404,219],[3469,0],[0,61927]], true],
+  ["Indiana", [[359,27],[9539,11],[0,4866],[0,880],null,[0,20215]], true],
+  ["Kansas", [[20,0],[0,11],null,null,null,null], true],
+  ["Maine", [[4526,2],[2902,1],[0,6612],[136883,1],[4972,0],[0,29677]], true],
+  ["Massachusetts", [[255,14],[13434,6],[0,4559],null,null,[0,11434]], true],
+  ["Minnesota", [[1084,505],[17361,8],[0,18352],null,null,[0,35811]], true],
+  ["New Hampshire", [[28,13],[5557,1],[0,1939],[0,1],null,[0,12577]], true],
+  ["Ohio", [[0,310],[13882,9],[0,3516],null,null,[0,39024]], true],
+  ["South Carolina", [[21,3],[7605,6],null,null,null,null], true],
+  ["Vermont", [[9,1],[2764,2],[0,475],null,null,[0,4228]], true],
+  ["Alaska", [null,null,null,null,null,null], false],
+  ["California", [[0,59],[13865,3],null,null,null,null], false],
+  ["Colorado", [[110,23],[14127,2],null,null,null,null], false],
+  ["Connecticut", [[28,0],[4498,0],[0,2781],null,null,[0,8318]], false],
+  ["Delaware", [null,[2220,3],null,null,null,null], false],
+  ["Florida", [[0,8],[17888,3],null,null,null,null], false],
+  ["Georgia", [[0,1],[23061,17],null,null,null,null], false],
+  ["Hawaii", [null,null,null,null,null,null], false],
+  ["Idaho", [null,[4484,5],null,null,null,null], false],
+  ["Iowa", [[111,7],[9590,8],[0,3593],[0,36],null,[0,43161]], false],
+  ["Kentucky", [[26,8],[9654,26],[0,2369],[0,24],null,[0,41335]], false],
+  ["Louisiana", [null,[9327,3],null,null,null,null], false],
+  ["Maryland", [[24,10],[13229,173],[0,24],null,null,[0,429]], false],
+  ["Michigan", [[130,2],[23330,4],[0,64],[0,40],null,[0,17]], false],
+  ["Mississippi", [null,[7499,4],null,null,null,null], false],
+  ["Missouri", [[55,19],[13740,11],[0,1899],[0,30],null,[0,23208]], false],
+  ["Montana", [null,[3241,10],null,null,null,null], false],
+  ["Nebraska", [null,[7308,4],null,null,null,null], false],
+  ["Nevada", [[0,3],[3611,6],null,null,null,null], false],
+  ["New Jersey", [[0,7],[10640,4],null,null,null,null], false],
+  ["New Mexico", [[0,1],[4813,3],null,null,null,null], false],
+  ["New York", [[481,6],[19387,5],[0,399],null,null,[0,1885]], false],
+  ["North Carolina", [[55,290],[10797,4],[0,20],null,null,[0,906]], false],
+  ["North Dakota", [[0,2],[2592,8],null,null,null,null], false],
+  ["Oklahoma", [null,[12699,3],null,null,null,null], false],
+  ["Oregon", [null,[7337,1],null,null,null,null], false],
+  ["Pennsylvania", [[433,32],[15372,5],[0,1165],null,null,[0,21646]], false],
+  ["Rhode Island", [[14,0],[3160,5],[0,584],null,null,[0,1861]], false],
+  ["South Dakota", [[35,7],[1803,1],[0,707],null,null,[0,1791]], false],
+  ["Tennessee", [[154,13],[10506,18],[0,436],null,null,[0,12900]], false],
+  ["Texas", [null,[19405,12],null,null,null,null], false],
+  ["Utah", [null,[5974,3],null,null,null,null], false],
+  ["Virginia", [[41,223],[11805,62],[0,42],null,null,[0,5562]], false],
+  ["Washington", [null,[14724,2],null,null,null,null], false],
+  ["West Virginia", [[0,86],[3902,6],[0,559],null,null,[0,27578]], false],
+  ["Wisconsin", [[132,21],[7845,6],[0,11083],[0,85],null,[0,40922]], false],
+  ["Wyoming", [null,[2186,17],null,null,null,null], false],
+  ["District of Columbia", [null,[0,1765],null,null,null,null], false],
+];
+const fmt = (n) => n.toLocaleString("en-US");
+const pct = (a, b) => (b ? (100 * a / b) : 0);
+const p1 = (x) => (x === 100 || x === 0 ? x.toFixed(0) : Math.min(x, 99.9).toFixed(1)) + "%";
+
+document.getElementById("tiles").innerHTML = COMBINED.map(([t, tot, l]) =>
+  `<div class="tile"><div class="v">${p1(pct(l, tot))}</div><div class="k">${t}</div><div class="d">${fmt(l)} of ${fmt(tot)}</div></div>`).join("");
+
+
+
+
+
+// [type, total, shown+linked, shown no link, hidden linked, hidden neither]
+const MERGED = [
+  ["Aquifers", 8441, 8441, 0, 0, 0],
+  ["Stream flowlines", 468583, 0, 434384, 0, 34199],
+  ["Wells", 532771, 461442, 1093, 53845, 16391],
+  ["Facilities", 627188, 457883, 1994, 0, 167311],
+  ["Water bodies", 107067, 0, 72985, 0, 34082],
+  ["Sample points", 20345, 8714, 16, 17, 11598],
+];
+document.getElementById("merged").innerHTML = MERGED.map(([t, tot, a, b, c, d]) => {
+  const seg = (n, style, name, cls = "") => n ? `<span class="${cls}" data-tip="${t}: ${fmt(n)} ${name} (${p1(pct(n, tot))})" style="flex:${n} 0 0;${style}"></span>` : "";
+  const tip = `${t}: ${fmt(tot)} in the graph\nShown: ${fmt(a + b)} (${p1(pct(a + b, tot))})\n   with a subdivision link: ${fmt(a)}\n   located only by S2 cell: ${fmt(b)}\nHidden: ${fmt(c + d)} (${p1(pct(c + d, tot))})\n   has a link, no S2 cell: ${fmt(c)}\n   neither: ${fmt(d)}`;
+  return `<div class="lab" data-tip="${tip}">${t}</div><div class="track">${seg(a, "background:var(--s1)", "shown, with a subdivision link")}${seg(b, "background:var(--s2)", "shown, located only by S2 cell")}${seg(c, "", "hidden (no S2 cell), but with a subdivision link", "hatch")}${seg(d, "background:var(--s3)", "hidden, no S2 cell and no link")}</div><div class="tot" data-tip="${tip}">${p1(pct(a + b, tot))} shown</div>`;
+}).join("");
+
+const bucket = (s) => s >= 99.5 ? 5 : s >= 90 ? 4 : s >= 70 ? 3 : s >= 40 ? 2 : s > 0 ? 1 : 0;
+const ink = (b) => b >= 4 ? "#fff" : "var(--sp-text, #111)";
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+const cellHtml = (c, i, where, note) => {
+  if (!c || c[0] + c[1] === 0) return `<td class="nd" data-tip="${TYPES[i]} in ${where}: no data">no data</td>`;
+  const [l, u] = c, s = pct(l, l + u), b = bucket(s);
+  const color = dark ? (b >= 4 ? "#0b0b0b" : "var(--sp-text, #111)") : ink(b);
+  return `<td style="background:var(--q${b});color:${color}" data-tip="${TYPES[i]} in ${where}: ${fmt(l)} linked to a subdivision, ${fmt(u)} located only by S2 cell ${note}">${p1(s)}${note.startsWith("(an") ? `<br><small>${fmt(l + u)}</small>` : ""}</td>`;
+};
+const stateRow = ([state, cells]) => `<tr><th>${state}</th>${cells.map((c, i) => cellHtml(c, i, state, `(their S2 cell touches ${state})`)).join("")}</tr>`;
+const totalRow = (label, rows) => {
+  const sums = TYPES.map((_, i) => rows.reduce((acc, [, cells]) => cells[i] ? [acc[0] + cells[i][0], acc[1] + cells[i][1]] : acc, [0, 0]));
+  return `<tr class="total"><th>${label}</th>${sums.map((c, i) => cellHtml(c, i, label.toLowerCase(), "(an entity located only by S2 cell on a state line counts in both states)")).join("")}</tr>`;
+};
+const picked = STATES.filter((r) => r[2]), others = STATES.filter((r) => !r[2]);
+let html = `<thead><tr><th>State</th>${TYPES.map((t) => `<th>${t}</th>`).join("")}</tr></thead>`;
+html += `<tbody>${picked.map(stateRow).join("")}${totalRow(`All ${picked.length} selectable states`, picked)}</tbody>`;
+html += `<tbody><tr class="toggle"><td colspan="${TYPES.length + 1}"><button type="button" id="more" aria-expanded="false">+ ${others.length} other states (no state pick, but a side with no region can reach them)</button></td></tr></tbody>`;
+html += `<tbody id="others" hidden>${others.map(stateRow).join("")}${totalRow(`All ${others.length} other states`, others)}${totalRow(`All ${STATES.length} states`, STATES)}</tbody>`;
+document.getElementById("heat").innerHTML = html;
+document.getElementById("more").addEventListener("click", (e) => {
+  const body = document.getElementById("others"), open = body.hidden;
+  body.hidden = !open;
+  e.currentTarget.setAttribute("aria-expanded", String(open));
+  e.currentTarget.textContent = `${open ? "\u2212" : "+"} ${others.length} other states${open ? "" : " (no state pick, but a side with no region can reach them)"}`;
+});
+
+const tip = document.getElementById("tip");
+document.addEventListener("mousemove", (e) => {
+  const el = e.target.closest("[data-tip]");
+  if (!el) { tip.style.opacity = 0; return; }
+  tip.textContent = el.dataset.tip;
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - 270) + "px";
+  tip.style.top = (e.clientY + 14) + "px";
+  tip.style.opacity = 1;
+});
+</script>
+</body>
+</html>

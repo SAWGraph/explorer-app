@@ -30,7 +30,7 @@ resultsRouter.get('/:key', async (req: Request, res: Response) => {
   }
 });
 
-// Write, for the warm-cache script only (scripts/warm-cache.mts). The publisher
+// Write, for the warm-cache script only (scripts/ops/warm-cache.mts). The publisher
 // path is PUT /api/publish/:id/result, guarded by the editToken instead.
 resultsRouter.put('/:key', largeJson, async (req: Request, res: Response) => {
   const key = String(req.params.key);

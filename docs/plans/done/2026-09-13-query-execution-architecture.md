@@ -5,7 +5,7 @@
 shipped as a result cache instead of server-side execution, see
 [`2026-09-14-phase-3-result-cache.md`](./2026-09-14-phase-3-result-cache.md)
 **Created**: 2026-09-13
-**Reference sheet**: [`docs/QUERY-MATRIX.md`](../../QUERY-MATRIX.md) — every question the
+**Reference sheet**: [`docs/QUERY-SWEEP.md`](../../QUERY-SWEEP.md) — every question the
 UI can build, measured against the live endpoints. This plan is verified against
 that sheet in Part 8.
 
@@ -332,7 +332,7 @@ the monolith where a monolith could produce one.**
 ### 8.3 Gate for calling this done
 
 Re-run the matrix harness after each phase and diff against
-`docs/query-matrix/2026-09-14-raw-baseline.csv`:
+`docs/query-sweep/2026-09-14-raw-baseline.csv`:
 
 - No shape may move from ✅/⚠️ to ❌.
 - All 37 ❌ rows must become ✅ or ⚠️.
@@ -422,4 +422,4 @@ Two mechanisms were added during implementation that the plan did not anticipate
   side would drop out-of-region contributors (`3f50251`).
 
 **Verification gate for each phase:** re-run the matrix harness and compare
-against `docs/query-matrix/2026-09-14-raw-baseline.csv`. No shape may regress; the ❌ rows must turn ✅.
+against `docs/query-sweep/2026-09-14-raw-baseline.csv`. No shape may regress; the ❌ rows must turn ✅.
