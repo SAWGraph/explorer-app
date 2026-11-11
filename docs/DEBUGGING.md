@@ -1259,3 +1259,47 @@ carries the check near and in a trace (bounded or not), as block A and as
 block C, on one county, several and a state, and in the side count and the
 chunk probe (fails without the fix). With `LIVE_SPARQL=1` it also checks the
 Hancock (181) and Sagadahoc (10) side counts.
+
+## 2026-11-11: Markers on the same point could not be opened (FIXED)
+
+**Reported in issue #153**, split out of #88. When several markers sit on one
+point, only the top one can be seen or clicked.
+
+**Symptom.** Measured live on 2026-11-11 by grouping each layer's features by
+identical `[lat, lon]`. On "Chemical & Plastics Manufacturers Upstream from
+Streams in Cook County, IL", 402 facilities sit on 390 points in 12 pairs. The
+squares are all the same size, so the bottom one of each pair is fully covered
+at every zoom: Willow Springs Terminal sits exactly under Jones Chemicals
+(41.716752, -87.909558) and nothing opens it. On "Samples Near Landfills & DOD
+Sites in Penobscot and Knox County", 60 samples sit on 57 points in 3 pairs by
+Bangor International Airport. Each pair is a big circle under a small one, so
+the big one (140235, max 790) is reachable only through a 3 to 7 px ring, and
+only because the small one comes later in the rows.
+
+The issue's Penobscot figures (43 points, 13 on the busiest, 17 never
+reachable) do not hold for exact coordinates. They match on-screen overlap at a
+zoomed-out view: at the fitted view about 52 of 60 samples and 126 of 402
+facilities are fully covered, and zooming in separates all of them except the
+exact stacks.
+
+**Root cause.** Each layer drew one marker with one popup per feature and
+nothing knew that two features shared a point. Leaflet draws them on top of
+each other and a click reaches only the top one.
+
+**Fix.** `groupByPoint` (`ui/components/Map/stackedPoints.ts`) groups features
+by identical coordinates. The sample, facility and well layers still draw every
+marker in their own order, so sizes and stacking are unchanged, but a marker
+whose point holds two or more opens one popup listing all of them
+(`StackedPopup.tsx`). Picking one shows its usual popup, with a link back to
+the list; sample observation rows load only for the sample picked. The tooltip
+says "+N more at this point". A single marker opens as before.
+
+**Prevention.** `ui/tests/stackedPoints.test.ts` (same point groups, a point
+0.000001 degrees away does not, draw order kept) and
+`ui/tests/stackedPopup.test.tsx` (the Willow Springs pair lists both and opens
+the one picked, a lone facility opens straight to its popup, stacked samples
+fetch only the picked one's rows). The popup test fails without the fix.
+
+**Lesson.** Count stacks by exact coordinates before counting what is hidden on
+screen. Overlap at one zoom mixes two problems: close markers, which zooming
+solves, and identical ones, which it never does.
