@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Start-side test</title>
+<style>
+  :root { --sp-measure: 72ch; }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { margin-bottom: 4px; }
+  .sub { color: var(--sp-muted); margin-top: 0; }
+  section { margin-top: 44px; }
+  h2 { margin-bottom: 4px; font-size: 1.15rem; }
+  .cap { color: var(--sp-muted); margin: 0 0 14px; font-size: .92rem; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .tile { background: var(--sp-surface); border-radius: var(--sp-radius); padding: 14px 16px; }
+  .tile b { display: block; font-size: 1.9rem; font-family: var(--sp-font-mono); line-height: 1.1; }
+  .tile span { color: var(--sp-muted); font-size: .85rem; }
+  .wide { overflow-x: auto; }
+  svg text { fill: var(--sp-text); font-family: var(--sp-font-sans); font-size: 12px; }
+  svg .mut { fill: var(--sp-muted); }
+  svg .grid { stroke: var(--sp-border); }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: .85rem; color: var(--sp-muted); margin-bottom: 8px; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  table { border-collapse: collapse; font-size: .88rem; }
+  th, td { padding: 6px 10px; text-align: left; white-space: nowrap; }
+  td.num { font-family: var(--sp-font-mono); text-align: right; }
+  .y { color: var(--sp-chart-3); font-weight: 600; }
+  .n { color: var(--sp-chart-4); font-weight: 600; }
+  .q { color: var(--sp-muted); }
+  .score td { font-weight: 600; border-top: 2px solid var(--sp-border); }
+</style>
+</head>
+<body class="auto">
+<main>
+  <h1>Start-side test</h1>
+  <p class="sub">Map "How a trace picks its start side" (#133), ticket "Run the spaced start-side test" (#137). 14 tied shapes, both start sides, 3 rounds on federation: 2026-11-10 17:14, 11-11 18:30, 11-12 22:49 UTC. Chunking off, 60 s cap.</p>
+
+  <section>
+    <h2>The run at a glance</h2>
+    <p class="cap">84 queries in 3 rounds; counts from the three CSVs in docs/query-sweep/start-side/.</p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <h2>Time by start side, per shape</h2>
+    <p class="cap">Each dot is one round; filled = cold run (measured), hollow = warm run (estimated cold time: QLever time plus time the cache saved); × at the right = no answer within 60 s.</p>
+    <div class="legend"><span><i class="sw" style="background:var(--sp-chart-1)"></i>anchor-led</span><span><i class="sw" style="background:var(--sp-chart-2)"></i>target-led</span></div>
+    <div class="wide"><svg id="dots" role="img" aria-label="Per-shape timing dot plot"></svg></div>
+  </section>
+
+  <section>
+    <h2>Which rule picks the faster side</h2>
+    <p class="cap">Faster side: answers in more rounds, else median estimated cold time at least 10% lower; "even" within 10% or 1 s. ✓ = the rule picks the faster side. Shapes 4 and 6 rest on estimated cold time (their anchor-led runs were warm every round; measured warm, shape 6 anchor-led was faster).</p>
+    <div class="wide"><table id="rules"></table></div>
+  </section>
+
+  <section>
+    <h2>Why so many runs were warm (schematic)</h2>
+    <p class="cap">Schematic: shapes that start from the same Maine side reuse each other's work inside one round; numbers are the cache savings measured on the second shape.</p>
+    <div class="wide"><svg viewBox="0 0 760 170" width="760" height="170" role="img" aria-label="Cache reuse chain">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--sp-muted)"/></marker></defs>
+      <g>
+        <rect x="10" y="20" width="200" height="50" rx="6" fill="var(--sp-surface)" stroke="var(--sp-chart-2)"/>
+        <text x="110" y="41" text-anchor="middle">1 facilities ds(30km) aquifers</text>
+        <text x="110" y="58" text-anchor="middle" class="mut">target-led, cold, 24 to 32 s</text>
+        <rect x="290" y="20" width="210" height="50" rx="6" fill="var(--sp-surface)" stroke="var(--sp-chart-2)"/>
+        <text x="395" y="41" text-anchor="middle">2 facilities ds(30km) waterBodies</text>
+        <text x="395" y="58" text-anchor="middle" class="mut">target-led 3.4 to 4.4 s, warm</text>
+        <rect x="560" y="20" width="190" height="50" rx="6" fill="var(--sp-surface)" stroke="var(--sp-chart-2)"/>
+        <text x="655" y="41" text-anchor="middle">3 facilities ds(30km) wells</text>
+        <text x="655" y="58" text-anchor="middle" class="mut">target-led, warm when it answers</text>
+        <line x1="212" y1="45" x2="286" y2="45" stroke="var(--sp-muted)" marker-end="url(#ar)"/>
+        <text x="249" y="36" text-anchor="middle" class="mut">saved 19.6 to 28.7 s</text>
+        <line x1="502" y1="45" x2="556" y2="45" stroke="var(--sp-muted)" marker-end="url(#ar)"/>
+        <text x="529" y="36" text-anchor="middle" class="mut">28.7 s</text>
+        <rect x="10" y="105" width="200" height="50" rx="6" fill="var(--sp-surface)" stroke="var(--sp-chart-1)"/>
+        <text x="110" y="126" text-anchor="middle">4 waterBodies ds(30km) facilities</text>
+        <text x="110" y="143" text-anchor="middle" class="mut">anchor-led, warm 2.4 to 4.5 s saved</text>
+        <rect x="290" y="105" width="210" height="50" rx="6" fill="var(--sp-surface)" stroke="var(--sp-chart-1)"/>
+        <text x="395" y="126" text-anchor="middle">6 samples ds(30km) facilities</text>
+        <text x="395" y="143" text-anchor="middle" class="mut">anchor-led 13 s, warm</text>
+        <line x1="212" y1="130" x2="286" y2="130" stroke="var(--sp-muted)" marker-end="url(#ar)"/>
+        <text x="249" y="121" text-anchor="middle" class="mut">9.2 to 14.5 s</text>
+        <text x="560" y="126" class="mut">Round 2 began with the cache at 0.4 GB,</text>
+        <text x="560" y="143" class="mut">round 3 at 0.0 GB: still the same savings.</text>
+      </g>
+    </svg></div>
+  </section>
+
+  <section>
+    <h2>Rows by start side</h2>
+    <p class="cap">Two bounded traces return 4 fewer rows target-led, identical in all 3 rounds; every other answered shape matches.</p>
+    <div class="wide"><table id="rows"></table></div>
+  </section>
+</main>
+<script>
+const D = [{"n":1,"label":"facilities downstream(30km) aquifers [ME both]","a":4972,"t":2976,"A":[[1,2,null,null,0,"timeout",""],[2,2,44894,45582,0,"ok","1743"],[3,2,null,null,0,"timeout",""]],"T":[[1,1,23936,24156,0,"ok","1743"],[2,1,32465,32615,0,"ok","1743"],[3,1,28995,29102,0,"ok","1743"]]},{"n":2,"label":"facilities downstream(30km) waterBodies [ME both]","a":6612,"t":2976,"A":[[1,2,null,null,0,"timeout",""],[2,2,null,null,0,"timeout",""],[3,2,null,null,0,"timeout",""]],"T":[[1,1,3436,23061,1,"ok","1861"],[2,1,3383,32038,1,"ok","1861"],[3,1,4369,30173,1,"ok","1861"]]},{"n":3,"label":"facilities downstream(30km) wells [ME both]","a":83037,"t":2976,"A":[[1,2,null,null,0,"timeout",""],[2,2,50482,56450,1,"ok","1986"],[3,2,null,null,0,"timeout",""]],"T":[[1,1,null,null,0,"timeout",""],[2,1,38899,67610,1,"ok","1986"],[3,1,null,null,0,"timeout",""]]},{"n":4,"label":"waterBodies downstream(30km) facilities [ME both]","a":2976,"t":6612,"A":[[1,1,25152,29227,1,"ok","1861"],[2,1,19232,21637,1,"ok","1861"],[3,1,23547,28001,1,"ok","1861"]],"T":[[1,2,26377,27063,0,"ok","1857"],[2,2,21017,21670,0,"ok","1857"],[3,2,23313,23956,0,"ok","1857"]]},{"n":5,"label":"waterBodies downstream(30km) samples [ME both]","a":4521,"t":6612,"A":[[1,1,null,null,0,"timeout",""],[2,1,null,null,0,"timeout",""],[3,1,null,null,0,"timeout",""]],"T":[[1,2,41166,64637,1,"ok","1461"],[2,2,33100,52263,1,"ok","1461"],[3,2,34412,55896,1,"ok","1461"]]},{"n":6,"label":"samples downstream(30km) facilities [ME both]","a":2976,"t":4521,"A":[[1,1,13052,27304,1,"ok","2394"],[2,1,13381,22597,1,"ok","2394"],[3,1,13267,27727,1,"ok","2394"]],"T":[[1,2,17978,18434,0,"ok","2390"],[2,2,18206,18732,0,"ok","2390"],[3,2,18372,18888,0,"ok","2390"]]},{"n":7,"label":"wells downstream samples [no region]","a":8730,"t":462535,"A":[[1,1,34946,38614,1,"ok","56110"],[2,1,35407,37150,0,"ok","56110"],[3,1,35660,39444,1,"ok","56110"]],"T":[[1,2,34010,36638,0,"ok","56110"],[2,2,32636,35321,0,"ok","56110"],[3,2,32574,35189,0,"ok","56110"]]},{"n":8,"label":"waterBodies downstream samples [no region]","a":8730,"t":72985,"A":[[1,1,38487,38604,0,"ok","8577"],[2,1,30354,30479,0,"ok","8577"],[3,1,30644,30776,0,"ok","8577"]],"T":[[1,2,36622,37726,0,"ok","8577"],[2,2,30051,30808,0,"ok","8577"],[3,2,30049,30990,0,"ok","8577"]]},{"n":9,"label":"waterBodies downstream(30km) facilities [IL both]","a":22574,"t":8228,"A":[[1,2,null,null,0,"timeout",""],[2,2,null,null,0,"timeout",""],[3,2,null,null,0,"timeout",""]],"T":[[1,1,null,null,0,"timeout",""],[2,1,null,null,0,"timeout",""],[3,1,null,null,0,"timeout",""]]},{"n":10,"label":"facilities downstream(30km) waterBodies [IL both]","a":8228,"t":22574,"A":[[1,1,null,null,0,"timeout",""],[2,1,null,null,0,"timeout",""],[3,1,null,null,0,"timeout",""]],"T":[[1,2,null,null,0,"out-of-memory",""],[2,2,null,null,0,"out-of-memory",""],[3,2,null,null,0,"out-of-memory",""]]},{"n":11,"label":"samples near(1) facilities [ME both]","a":2976,"t":4521,"A":[[1,1,583,665,1,"ok","2270"],[2,1,583,669,1,"ok","2270"],[3,1,545,629,1,"ok","2270"]],"T":[[1,2,422,593,1,"ok","2270"],[2,2,496,676,1,"ok","2270"],[3,2,419,591,1,"ok","2270"]]},{"n":12,"label":"samples near(2) wells [ME both]","a":83037,"t":4521,"A":[[1,2,19979,22099,1,"ok","4431"],[2,2,20859,22866,0,"ok","4431"],[3,2,20618,22608,0,"ok","4431"]],"T":[[1,1,24640,24818,0,"ok","4431"],[2,1,24751,24933,0,"ok","4431"],[3,1,24722,24906,0,"ok","4431"]]},{"n":13,"label":"wells near(3) facilities [ME both]","a":2976,"t":83037,"A":[[1,1,16191,17953,1,"ok","59763"],[2,1,15985,17739,1,"ok","59763"],[3,1,15690,17461,1,"ok","59763"]],"T":[[1,2,24413,26546,0,"ok","59763"],[2,2,27053,29149,0,"ok","59763"],[3,2,25484,27623,0,"ok","59763"]]},{"n":14,"label":"waterBodies near(4) facilities [ME both]","a":2976,"t":6612,"A":[[1,1,4997,5099,0,"ok","2726"],[2,1,5337,5444,0,"ok","2726"],[3,1,5554,5659,0,"ok","2726"]],"T":[[1,2,6036,8677,1,"ok","2726"],[2,2,6069,8629,1,"ok","2726"],[3,2,5984,8695,1,"ok","2726"]]}];
+
+const short = (l) => l.replace('downstream', 'ds').replace(' [ME both]', ' · ME').replace(' [IL both]', ' · IL').replace(' [no region]', ' · no region');
+const ok = (runs) => runs.filter((r) => r[5] === 'ok');
+const median = (xs) => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const kind = (s) => (/near/.test(s.label) ? 'near' : /km/.test(s.label) ? 'bounded' : 'unbounded');
+
+function faster(s) {
+  const a = ok(s.A), t = ok(s.T);
+  if (!a.length && !t.length) return 'none';
+  if (a.length !== t.length) {
+    if (Math.min(a.length, t.length) <= 1 && Math.max(a.length, t.length) <= 1) return 'unclear';
+    return a.length > t.length ? 'anchor' : 'target';
+  }
+  if (a.length === 1) return 'unclear';
+  const ma = median(a.map((r) => r[3])), mt = median(t.map((r) => r[3]));
+  if (Math.abs(ma - mt) < 1000 || Math.abs(ma - mt) / Math.max(ma, mt) < 0.1) return 'even';
+  return ma < mt ? 'anchor' : 'target';
+}
+
+// Tiles
+const all = D.flatMap((s) => [...s.A, ...s.T]);
+const answered = all.filter((r) => r[5] === 'ok');
+const cold = answered.filter((r) => !r[4]);
+const coldPairs = D.reduce((n, s) => n + [0, 1, 2].filter((i) => s.A[i][5] === 'ok' && !s.A[i][4] && s.T[i][5] === 'ok' && !s.T[i][4]).length, 0);
+const tiles = [
+  [all.length, 'queries sent'],
+  [answered.length, 'answered within 60 s'],
+  [cold.length, 'of those cold (cache saved under 10%)'],
+  [coldPairs, 'shape-rounds cold on both sides'],
+  [D.filter((s) => !ok(s.A).length && !ok(s.T).length).length, 'shapes neither side ever answered (both Illinois)'],
+  [2, 'shapes whose rows differ by side'],
+];
+document.getElementById('tiles').innerHTML = tiles.map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join('');
+
+// Dot plot
+(function () {
+  const W = 1040, L = 290, R = 60, rowH = 26, top = 30, groups = ['bounded', 'unbounded', 'near'];
+  const names = { bounded: 'Bounded traces (30 km)', unbounded: 'Unbounded traces', near: 'Near' };
+  let y = top, out = [];
+  const X = (ms) => L + (Math.min(ms, 70000) / 70000) * (W - L - R);
+  for (const t of [0, 10, 20, 30, 40, 50, 60, 70]) {
+    out.push(`<line class="grid" x1="${X(t * 1000)}" x2="${X(t * 1000)}" y1="${top - 8}" y2="__H__"/>`);
+    out.push(`<text class="mut" x="${X(t * 1000)}" y="${top - 12}" text-anchor="middle">${t}${t === 70 ? '' : ''} s</text>`);
+  }
+  out.push(`<text class="mut" x="${X(60000)}" y="${top - 12}" dy="-12" text-anchor="middle">60 s cap</text>`);
+  for (const g of groups) {
+    y += 14;
+    out.push(`<text x="0" y="${y}" font-weight="600">${names[g]}</text>`);
+    y += 8;
+    for (const s of D.filter((s) => kind(s) === g)) {
+      y += rowH;
+      out.push(`<text x="0" y="${y + 4}">${s.n}. ${short(s.label)}</text>`);
+      [['A', 'var(--sp-chart-1)', -5], ['T', 'var(--sp-chart-2)', 5]].forEach(([side, c, dy]) => {
+        s[side].forEach((r) => {
+          const cy = y + dy;
+          if (r[5] !== 'ok') {
+            const cx = X(66000 + (r[0] - 2) * 1500);
+            out.push(`<path d="M${cx - 3.5},${cy - 3.5} L${cx + 3.5},${cy + 3.5} M${cx - 3.5},${cy + 3.5} L${cx + 3.5},${cy - 3.5}" stroke="${c}" stroke-width="1.6"/>`);
+          } else {
+            out.push(`<circle cx="${X(r[3])}" cy="${cy}" r="4" ${r[4] ? `fill="none" stroke="${c}" stroke-width="1.5"` : `fill="${c}"`}><title>${side === 'A' ? 'anchor' : 'target'}-led, round ${r[0]}: ${(r[2] / 1000).toFixed(1)} s measured, ${(r[3] / 1000).toFixed(1)} s est. cold${r[4] ? ' (warm)' : ''}</title></circle>`);
+          }
+        });
+      });
+    }
+    y += 6;
+  }
+  const H = y + 16;
+  const svg = document.getElementById('dots');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.innerHTML = out.join('').replaceAll('__H__', H - 10);
+})();
+
+// Rule table
+(function () {
+  const pickToday = () => 'anchor';
+  const pickCount = (s) => (s.t < s.a ? 'target' : 'anchor');
+  const pickBounded = (s) => (kind(s) === 'bounded' ? 'target' : 'anchor');
+  const mark = (pick, f) => (['anchor', 'target'].includes(f) ? (pick === f ? `<span class="y">✓ ${pick}</span>` : `<span class="n">✗ ${pick}</span>`) : `<span class="q">${pick}</span>`);
+  const score = [0, 0, 0];
+  let decisive = 0;
+  const rows = D.map((s) => {
+    const f = faster(s);
+    const picks = [pickToday(s), pickCount(s), pickBounded(s)];
+    if (['anchor', 'target'].includes(f)) { decisive++; picks.forEach((p, i) => { if (p === f) score[i]++; }); }
+    const fLabel = { none: '<span class="q">neither answers</span>', unclear: '<span class="q">unclear (1 of 3 each)</span>', even: '<span class="q">even</span>' }[f] || `<b>${f}</b>`;
+    return `<tr><td>${s.n}. ${short(s.label)}</td><td class="num">${s.a.toLocaleString()}</td><td class="num">${s.t.toLocaleString()}</td><td>${fLabel}</td>${picks.map((p) => `<td>${mark(p, f)}</td>`).join('')}</tr>`;
+  });
+  document.getElementById('rules').innerHTML =
+    '<thead><tr><th>Shape</th><th>Anchor count</th><th>Target count</th><th>Faster side</th><th>Today (rank, ties to anchor)</th><th>Smaller side</th><th>Target for bounded ties</th></tr></thead><tbody>' +
+    rows.join('') +
+    `<tr class="score"><td colspan="4">Right on the ${decisive} shapes with a clear winner</td>${score.map((v) => `<td>${v} of ${decisive}</td>`).join('')}</tr></tbody>`;
+})();
+
+// Rows table
+(function () {
+  const show = D.filter((s) => s.n === 4 || s.n === 6);
+  document.getElementById('rows').innerHTML =
+    '<thead><tr><th>Shape</th><th>Round</th><th>Anchor-led rows</th><th>Target-led rows</th><th>Difference</th></tr></thead><tbody>' +
+    show.flatMap((s) => [0, 1, 2].map((i) => `<tr><td>${i === 0 ? `${s.n}. ${short(s.label)}` : ''}</td><td class="num">${i + 1}</td><td class="num">${s.A[i][6]}</td><td class="num">${s.T[i][6]}</td><td class="num">${s.A[i][6] - s.T[i][6]}</td></tr>`)).join('') +
+    '</tbody>';
+})();
+</script>
+</body>
+</html>
