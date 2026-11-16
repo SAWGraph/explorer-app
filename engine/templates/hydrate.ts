@@ -16,10 +16,13 @@ export function buildFacilitiesByIri(
   facilityIris: string[],
   filters?: FacilityFilters,
 ): string {
-  const industryClause = buildIndustryValues(filters?.industryCodes);
   const vals = facilityIris.map(wrapUri).join(' ');
 
-  return `
+  // With a filter only matching codes load, and the text is the one every
+  // filtered question has always sent. Without one a facility with no NAICS
+  // code still loads, with no industry (#145).
+  if (filters?.industryCodes?.length) {
+    return `
     ${PREFIXES}
     SELECT DISTINCT ?facility ?facWKT ?facilityName ?industryCode ?industryName ?s2cell WHERE {
       VALUES ?facility { ${vals} }
@@ -30,7 +33,22 @@ export function buildFacilitiesByIri(
                 rdfs:label ?facilityName .
       ?industryCode a naics:NAICS-IndustryCode ;
                     rdfs:label ?industryName .
-      ${industryClause}
+      ${buildIndustryValues(filters.industryCodes)}
+    }
+  `;
+  }
+
+  return `
+    ${PREFIXES}
+    SELECT DISTINCT ?facility ?facWKT ?facilityName ?industryCode ?industryName ?s2cell WHERE {
+      VALUES ?facility { ${vals} }
+      ?s2cell kwg-ont:sfContains ?facility ;
+              rdf:type kwg-ont:S2Cell_Level13 .
+      ?facility geo:hasGeometry/geo:asWKT ?facWKT ;
+                rdfs:label ?facilityName .
+      OPTIONAL { ?facility fio:ofIndustry ?industryCode .
+        ?industryCode a naics:NAICS-IndustryCode ;
+                      rdfs:label ?industryName . }
     }
   `;
 }

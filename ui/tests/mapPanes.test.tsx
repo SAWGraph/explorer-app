@@ -62,6 +62,13 @@ const polygon = (id: string, type: string): MapFeature => ({
   properties: { type, name: id },
 });
 
+// The name a layer's tooltip leads with. A facility's tooltip also carries a
+// line for its industry ("Unspecified or Unknown" when it has no code, #145).
+function tooltipName(tooltip: L.Tooltip | undefined): string {
+  const el = tooltip?.getElement();
+  return el?.firstElementChild?.textContent ?? el?.textContent ?? '';
+}
+
 const everyLayer: MapLayerData = {
   samples: [point('sample', 'sample', 44.01)],
   facilities: [point('facility', 'facility', 44.02)],
@@ -84,7 +91,7 @@ function panes() {
     layer.openTooltip();
     layer.openPopup();
     const el = (layer as L.Path | L.Marker).getElement()!;
-    out[tooltip.getElement()!.textContent!] = {
+    out[tooltipName(tooltip)] = {
       shape: paneOf(el),
       popup: paneOf(popup.getElement()!),
       tooltip: paneOf(tooltip.getElement()!),
@@ -101,7 +108,7 @@ function names() {
   const out: string[] = [];
   map.eachLayer((layer) => {
     const tooltip = layer.getTooltip();
-    if (tooltip) out.push(tooltip.getElement()?.textContent ?? '');
+    if (tooltip) out.push(tooltipName(tooltip));
   });
   return out;
 }
@@ -177,7 +184,7 @@ it('caps every popup to the size of the map it opens in', async () => {
       const tooltip = layer.getTooltip();
       if (!popup || !tooltip) return;
       layer.openPopup();
-      out[tooltip.getElement()!.textContent!] = [popup.options.maxWidth, popup.options.maxHeight ?? undefined];
+      out[tooltipName(tooltip)] = [popup.options.maxWidth, popup.options.maxHeight ?? undefined];
       layer.closePopup();
     });
     return out;
@@ -234,7 +241,7 @@ it('keeps popups and fitted results clear of the banner and the open panels, the
 
   let facility: L.Marker | undefined;
   map.eachLayer((layer) => {
-    if (layer instanceof L.Marker && layer.getTooltip()?.getElement()?.textContent === 'facility') facility = layer;
+    if (layer instanceof L.Marker && tooltipName(layer.getTooltip()) === 'facility') facility = layer;
   });
   const paddingWhenOpened = () => {
     facility!.openPopup();
@@ -275,7 +282,7 @@ it('reserves nothing for an open panel that would leave too little of the map', 
   expect(fitBounds.mock.calls[fitBounds.mock.calls.length - 1][1]!.paddingBottomRight).toEqual(L.point(50, 50));
   let facility: L.Marker | undefined;
   map.eachLayer((layer) => {
-    if (layer instanceof L.Marker && layer.getTooltip()?.getElement()?.textContent === 'facility') facility = layer;
+    if (layer instanceof L.Marker && tooltipName(layer.getTooltip()) === 'facility') facility = layer;
   });
   facility!.openPopup();
   expect(facility!.getPopup()!.options.maxWidth).toBe(330);

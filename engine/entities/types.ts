@@ -69,11 +69,32 @@ export function subdivisionRegionCheck(
   iriVar: (suffix: string) => string,
   name: string,
 ): NonNullable<EntityModule['regionCheck']> {
+  return linkedRegionCheck(iriVar, name, '_subdivision', '+');
+}
+
+// The region check for a type whose entities link to a subdivision, a county,
+// or both (facilities, #145): the linked region is the selected one or rolls
+// up to it. Some facilities link to their county only, so the wells check
+// (`+`, one hop or more) would drop them from their own county: 27 in Cook,
+// 2 in Hennepin (2026-11-10).
+export function anyRegionLinkCheck(
+  iriVar: (suffix: string) => string,
+  name: string,
+): NonNullable<EntityModule['regionCheck']> {
+  return linkedRegionCheck(iriVar, name, '_regionLink', '*');
+}
+
+function linkedRegionCheck(
+  iriVar: (suffix: string) => string,
+  name: string,
+  linkName: string,
+  hops: '+' | '*',
+): NonNullable<EntityModule['regionCheck']> {
   return (suffix, anyOf) => {
     const match = anyOf(`?_${name}Region${suffix}`);
-    const subdivision = `?_subdivision${suffix}`;
-    return `${match.values}${iriVar(suffix)} spatial:connectedTo ${subdivision} .
-      ${subdivision} kwg-ont:administrativePartOf+ ${match.region} .`;
+    const link = `?${linkName}${suffix}`;
+    return `${match.values}${iriVar(suffix)} spatial:connectedTo ${link} .
+      ${link} kwg-ont:administrativePartOf${hops} ${match.region} .`;
   };
 }
 

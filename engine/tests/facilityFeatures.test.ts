@@ -49,3 +49,15 @@ describe('a facility with several industry codes', () => {
     expect(transformFacilitiesToFeatures([LANDFILL, other]).map((f) => f.industries?.length)).toEqual([1, 1]);
   });
 });
+
+// With no industry filter the details step loads facilities with no NAICS code
+// too, and their rows carry no industry (#145).
+describe('a facility with no industry code', () => {
+  it('is still a feature, with no industries', () => {
+    const noCode: SparqlRow = { facility: 'http://ex.org/fac/3', facWKT: 'POINT(-70.5 43.8)', facilityName: 'Sebago Lake Water Treatment Facility' };
+    const [feature] = transformFacilitiesToFeatures([noCode, noCode]);
+    expect(feature.properties.name).toBe('Sebago Lake Water Treatment Facility');
+    expect(feature.industries).toEqual([]);
+    expect(feature.properties.industryCode).toBe('');
+  });
+});

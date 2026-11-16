@@ -103,6 +103,8 @@
   What samples (above 4 ng/L) in Maine are within at most 3 miles of wells in Maine?
 ## CRITICAL: samples ≥ 4 ng/L anywhere near wells in Somerset
   What samples (above 4 ng/L) are within at most 3 miles of wells in Maine?
+## CRITICAL: facilities in Cook County near Cook County wells, no industry filter
+  What facilities in Illinois are within at most 2 miles of wells in Illinois?
 ## FILTER A: samples: state
   What samples in Maine are within at most 2 miles of facilities?
 ## FILTER C: samples: state

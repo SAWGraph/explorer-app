@@ -4,6 +4,7 @@ import { Popup as LeafletPopup } from 'leaflet';
 import type { MapFeature, SamplePointDetail, SampleRecord } from '../../../engine/types/map';
 import { useSampleDetails } from '../../hooks/useSampleDetails';
 import { useQueryStore } from '../../store/queryStore';
+import { UNKNOWN_INDUSTRY } from './facilityIndustry';
 import { safeHref } from '../../utils/safeHref';
 
 interface IriLinkProps {
@@ -264,18 +265,17 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
                 )}
               </td>
             </tr>
-            {industries.length > 0 && (
-              <tr>
-                <td className="popup-label">Industry</td>
-                <td>
-                  {industries.map((industry) => (
-                    <div key={industry.code}>
-                      {industry.name || 'Industry'} (NAICS {industry.code.split('-').pop()})
-                    </div>
-                  ))}
-                </td>
-              </tr>
-            )}
+            <tr>
+              <td className="popup-label">Industry</td>
+              <td>
+                {industries.length === 0 && UNKNOWN_INDUSTRY}
+                {industries.map((industry) => (
+                  <div key={industry.code}>
+                    {industry.name || 'Industry'} (NAICS {industry.code.split('-').pop()})
+                  </div>
+                ))}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

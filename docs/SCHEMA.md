@@ -635,13 +635,13 @@ Other states (no state pick, but a side with no region can reach them):
 
 What it shows:
 
-- **Aquifers** are fully linked (8,441 of 8,441), and **facilities** are 99.9% linked in every selectable state they appear in. Both still use the cell check, so both can get the #96 wells treatment.
+- **Aquifers** are fully linked (8,441 of 8,441), and **facilities** are 99.9% linked in every selectable state they appear in. Both now get the #96 wells treatment: aquifers check their subdivision link (#144), facilities their link to any region in the selected one, subdivision or county (#145).
 - **Water bodies and stream flowlines** have no link to any administrative region. Their region filter can only be the cell check until the data adds links.
 - **Sample points** are partly linked: 99.9% in Maine, 13.9% in Arizona, 0% in Ohio. A subdivision-only check would drop the rest.
 - **The app shows less than the graph holds.** Every type is found through its S2 cell, so an entity with no cell never reaches a map, whatever its links:
   - Wells: 462,535 of 532,771. The 70,236 Maine wells with no cell (#96) are hidden: 61,700 have no coordinates and 8,536 have coordinates but no cell. 53,845 of them still link to their town.
   - Sample points: 8,730 of 20,345. 4,428 sit in a cell only through `kwg-ont:sfContains`, and the samples bind asks for `spatial:connectedTo`; 5,698 have no geometry.
-  - Facilities: 459,877 of 627,188 with an industry code. Beyond those, 4,240,574 of the 4,867,762 `fio:Facility` entities have no NAICS industry code, which the facilities bind requires (Maine: 11,599 linked facilities, 2,902 with a code).
+  - Facilities: 459,877 of 627,188 with an industry code. Beyond those, 4,240,574 of the 4,867,762 `fio:Facility` entities have no NAICS industry code (Maine: 11,599 linked facilities, 2,902 with a code). Until #145 the facilities bind required one; now it does only when an industry filter is set, so a side with no filter can show them (Cumberland, 2026-11-16: 603 with a code, 2,203 in all).
 - **Unit for facilities:** typed `fio:Facility`. 853,598 FRS records (`epa-frs:Record`) also carry `fio:ofIndustry`; they have no location and are not facilities. Of the 167,311 facilities with neither a link nor a cell, 9,615 have coordinates (a WKT point), 9,099 of them in Kansas: located, but never given a cell or link.
 - **Alabama and Kansas** have no linked facilities (2 and 11 located by cell only), nor do Alaska and Hawaii (none at all). The District of Columbia has 1,765 facilities and no subdivisions, so none is linked.
 - **Outside the 13 selectable states** the same pattern holds: facilities are 98.7% (Maryland) to 100% linked, water bodies and flowlines 0%. Sample points are 15.9% linked in North Carolina and 15.5% in Virginia. A side with no region picked can reach these states.
