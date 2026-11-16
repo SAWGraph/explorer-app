@@ -104,4 +104,16 @@ export const CRITICAL: CriticalQuestion[] = [
       blockC: { type: 'wells', region: { stateCode: '23', countyCodes: ['23025'] } },
     },
   },
+  // A county on facilities let in facilities from the next county (only the
+  // cell was checked), and with no industry filter facilities with no NAICS
+  // code were never found: Cook showed 6,845 of 41,150 (#145).
+  {
+    name: 'facilities in Cook County near Cook County wells, no industry filter',
+    source: 'docs/DEBUGGING.md 2026-11-16: Facilities with no industry code were never shown, and a county let in its neighbours (#145)',
+    question: {
+      blockA: { type: 'facilities', region: { stateCode: '17', countyCodes: ['17031'] } },
+      relationship: { type: 'near', hops: 1 },
+      blockC: { type: 'wells', region: { stateCode: '17', countyCodes: ['17031'] } },
+    },
+  },
 ];

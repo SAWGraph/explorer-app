@@ -18,6 +18,7 @@ const HANCOCK = ['23009'];
 const wells: EntityBlock = { type: 'wells' };
 const waterBodies: EntityBlock = { type: 'waterBodies' };
 const facilities: EntityBlock = { type: 'facilities' };
+const samples: EntityBlock = { type: 'samples' };
 
 const flat = (q: string) => q.replace(/\s+/g, ' ');
 const wellInRegion = (wellVar: string) =>
@@ -79,7 +80,8 @@ describe('a region on wells checks the well', () => {
   });
 
   it('leaves other block types on the cell check', () => {
-    const q = buildFusedNearQuery({ anchor: facilities, target: waterBodies, anchorRegion: HANCOCK, targetRegion: HANCOCK, hops: 1, project: 'target' });
+    // Facilities have their own check since #145 (facilityRegion.test.ts).
+    const q = buildFusedNearQuery({ anchor: samples, target: waterBodies, anchorRegion: HANCOCK, targetRegion: HANCOCK, hops: 1, project: 'target' });
     expect(flat(q)).not.toContain('administrativePartOf');
   });
 });

@@ -23,6 +23,19 @@ Each node also shows how many facilities of that kind exist in the currently sel
 Those numbers come from a completely separate query, documented in
 [Dropdowns Industry Counts](Dropdowns%20Industry%20Counts).
 
+### Nothing ticked is not the same as everything ticked
+
+With nothing ticked, a facility query finds every facility, whether or not it has a NAICS
+code. Most do not: in Cumberland County, Maine, 603 of 2,203 facilities have a code
+(measured 2026-11-16). A facility with no code shows **Unspecified or Unknown** as its
+industry in the popup, the hover tooltip and the list of facilities on a shared point.
+
+With any box ticked, including **Select all**, only facilities with a matching code are
+found, and the question reads "facilities with an industry code" when every industry is
+picked. A facility linked only to a code the graph does not type as a NAICS industry code
+(an older NAICS version such as `NAICS-44711`, or a bare sector) counts as having no code,
+so no box matches it. (#145)
+
 ### How the tree gets built
 
 The important thing to understand is that **the endpoint does not return the tree**. It

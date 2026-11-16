@@ -999,3 +999,49 @@ its anchor is nationwide and its target is one state. Both orders were measured
 before accepting the change: identical answers, 136 samples and 415 facilities
 either way, and the reordered form is no slower at 13s and 2s against 16s and
 3s.
+
+## Part 12: Facilities with no industry filter (2026-11-16, #145)
+
+A facilities side with no industry filter now finds every facility with a
+geometry, coded or not, about four to six times as many as before
+(`docs/DEBUGGING.md`, 2026-11-16). A facilities side with a region also gains
+the facility's own region check and is collapsed to one row per facility and
+cell. Measured through `runQuestion`, one question at a time, no result cache.
+
+### 12.1 Questions with no industry filter
+
+| Question | Before | After |
+|---|---|---|
+| Cumberland upstream PFHpA (dashboard) | 15 to 25s, 140 facilities shown | 18 to 19s, 558 |
+| Cook facilities near Cook samples | 2.7s, 172 | 18s, 1,084 (most of the extra time was the sample details step) |
+| Maine facilities near Maine samples | 27s, 1,370 | 30s, 5,349 |
+| No region, near Cumberland samples | 17s, 290 (count step 459,877) | 19s, 1,023 (count step 2,993,126 in 3.9s) |
+| Cook facilities near Cook wells | 40s, 6,845 facilities, 6.6MB facility details | 73s and 137s on two runs, 41,150 facilities, 52MB in all |
+| **Illinois facilities near Illinois wells** | **61s, success**, 37,201 facility rows, 192,845 well rows, 180MB in all | **fails after 193s at "Loading details for wells"**, 108MB fetched by then |
+
+The Illinois shape is the worst one the change reaches, and it breaks. Before,
+it carried about 22,000 coded facilities; now about 123,000. No size guard was
+added: the decision in #145 was to record it here and treat it as its own
+issue. Narrowing it to a county, or picking any industry, avoids it.
+
+### 12.2 Dashboard questions
+
+`npm run health-check`, two runs on the change against the last four
+`development` runs (`docs/health/history.jsonl`). The first run had a reordered
+(not changed) facility details query on the filtered questions; the second had
+the text restored, so only the Cumberland PFHpA and Cook streams questions send
+different SPARQL from `development`.
+
+| Question | `development` | Run 1 | Run 2 | Rows (FIND_TARGET, anchor details) |
+|---|---|---:|---:|---|
+| Cumberland upstream PFHpA | 28.6 to 197s | 17.5s | 114s | 49, 265 to 58, 669: no filter, so facilities with no code join |
+| Cook chemical and plastics upstream of streams | 47.6 to 56.9s | 53.2s | 25.1s | 526, 732 to 495, 706: the region check drops facilities outside Cook |
+| Penobscot and Knox landfills and DoD near samples | 11.9 to 60s | 18.6s | 17.1s | unchanged |
+| Indiana waste downstream | 34.1 to 46.1s | 35.3s | 41.1s | unchanged |
+| Maine agricultural chemicals near samples | 5.5 to 10.2s | 19.5s | 9.4s | unchanged |
+| Penobscot and Knox water bodies | 2.1 to 2.5s | 4.4s | 2.1s | unchanged |
+| Maine wells near landfills and DoD | 11.1 to 16.9s | 30.4s | 16.1s | unchanged |
+| Maine wells near wastewater plants | 7.9 to 13.7s | 17.9s | 13.5s | unchanged |
+
+The run 1 slowdowns did not repeat once the text matched `development` again.
+The Cumberland question swings widely on `development` too (28.6 to 197s).
