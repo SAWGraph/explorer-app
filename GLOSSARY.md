@@ -17,7 +17,7 @@ An entity's direct tie to the county subdivision it sits in (a town, a township,
 _Avoid_: AR3 integration, county link
 
 **Groundwater-connected**:
-A relationship between two entities that sit on the same aquifer, so water in one can reach the other through the ground. An entity sits on an aquifer when it lies over it or within about 1 km of its edge, and the same test applies to both sides. The aquifer links them but is not one of the question's two sides.
+A relationship between two entities that sit on the same aquifer, so they may share groundwater. It does not mean that water flows between them: two wells on one aquifer can draw from layers that do not mix. An entity sits on an aquifer when it lies over it or within about 1 km of its edge, and the same test applies to both sides. The aquifer links them but is not one of the question's two sides.
 _Avoid_: aquifer-connected, shares an aquifer, via aquifer
 
 **Aquifer system**:
