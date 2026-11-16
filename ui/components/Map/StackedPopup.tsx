@@ -3,6 +3,7 @@ import { useMap, useMapEvents } from 'react-leaflet';
 import { Popup as LeafletPopup } from 'leaflet';
 import type { MapFeature } from '../../../engine/types/map';
 import { MapPopupContent } from './MapPopup';
+import { industryNames } from './facilityIndustry';
 
 // Markers on one point open one popup that lists them all (#153). Each layer
 // still draws every marker, so sizes and stacking order are unchanged; only
@@ -28,7 +29,7 @@ function label(feature: MapFeature): string {
 function detail(feature: MapFeature): string {
   const p = feature.properties;
   if (p.type === 'sample') return p.maxConcentration != null && p.maxConcentration !== '' ? `Max ${p.maxConcentration}` : '';
-  if (p.type === 'facility') return feature.industries?.map((i) => i.name).filter(Boolean).join(', ') || String(p.industryName || '');
+  if (p.type === 'facility') return industryNames(feature);
   return String(p.wellType || '');
 }
 

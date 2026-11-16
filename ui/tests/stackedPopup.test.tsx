@@ -106,3 +106,30 @@ it('lists stacked samples and loads measurements only for the one picked', async
   expect(executeSparql).toHaveBeenCalledTimes(1);
   expect(executeSparql.mock.calls[0].join(' ')).toContain('samplePoint.140235');
 });
+
+// Facilities with no NAICS code reach the map when there is no industry
+// filter (#145): the list and the hover tooltip say so, rather than a blank.
+const noCode = (id: string, name: string, at: [number, number]): MapFeature => ({
+  id: `${FRS}${id}`,
+  geometry: { type: 'Point', coordinates: at },
+  properties: { type: 'facility', name, industryCode: '', industryName: '' },
+  industries: [],
+});
+
+it('lists a facility with no industry code as unspecified or unknown', async () => {
+  const map = renderMap(<FacilityLayer features={[noCode('110000568840', 'SEBAGO LAKE WATER TREATMENT FACILITY', WILLOW_SPRINGS), jones]} />);
+  openPopupOf(map, WILLOW_SPRINGS, 1);
+
+  expect(await screen.findByText('2 facilities at this point')).toBeTruthy();
+  const entry = screen.getAllByRole('listitem').find((li) => li.textContent?.includes('SEBAGO LAKE'));
+  expect(entry?.textContent).toContain('Unspecified or Unknown');
+});
+
+it('says unspecified or unknown in the hover tooltip of a facility with no code', async () => {
+  const at: [number, number] = [41.8, -87.78];
+  const map = renderMap(<FacilityLayer features={[noCode('110000797317', 'PRATT ABBOTT CLEANERS & LAUNDERERS', at)]} />);
+  map.eachLayer((l) => {
+    if (l instanceof L.Marker && l.getLatLng().equals(at)) l.openTooltip();
+  });
+  expect(await screen.findByText('Unspecified or Unknown')).toBeTruthy();
+});

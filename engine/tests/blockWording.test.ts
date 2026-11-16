@@ -34,3 +34,20 @@ describe('a block with few picks', () => {
     expect(entityFor('streams').describe(block)).toBe(`${STREAM_FTYPES[0].label} streams`);
   });
 });
+
+// With no industry filter the map shows every facility, coded or not; picking
+// every industry ("Select all") shows only facilities with a code. The two
+// read differently, so the question says which (#145).
+describe('facilities and their industry filter', () => {
+  const ROOTS = ['11', '21', '22', '23', '31', '32', '33', '42', '44', '45', '48', '49', '51', '52', '53', '54', '55', '56', '61', '62', '71', '72', '81', '92'];
+  const totals = { industries: ROOTS.length };
+
+  it('reads as bare facilities with no filter', () => {
+    expect(entityFor('facilities').describe({ type: 'facilities' }, totals)).toBe('facilities');
+  });
+
+  it('reads as facilities with an industry code when every industry is picked', () => {
+    const block: EntityBlock = { type: 'facilities', facilityFilters: { industryCodes: ROOTS } };
+    expect(entityFor('facilities').describe(block, totals)).toBe('facilities with an industry code');
+  });
+});

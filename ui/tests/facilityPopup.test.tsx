@@ -32,3 +32,16 @@ it('still shows the one code of a feature shaped before codes were combined', ()
   render(<MapPopupContent feature={old} />);
   expect(screen.getByText('Solid Waste Landfill (NAICS 562212)')).toBeTruthy();
 });
+
+// With no industry filter the map shows facilities with no NAICS code (#145).
+it('says the industry is unspecified or unknown for a facility with no code', () => {
+  const noCode: MapFeature = {
+    id: 'http://w3id.org/fio/v1/epa-frs-data#d.FRS-Facility.110000568840',
+    geometry: { type: 'Point', coordinates: [43.8, -70.5] },
+    properties: { type: 'facility', name: 'SEBAGO LAKE WATER TREATMENT FACILITY', industryCode: '', industryName: '' },
+    industries: [],
+  };
+  render(<MapPopupContent feature={noCode} />);
+  expect(screen.getByText('Industry')).toBeTruthy();
+  expect(screen.getByText('Unspecified or Unknown')).toBeTruthy();
+});

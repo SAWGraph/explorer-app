@@ -18,7 +18,10 @@ const WIRE_VERSION = 'w3'; // w3: results by block (blockA, blockC, decoration);
 // between the browser bundle and the warm-cache script, and an env var that
 // differs between the two would produce silent, permanent cache misses with
 // nothing to see in either place.
-const DATA_VERSION = '2026-11'; // 2026-11: wells region checks the well's subdivision (#96)
+// 2026-11b: facilities with no NAICS code count when there is no industry
+// filter, and a region checks the facility's own region link (#145).
+// 2026-11: wells region checks the well's subdivision (#96).
+const DATA_VERSION = '2026-11b';
 
 // Label maps exist to render chips in the editor. Verified not to reach any
 // query template (`grep -rn "Labels" engine/` finds nothing), so a user

@@ -4,6 +4,7 @@ import type { MapFeature } from '../../../engine/types/map';
 import type { LatLngExpression } from 'leaflet';
 import { PointPopupContent, StackedTooltipNote } from './StackedPopup';
 import { stacksById } from './stackedPoints';
+import { industryNames } from './facilityIndustry';
 import { createSquareIcon } from './layerStyles';
 import { INDUSTRY_COLOR_MAP, INDUSTRY_STROKE_MAP, FACILITY_DEFAULT, FACILITY_STROKE_DEFAULT } from './mapColors';
 
@@ -25,11 +26,6 @@ function getStroke(feature: MapFeature): string {
   return INDUSTRY_STROKE_MAP[getNaicsPrefix(feature)] || FACILITY_STROKE_DEFAULT;
 }
 
-// Every industry the facility came back with, by name.
-function industryNames(feature: MapFeature): string {
-  if (feature.industries?.length) return feature.industries.map((i) => i.name).filter(Boolean).join(', ');
-  return String(feature.properties.industryName || '');
-}
 
 export function FacilityLayer({ features }: FacilityLayerProps) {
   const stacks = useMemo(() => stacksById(features), [features]);
@@ -49,7 +45,7 @@ export function FacilityLayer({ features }: FacilityLayerProps) {
             </Popup>
             <Tooltip>
               <strong>{f.properties.name || 'Facility'}</strong>
-              {industryNames(f) && <div>{industryNames(f)}</div>}
+              <div>{industryNames(f)}</div>
               <StackedTooltipNote stack={stack} />
             </Tooltip>
           </Marker>

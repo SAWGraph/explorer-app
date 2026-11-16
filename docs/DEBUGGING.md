@@ -1303,3 +1303,90 @@ fetch only the picked one's rows). The popup test fails without the fix.
 **Lesson.** Count stacks by exact coordinates before counting what is hidden on
 screen. Overlap at one zoom mixes two problems: close markers, which zooming
 solves, and identical ones, which it never does.
+
+## 2026-11-16: Facilities with no industry code were never shown, and a county let in its neighbours (#145) (FIXED)
+
+**Issue #145.** Two faults on a facilities side, fixed together.
+
+**Symptom 1: most facilities never reached the map.** With no industry filter,
+"facilities in Cumberland County" found 603 facilities. The graph has 2,203
+there with a geometry. The other 1,600 are distinct, labelled EPA FRS
+facilities with no NAICS industry code, not duplicates of coded ones.
+
+| Region (facilities with a geometry in a cell of it, 2026-11-16) | With a code | All |
+|---|---:|---:|
+| Hancock, ME | 121 | 447 |
+| Cumberland, ME | 603 | 2,203 |
+| Cook, IL | 6,845 | 41,150 |
+| Maine | 2,718 | 10,164 |
+| Illinois | 21,731 | 124,340 |
+
+**Root cause 1.** The facilities bind (`bindInCell`, `engine/entities/facilities.ts`)
+always joined `fio:ofIndustry` to a `naics:NAICS-IndustryCode`, filter or not,
+and the details query (`buildFacilitiesByIri`, `engine/templates/hydrate.ts`)
+required the code and its label too. Changing discovery alone would not have
+helped: details would drop the same facilities.
+
+**Symptom 2: a county let in facilities from the next one.** A region on a
+facilities side only checked the S2 cell, and a cell on the county line
+touches both counties: the #96 wells leak and the #144 aquifer leak, for
+facilities.
+
+| Region, every facility with a geometry (2026-11-16) | Cell check (before) | Linked to a region in the region (after) |
+|---|---:|---:|
+| Hancock, ME | 447 | 445 |
+| Cumberland, ME | 2,203 | 2,166 |
+| Cook, IL | 41,150 | 40,299 |
+
+Coded facilities only, 2026-11-10: Cook 7,208 to 7,021, Cumberland 676 to 664,
+Hennepin 3,328 to 3,182.
+
+**Root cause 2.** `regionClause` (`engine/templates/fusedQueries.ts`) only adds
+an entity check for types with a `regionCheck`, and facilities had none.
+
+**Fix.**
+
+- With no industry filter the bind finds every `fio:Facility` with a geometry
+  in the cell, and reads no industry. The geometry is required: without it the
+  count step counted facilities details then dropped (Cumberland 2,595 counted,
+  2,203 drawable). With a filter, including "Select all", the bind and the
+  details query are as before. "Select all" now reads "facilities with an
+  industry code" in the question, since it no longer means the same as an
+  empty dropdown.
+- Details make the industry `OPTIONAL` when there is no filter. A facility with
+  no recognised code shows "Unspecified or Unknown" in the popup, the hover
+  tooltip and the list of facilities on a shared point. A link to a NAICS IRI
+  the graph does not type as `naics:NAICS-IndustryCode` (an older NAICS
+  version such as `NAICS-44711`, mostly with no label, or a bare sector) counts
+  as no code: 144 such facilities in Cumberland.
+- Facilities get a `regionCheck` (`anyRegionLinkCheck`, `engine/entities/types.ts`):
+  the facility links to a region that is the selected one or rolls up to it
+  (`administrativePartOf*`). Not the wells check (`+`): some facilities link to
+  their county and no subdivision (Cook: 126 of the facilities in the county;
+  coded only, 27 in Cook and 2 in Hennepin). A facility with no region link is
+  excluded, as unlinked wells are.
+- The check matches most facilities twice, through their subdivision and their
+  county: a Cook side is 80,145 rows for 40,299 facilities. So a facilities
+  side with a region now fans out and is collapsed to one row per facility and
+  cell before the join (40,299 rows). Measured on Cook, 2026-11-16: the
+  collapsed side 0.6s; a `FILTER EXISTS` form gives one row too but took 7s on
+  every county measured, so it was not used.
+- `DATA_VERSION` bumped to `2026-11b`.
+
+**Cost.** `docs/QUERY-SWEEP.md` Part 12. The dashboard questions hold their
+times; the Cumberland PFHpA question shows 558 facilities where it showed 140,
+and Cook streams drops facilities outside Cook (526 to 495 streams). One shape
+that worked now fails: Illinois facilities near Illinois wells with no filter
+(about 123,000 facilities), at the wells details step after 193s. Not guarded
+here, by decision in #145; it is its own issue.
+
+**Tests.** `engine/tests/facilityRegion.test.ts`: the check on every facilities
+side with a region (near and trace, bounded or not, block A and block C, one
+county, several and a state, with and without a filter, count and probe) and
+on none without one; the side collapsed with the check inside; the no-filter
+bind with no industry and a geometry; details with the industry optional. With
+`LIVE_SPARQL=1` it checks Cumberland 2,166 and Cook 40,299 and loads a
+facility with no code. `ui/tests/facilityPopup.test.tsx` and
+`ui/tests/stackedPopup.test.tsx`: "Unspecified or Unknown" in the popup, the
+list and the tooltip. `engine/tests/blockWording.test.ts`: "Select all"
+wording. `critical.ts`: facilities in Cook near Cook wells, no filter.
