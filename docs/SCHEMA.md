@@ -391,6 +391,18 @@ In all 13 selectable states AR1 is the state, AR2 the county and AR3 the county 
 - **Use:** `?s2cell spatial:connectedTo kwgr:administrativeRegion.USA.{FIPS}`
 - **Endpoint:** `spatialkg`
 
+### S2 → Aquifer (groundwater-connected)
+- **Use:** `?s2cell spatial:connectedTo ?aquifer . ?aquifer rdf:type gwml2:GW_Aquifer`
+- **Endpoint:** `federation`
+- No sample point, well or facility links to an aquifer directly. Two entities
+  are groundwater-connected when their own cells connect to the same
+  `GW_Aquifer` (`GLOSSARY.md`). Sharing a `gwml2:gwAquiferSystemPart` is not
+  enough.
+- Every aquifer has a polygon at `geo:hasGeometry/geo:asWKT` (all 8,441;
+  average 7.3 KB in Maine, 6.0 KB in Illinois, largest 1.0 MB).
+- 13 aquifers cover more than 1,000 cells, all in Illinois (largest
+  `ISGS-Aquifer.BR0001`, 69,292 cells). No Maine aquifer covers more than 103.
+
 ### Observation → Sample → Feature
 - **Use:** `?obs coso:analyzedSample ?sample . ?sample coso:fromSamplePoint ?point`
 - **Endpoint:** `sawgraph`

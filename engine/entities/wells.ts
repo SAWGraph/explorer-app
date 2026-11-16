@@ -9,6 +9,8 @@ const iriVar = (suffix: string): string => `?well${suffix}`;
 export const wells: EntityModule = {
   type: 'wells',
   label: LABEL,
+  singular: 'well',
+  isPoint: true,
   isFlowline: false,
   // Wells re-derive their set server-side (buildFusedWellQuery): a statewide
   // set runs to 80k+ IRIs, and inlining them made the request too big (413).

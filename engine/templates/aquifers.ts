@@ -10,9 +10,10 @@ export const AQUIFER_TYPE_VALUES: Record<string, string[]> = {
   bedrock: ['bedrock'],
 };
 
-// Aquifers have no geometry — they're only S2-cell collections — so this
-// hydrate returns id + type for a results list, not map rendering. No ?s2cell
-// join: a single aquifer touches up to ~69K cells.
+// Returns id + type for a results list, not map rendering. Aquifers do have a
+// polygon (geo:hasGeometry/geo:asWKT, all 8,441 of them); the
+// groundwater-connected link step reads it (buildLinkAquifersQuery), and this
+// step could too. No ?s2cell join: a single aquifer touches up to ~69K cells.
 export function buildAquifersByIri(aquiferIris: string[]): string {
   const vals = aquiferIris.map(wrapUri).join(' ');
   return `

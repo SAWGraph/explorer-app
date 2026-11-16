@@ -13,9 +13,11 @@ interface EntityBlockProps {
   label: React.ReactNode;
   value: EntityBlockType;
   onChange: (block: EntityBlockType) => void;
+  // The relationship is groundwater-connected: only point types can be picked.
+  pointTypesOnly?: boolean;
 }
 
-export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
+export function EntityBlock({ label, value, onChange, pointTypesOnly }: EntityBlockProps) {
   const [showRegion, setShowRegion] = useState(!!value.region?.stateCode);
   const [showFilters, setShowFilters] = useState(
     !!(
@@ -46,6 +48,7 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
         value={value.type}
         onChange={handleTypeChange}
         stateCode={value.region?.stateCode}
+        pointTypesOnly={pointTypesOnly}
       />
 
       {/* Not behind "+ Add Filters": Feature Type decides what gets queried. */}

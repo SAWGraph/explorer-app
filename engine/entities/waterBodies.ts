@@ -8,6 +8,8 @@ const LABEL = 'surface water bodies';
 export const waterBodies: EntityModule = {
   type: 'waterBodies',
   label: LABEL,
+  singular: 'surface water body',
+  isPoint: false,
   isFlowline: false,
   details: {
     kind: 'by-iri',

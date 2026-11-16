@@ -54,6 +54,14 @@ export const LAYER_REGISTRY: LayerConfig[] = [
       '<svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,2"/></svg>',
   },
   {
+    // Only on a groundwater-connected result: the aquifers that link its sides.
+    key: 'linkAquifers',
+    label: 'Linking Aquifers',
+    defaultVisible: true,
+    legendSvg:
+      '<svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1" fill="#74a9cf" fill-opacity="0.25" stroke="#1b6d9e" stroke-width="2"/></svg>',
+  },
+  {
     key: 'aquiferBoundaries',
     label: 'Aquifers (extent)',
     defaultVisible: false,

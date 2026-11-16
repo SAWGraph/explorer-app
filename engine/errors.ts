@@ -282,6 +282,19 @@ export function partialNotice(result: PipelineResult | null | undefined, questio
     .join(' ');
 }
 
+// A groundwater-connected run does not link through a regional aquifer
+// (GLOSSARY.md; REGIONAL_AQUIFER_CELLS in templates/fusedQueries.ts), so say
+// when it left one out: otherwise the answer reads as though nothing else sits
+// on the same groundwater. Null on every other run, and when none were left out.
+export function regionalAquiferNote(result: PipelineResult | null | undefined): string | null {
+  if (result?.status !== 'success') return null;
+  const n = result.decoration.skippedAquifers?.length ?? 0;
+  if (n === 0) return null;
+  return n === 1
+    ? 'Not linked through 1 regional aquifer (over about 1,000 km²): nearly everything in the state sits on it.'
+    : `Not linked through ${n} regional aquifers (each over about 1,000 km²): nearly everything in the state sits on them.`;
+}
+
 // Slice labels are county names ("York County, Maine") or entity batches
 // ("facilities batch 3"). Three is enough to be actionable; a list of twelve
 // counties is a wall of text nobody reads.

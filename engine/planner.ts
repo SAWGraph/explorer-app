@@ -8,21 +8,30 @@ import {
   buildFusedFlowlineQuery,
   buildFusedWellQuery,
   buildEntityCountQuery,
+  buildFusedGroundwaterQuery,
+  buildLinkAquifersQuery,
+  buildSkippedAquifersQuery,
 } from './templates/fusedQueries';
 import { buildRegionBoundaryQuery } from './templates/spatial';
 import type { SparqlRunner } from './endpoint';
-import { normalise, type QuestionKind } from './question';
+import { GROUNDWATER_TYPES, normalise, type QuestionKind } from './question';
 import { divideDiscovery, divideIriList, irisFor, iriScopes, scopedRegions, type Scope } from './slicing';
 
-// Reads the way the user chose it: these are the three labels in
-// RELATIONSHIP_TYPES (ui/components/QueryEditor/RelationshipSelector.tsx).
-// 'within' is in the type union but is never offered and never planned for.
+// Reads the way the user chose it: these are the labels in RELATIONSHIP_TYPES
+// (ui/components/QueryEditor/RelationshipSelector.tsx). 'within' is in the type
+// union but is never offered and never planned for.
 const RELATIONSHIP_PREPOSITION: Record<AnalysisQuestion['relationship']['type'], string> = {
   near: 'near',
   downstream: 'downstream of',
   upstream: 'upstream from',
   within: 'within',
+  groundwaterConnected: 'groundwater-connected to',
 };
+
+// "samples, facilities and wells".
+function listOf(words: string[]): string {
+  return words.length > 1 ? `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}` : words.join('');
+}
 
 export type PipelineStepType =
   | 'COUNT_TARGET'
@@ -33,6 +42,8 @@ export type PipelineStepType =
   | 'HYDRATE_ANCHOR_BY_IRI'
   | 'GET_SAMPLE_DETAILS'
   | 'GET_FLOWLINE_GEOMETRIES'
+  | 'GET_LINK_AQUIFERS'
+  | 'GET_SKIPPED_AQUIFERS'
   | 'GET_REGION_BOUNDARIES';
 
 export interface PipelineStep {
@@ -171,6 +182,19 @@ function buildFusedSteps(question: AnalysisQuestion, { countSides = true }: Plan
   const { relationship, anchor: anchorBlock, target: targetBlock } = oriented;
   const { anchorRegion, targetRegion } = oriented;
 
+  // The editor offers groundwater-connected only between point types; a
+  // question built some other way (a hand-edited link) is refused here rather
+  // than answered through a surface feature or an aquifer block.
+  if (oriented.kind === 'groundwater') {
+    for (const block of [blockA, blockC]) {
+      if (!GROUNDWATER_TYPES.includes(block.type)) {
+        throw new Error(
+          `Groundwater-connected links ${listOf(GROUNDWATER_TYPES.map((t) => entityFor(t).label))} only, not ${entityFor(block.type).label}`,
+        );
+      }
+    }
+  }
+
   const steps: PipelineStep[] = [];
 
   const buildIriQuery = (project: 'target' | 'anchor', scope?: Scope): string => {
@@ -184,6 +208,9 @@ function buildFusedSteps(question: AnalysisQuestion, { countSides = true }: Plan
     };
     if (oriented.kind === 'near') {
       return buildFusedNearQuery({ ...shared, hops: relationship.hops ?? 1 });
+    }
+    if (oriented.kind === 'groundwater') {
+      return buildFusedGroundwaterQuery(shared);
     }
     return buildFusedHydrologyQuery({
       ...shared,
@@ -294,6 +321,32 @@ function buildFusedSteps(question: AnalysisQuestion, { countSides = true }: Plan
       // Stream geometry is map decoration — losing a slice of it should not
       // discard the samples and facilities the run already found.
       optional: true,
+    });
+  }
+
+  // The aquifers that link the two sides, drawn as context, and the regional
+  // ones left out, for the note that says so. Both re-derive the join (no IRI
+  // list sent) and run alongside the details once discovery has an answer.
+  // Measured on the dashboard question (2026-11-16): 1.5s for 6 aquifers and
+  // 70 KB, 1.3s for the regional check.
+  if (oriented.kind === 'groundwater') {
+    const sides = { anchor: anchorBlock, target: targetBlock, anchorRegion, targetRegion };
+    steps.push({
+      type: 'GET_LINK_AQUIFERS',
+      endpoint: 'federation',
+      description: 'Loading the aquifers that link them',
+      after: ['FIND_ANCHOR_IRIS'],
+      buildQuery: () => buildLinkAquifersQuery({ ...sides, targetIs: oriented.targetIs }),
+      optional: true,
+    });
+    steps.push({
+      type: 'GET_SKIPPED_AQUIFERS',
+      endpoint: 'federation',
+      description: 'Checking for regional aquifers',
+      after: ['FIND_ANCHOR_IRIS'],
+      buildQuery: () => buildSkippedAquifersQuery(sides),
+      // Only a note: a failure drops it and the answer stands.
+      advisory: true,
     });
   }
 

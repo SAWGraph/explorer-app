@@ -25,6 +25,8 @@ function aquiferTypeFilter(filters: AquiferFilters | undefined, suffix: string):
 export const aquifers: EntityModule = {
   type: 'aquifers',
   label: LABEL,
+  singular: 'aquifer',
+  isPoint: false,
   isFlowline: false,
   details: {
     kind: 'by-iri',

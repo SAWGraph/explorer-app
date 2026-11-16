@@ -15,6 +15,7 @@ function blockLabel(suffix: 'A' | 'C') {
 
 export function QueryEditorContent() {
   const { question, setBlockA, setBlockC, setRelationship } = useQueryStore();
+  const pointTypesOnly = question.relationship.type === 'groundwaterConnected';
 
   return (
     <div className="query-editor">
@@ -24,14 +25,20 @@ export function QueryEditorContent() {
         label={blockLabel('A')}
         value={question.blockA}
         onChange={setBlockA}
+        pointTypesOnly={pointTypesOnly}
       />
 
-      <RelationshipSelector value={question.relationship} onChange={setRelationship} />
+      <RelationshipSelector
+        value={question.relationship}
+        onChange={setRelationship}
+        blockTypes={[question.blockA.type, question.blockC.type]}
+      />
 
       <EntityBlock
         label={blockLabel('C')}
         value={question.blockC}
         onChange={setBlockC}
+        pointTypesOnly={pointTypesOnly}
       />
     </div>
   );

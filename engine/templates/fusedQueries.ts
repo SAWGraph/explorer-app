@@ -103,8 +103,12 @@ function neighborPath(hops: number, fromVar: string, toVar: string): string {
 
 interface FusedBodyOpts extends FusedBaseOpts {
   // A trace always runs downstream from the anchor (engine/question.ts), so a
-  // trace needs no direction.
-  mode: 'near' | 'downstream';
+  // trace needs no direction. 'groundwater' joins the sides through an aquifer.
+  mode: 'near' | 'downstream' | 'groundwater';
+  // Groundwater only: which aquifers may link the sides. 'skip' leaves out the
+  // regional aquifers (the answer); 'only' keeps nothing else (the note saying
+  // how many were left out).
+  regional?: 'skip' | 'only';
   hops?: number;
   // Chunk pins (engine/slicing.ts). Restricting one side to a known slice of
   // IRIs is what makes a too-large query fit inside the engine's 30s budget.
@@ -214,6 +218,59 @@ function collapsedSide(block: EntityBlock, suffix: string, s2Var: string, lines:
       } }`;
 }
 
+// An aquifer over this many S2 cells (about 1,000 km²) is regional: a
+// groundwater-connected question does not link through it (GLOSSARY.md). All 13
+// such aquifers are in Illinois; no Maine aquifer covers more than 103 cells.
+// The largest, BR0001, lies under about half the state, and one sample on it
+// linked 240,038 of Illinois's 379,496 wells.
+//
+// Counted in the query rather than listed: on 2026-11-16 the count cost nothing
+// measurable against a list of the 13 (Kennebec 2.5s vs 2.7s, Illinois 12.2s vs
+// 11.0s, same rows), and it needs no upkeep when the aquifer data is reloaded.
+export const REGIONAL_AQUIFER_CELLS = 1000;
+
+// The variable the linking aquifer binds to in a groundwater-connected query.
+const LINK_AQUIFER = '?_linkAquifer';
+
+// Groundwater-connected: each side's own cell holds part of one aquifer, the
+// same test on both sides (no one-ring widening on either), so swapping the
+// blocks cannot change the answer. The constrained side is written first, as
+// for traces: QLever follows the query text at this size. A question with the
+// same type on both sides drops the pairs of an entity with itself.
+function groundwaterBody(
+  opts: FusedBodyOpts,
+  sides: { anchorSide: string; targetSide: string; anchorPin: string; targetPin: string },
+): string {
+  // The aquifers allowed to link: those at or under the size limit, or (for
+  // the note) only those over it.
+  const size = opts.regional === 'only' ? `> ${REGIONAL_AQUIFER_CELLS}` : `<= ${REGIONAL_AQUIFER_CELLS}`;
+  // Cells only: county subdivisions connect to aquifers too (16,872 links,
+  // 2026-11-16), and would count towards the size.
+  const cap = `\n      { SELECT ${LINK_AQUIFER} WHERE {
+          ?_aquiferCell spatial:connectedTo ${LINK_AQUIFER} ;
+            rdf:type kwg-ont:S2Cell_Level13 .
+          ${LINK_AQUIFER} rdf:type gwml2:GW_Aquifer .
+        } GROUP BY ${LINK_AQUIFER} HAVING (COUNT(?_aquiferCell) ${size}) }`;
+  const link = (s2Var: string) => `${s2Var} spatial:connectedTo ${LINK_AQUIFER} .
+      ${LINK_AQUIFER} rdf:type gwml2:GW_Aquifer .${cap}`;
+  const join = (s2Var: string) => `${s2Var} spatial:connectedTo ${LINK_AQUIFER} .`;
+  const sameType = opts.anchor.type === opts.target.type;
+  const self = sameType ? `\n      FILTER(${iriVarOf(opts.anchor, 'A')} != ${iriVarOf(opts.target, 'C')})` : '';
+
+  const lead = leadSide(
+    { block: opts.anchor, region: opts.anchorRegion, pins: opts.anchorIris },
+    { block: opts.target, region: opts.targetRegion, pins: opts.targetIris },
+  );
+  const [first, firstCell, second, secondCell] =
+    lead === 'target'
+      ? [sides.targetSide, '?s2target', sides.anchorSide, '?s2anchor']
+      : [sides.anchorSide, '?s2anchor', sides.targetSide, '?s2target'];
+  return `${sides.anchorPin}${sides.targetPin}${first}
+      ${link(firstCell)}
+      ${join(secondCell)}
+      ${second}${self}`;
+}
+
 function buildFusedWhereBody(opts: FusedBodyOpts): string {
   const aRegion = regionClause(opts.anchor, opts.anchorRegion, '?s2anchor', 'A');
   const tRegion = regionClause(opts.target, opts.targetRegion, '?s2target', 'C');
@@ -235,6 +292,10 @@ function buildFusedWhereBody(opts: FusedBodyOpts): string {
   const targetPin = targetCollapsed ? '' : targetPinLines;
   const anchorSide = anchorCollapsed ?? anchorCell;
   const targetSide = targetCollapsed ?? targetCell;
+
+  if (opts.mode === 'groundwater') {
+    return groundwaterBody(opts, { anchorSide, targetSide, anchorPin, targetPin });
+  }
 
   if (opts.mode === 'near') {
     const hopPath = neighborPath(opts.hops ?? 1, '?s2anchor', '?s2target');
@@ -399,6 +460,68 @@ export function buildFusedHydrologyQuery(opts: FusedHydrologyOpts): string {
   `;
 }
 
+export interface FusedGroundwaterOpts extends FusedBaseOpts {
+  project: 'anchor' | 'target';
+  anchorIris?: string[];
+  targetIris?: string[];
+}
+
+// Server-side groundwater-connected query: the entities of one side that sit
+// on an aquifer an entity of the other side also sits on.
+export function buildFusedGroundwaterQuery(opts: FusedGroundwaterOpts): string {
+  const body = buildFusedWhereBody({ ...opts, mode: 'groundwater', regional: 'skip' });
+  const projectVar = opts.project === 'anchor' ? iriVarOf(opts.anchor, 'A') : iriVarOf(opts.target, 'C');
+  return `
+    ${PREFIXES}
+    SELECT DISTINCT (${projectVar} AS ?iri) WHERE {
+      ${body}
+    }
+  `;
+}
+
+export interface LinkAquiferOpts extends FusedBaseOpts {
+  // The block each side is, so each count is named for its block.
+  targetIs: 'A' | 'C';
+}
+
+// The aquifers that link the two sides of a groundwater-connected question,
+// with how many entities of each block sit on each, and its outline. The map
+// draws them as context: they are not a side and not in the totals. Re-derived
+// like the wells step (no IRI list sent), since a statewide well side is too
+// big to inline. A polygon averages 6 to 7 KB; the 6 of the dashboard question
+// came to 67 KB (measured 2026-11-13).
+export function buildLinkAquifersQuery(opts: LinkAquiferOpts): string {
+  const body = buildFusedWhereBody({ ...opts, mode: 'groundwater', regional: 'skip' });
+  const anchorIs = opts.targetIs === 'A' ? 'C' : 'A';
+  return `
+    ${PREFIXES}
+    SELECT ?aquifer ?aquiferType ?aquiferWKT ?count${anchorIs} ?count${opts.targetIs} WHERE {
+      {
+        SELECT (${LINK_AQUIFER} AS ?aquifer)
+          (COUNT(DISTINCT ${iriVarOf(opts.anchor, 'A')}) AS ?count${anchorIs})
+          (COUNT(DISTINCT ${iriVarOf(opts.target, 'C')}) AS ?count${opts.targetIs})
+        WHERE {
+      ${body}
+        } GROUP BY ${LINK_AQUIFER}
+      }
+      ?aquifer geo:hasGeometry/geo:asWKT ?aquiferWKT .
+      OPTIONAL { ?aquifer saw_water:aquiferType ?aquiferType . }
+    }
+  `;
+}
+
+// The regional aquifers the question would have linked through, had they not
+// been left out, for the note that says so.
+export function buildSkippedAquifersQuery(opts: FusedBaseOpts): string {
+  const body = buildFusedWhereBody({ ...opts, mode: 'groundwater', regional: 'only' });
+  return `
+    ${PREFIXES}
+    SELECT DISTINCT (${LINK_AQUIFER} AS ?aquifer) WHERE {
+      ${body}
+    }
+  `;
+}
+
 // buildFusedSampleAggregateQuery / buildFusedSampleDetailsQuery lived here. They
 // re-derived the whole spatial trace inside the hydrate query to avoid inlining
 // long IRI lists, and that re-derivation is what timed out (429) on every
@@ -435,7 +558,8 @@ export function buildFusedWellQuery(opts: FusedWellSideOpts): string {
     target: opts.target,
     anchorRegion: opts.anchorRegion,
     targetRegion: opts.targetRegion,
-    mode: opts.kind === 'near' ? 'near' : 'downstream',
+    mode: opts.kind === 'near' ? 'near' : opts.kind === 'groundwater' ? 'groundwater' : 'downstream',
+    regional: 'skip',
     hops: opts.hops,
     maxDistanceKm: opts.maxDistanceKm,
   });

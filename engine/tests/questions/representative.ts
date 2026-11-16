@@ -357,4 +357,48 @@ export const REPRESENTATIVE: NamedQuestion[] = [
       blockC: { type: 'facilities' },
     },
   },
+
+  // Groundwater-connected, point types only. Each point type once on each
+  // side, a filtered samples side (it fans out, so it is collapsed), and a
+  // same-type pair (the only shape with the self filter).
+  {
+    name: 'wells groundwaterConnected samples [region on C]',
+    question: {
+      blockA: { type: 'wells' },
+      relationship: { type: 'groundwaterConnected' },
+      blockC: {
+        type: 'samples',
+        region: { stateCode: '23', countyCodes: ['23011'] },
+        sampleFilters: {
+          substances: ['http://w3id.org/DSSTox/v1/DTXSID8031865'],
+          minConcentration: 100,
+          includeNondetects: false,
+        },
+      },
+    },
+  },
+  {
+    name: 'facilities groundwaterConnected wells',
+    question: {
+      blockA: { type: 'facilities', region: ME },
+      relationship: { type: 'groundwaterConnected' },
+      blockC: { type: 'wells' },
+    },
+  },
+  {
+    name: 'samples groundwaterConnected facilities',
+    question: {
+      blockA: { type: 'samples', region: ME },
+      relationship: { type: 'groundwaterConnected' },
+      blockC: { type: 'facilities' },
+    },
+  },
+  {
+    name: 'wells groundwaterConnected wells',
+    question: {
+      blockA: { type: 'wells', region: ME },
+      relationship: { type: 'groundwaterConnected' },
+      blockC: { type: 'wells', region: { stateCode: '23', countyCodes: ['23011'] } },
+    },
+  },
 ];

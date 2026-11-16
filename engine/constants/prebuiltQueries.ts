@@ -114,6 +114,34 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
     },
   },
   {
+    // The notebook question of #121 (UC1_CQ3b,5), with Groundwater material in
+    // place of the notebook's PWSW point type (plan decision 6). The wells have
+    // no region: Maine aquifers lie only in Maine, so the link cannot reach
+    // other wells, and a state region would add a region join for nothing.
+    id: 'wells-groundwater-connected-pfoa-kennebec',
+    title: 'Wells Groundwater-Connected to PFOA Groundwater Contamination in Kennebec County',
+    description:
+      'Find the wells that sit on the same aquifer as groundwater samples with PFOA over 100 ng/L in Kennebec County, Maine.',
+    tags: ['Wells', 'Samples', 'Groundwater-connected', 'PFOA', 'Groundwater', 'Kennebec'],
+    question: {
+      blockA: { type: 'wells' },
+      relationship: { type: 'groundwaterConnected' },
+      blockC: {
+        type: 'samples',
+        region: { stateCode: '23', countyCodes: ['23011'], countyLabels: { '23011': 'Kennebec County, Maine' } },
+        sampleFilters: {
+          substances: ['http://w3id.org/DSSTox/v1/DTXSID8031865'],
+          substanceLabels: { 'http://w3id.org/DSSTox/v1/DTXSID8031865': 'PFOA' },
+          materialTypes: ['http://w3id.org/sawgraph/v1/me-egad#sampleMaterialType.GW'],
+          materialTypeLabels: { 'http://w3id.org/sawgraph/v1/me-egad#sampleMaterialType.GW': 'Groundwater (GW)' },
+          minConcentration: 100,
+          // Non-detects pass any concentration filter unless left out.
+          includeNondetects: false,
+        },
+      },
+    },
+  },
+  {
     id: 'samples-near-agchem-maine',
     title: 'Samples Near Agricultural Chemical Facilities in Maine',
     description:

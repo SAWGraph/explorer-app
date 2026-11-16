@@ -45,12 +45,17 @@ const SAME: [string, AnalysisQuestion, AnalysisQuestion][] = [
   // An unbounded trace keeps the key it had before maxDistanceKm existed, so
   // entries cached earlier stay reachable.
   ['unbounded trace key is unchanged', q({ rel: { type: 'downstream' } }), q({ rel: { type: 'downstream', hops: 3 } })],
+  ['stale hops on groundwater-connected', q({ rel: { type: 'groundwaterConnected', hops: 2 } }), q({ rel: { type: 'groundwaterConnected' } })],
 ];
 
 // Different questions: must not collide.
 const DIFFERENT: [string, AnalysisQuestion, AnalysisQuestion][] = [
   ['hops on near', q({ rel: { type: 'near', hops: 1 } }), q({ rel: { type: 'near', hops: 3 } })],
   ['near vs downstream', q({ rel: { type: 'near', hops: 1 } }), q({ rel: { type: 'downstream' } })],
+  // Both keep anchor = block C and need no direction, so only the type tells
+  // a groundwater-connected question from a near one.
+  ['near vs groundwater-connected', q({ rel: { type: 'near', hops: 1 } }), q({ rel: { type: 'groundwaterConnected' } })],
+  ['downstream vs groundwater-connected', q({ rel: { type: 'downstream' } }), q({ rel: { type: 'groundwaterConnected' } })],
   ['state', q(), q({ a: { region: { stateCode: '17' } } })],
   [
     'industry filter',

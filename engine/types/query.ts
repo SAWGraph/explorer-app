@@ -70,7 +70,8 @@ export interface AquiferFilters {
 }
 
 export interface SpatialRelationship {
-  type: 'near' | 'downstream' | 'upstream' | 'within';
+  // groundwaterConnected: both sides sit on the same aquifer (GLOSSARY.md).
+  type: 'near' | 'downstream' | 'upstream' | 'within' | 'groundwaterConnected';
   hops?: number;
   // Cumulative flowpath length cutoff (km) for downstream/upstream traces.
   // Undefined = unbounded transitive closure, the original behavior.

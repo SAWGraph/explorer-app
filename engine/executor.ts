@@ -38,9 +38,14 @@ export interface SideCounts {
 
 // What a run draws around the answer: county outlines and the river network
 // between the two sides. Empty when not asked for (no region, a near question).
+// A groundwater-connected run adds the aquifers that link the sides, and the
+// regional aquifers it left out (absent on every other run, and on results
+// stored before WIRE_VERSION w4).
 export interface Decoration {
   boundaries: SparqlRow[];
   streamLines: SparqlRow[];
+  linkAquifers?: SparqlRow[];
+  skippedAquifers?: SparqlRow[];
 }
 
 // A run answers by block (plan decision 15): the rows the details step loaded
@@ -470,6 +475,12 @@ export async function executePipeline(
     decoration: {
       boundaries: context.results['GET_REGION_BOUNDARIES'] ?? [],
       streamLines: context.results['GET_FLOWLINE_GEOMETRIES'] ?? [],
+      ...(planned.has('GET_LINK_AQUIFERS')
+        ? {
+            linkAquifers: context.results['GET_LINK_AQUIFERS'] ?? [],
+            skippedAquifers: context.results['GET_SKIPPED_AQUIFERS'] ?? [],
+          }
+        : {}),
     },
     ...(partial.length > 0 ? { partial } : {}),
     queries,

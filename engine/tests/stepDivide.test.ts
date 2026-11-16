@@ -18,15 +18,13 @@ import { it } from 'vitest';
 import { planPipeline, type PipelineContext } from '../planner';
 import type { SparqlRunner } from '../endpoint';
 import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../types/query';
+import { ENTITY_TYPES, RELATIONSHIPS, SHAPE_COUNT, offered } from './support/shapes';
 
 // Dividing must not need the graph here; a probe would fail the test.
 const noNetwork: SparqlRunner = async (endpoint) => {
   throw new Error(`unexpected request to ${endpoint}`);
 };
 
-const ENTITY_TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers', 'streams'];
-// 'within' is in the type union but is never selectable and never planned for.
-const RELATIONSHIPS: SpatialRelationship['type'][] = ['near', 'downstream', 'upstream'];
 
 const question = (a: EntityType, rel: SpatialRelationship['type'], c: EntityType): AnalysisQuestion =>
   ({
@@ -41,6 +39,7 @@ it('every divisible step builds a different query for each slice', async () => {
   for (const a of ENTITY_TYPES) {
     for (const c of ENTITY_TYPES) {
       for (const rel of RELATIONSHIPS) {
+        if (!offered(a, rel, c)) continue;
         shapes++;
         const q = question(a, rel, c);
         const ctx: PipelineContext = {
@@ -68,7 +67,7 @@ it('every divisible step builds a different query for each slice', async () => {
       }
     }
   }
-  assert.equal(shapes, 108);
+  assert.equal(shapes, SHAPE_COUNT);
   // Every shape has two discovery steps and at least one by-IRI step to divide.
-  assert.ok(divisions >= 108 * 3, `only ${divisions} divisions checked`);
+  assert.ok(divisions >= SHAPE_COUNT * 3, `only ${divisions} divisions checked`);
 });

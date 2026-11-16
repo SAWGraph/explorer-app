@@ -16,6 +16,18 @@ _Avoid_: same-rank, even
 An entity's direct tie to the county subdivision it sits in (a town, a township, or a census county division where a state has neither), through which it belongs to a county and a state. A point (a well) has one. A polygon (an aquifer) has one for every subdivision it lies within, overlaps or contains, and is in a region when any of them is.
 _Avoid_: AR3 integration, county link
 
+**Groundwater-connected**:
+A relationship between two entities that sit on the same aquifer, so water in one can reach the other through the ground. An entity sits on an aquifer when it lies over it or within about 1 km of its edge, and the same test applies to both sides. The aquifer links them but is not one of the question's two sides.
+_Avoid_: aquifer-connected, shares an aquifer, via aquifer
+
+**Aquifer system**:
+A group of aquifers that the source data counts as one unit. Two entities on different aquifers of the same system are not groundwater-connected.
+_Avoid_: aquifer (for the group)
+
+**Regional aquifer**:
+An aquifer that covers more than about 1,000 km², such as a bedrock aquifer under half of a state. Groundwater-connected does not link through one, because nearly everything in the state sits on it.
+_Avoid_: big aquifer, large aquifer
+
 **Cold run**:
 A timed run of a query in which the server computed the expensive work fresh instead of reading it from its cache. Small shared parts (all flowlines, all cells of a state) may still come from the cache, as they do for a user's first run of a question.
 _Avoid_: uncached run, clean run

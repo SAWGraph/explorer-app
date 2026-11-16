@@ -9,6 +9,8 @@
   What samples in Indiana are downstream of Waste Treatment and Disposal facilities?
 ## PREBUILT: facilities-upstream-streams-cook
   What Chemical Manufacturing, Plastics and Rubber Products Manufacturing facilities in Cook County, Illinois are within 50 km upstream from streams?
+## PREBUILT: wells-groundwater-connected-pfoa-kennebec
+  What wells are groundwater-connected to PFOA Groundwater (GW) samples (above 100 ng/L, detections only) in Kennebec County, Maine?
 ## PREBUILT: samples-near-agchem-maine
   What samples in Maine are within at most 2 miles of Pesticide, Fertilizer, and Other Agricultural Chemical Manufacturing facilities?
 ## PREBUILT: waterbodies-near-landfill-dod-penobscot-knox
@@ -87,6 +89,14 @@
   What samples in Maine are within at most 1 mile of facilities?
 ## REPRESENTATIVE: near hops=2
   What samples in Maine are within at most 3 miles of facilities?
+## REPRESENTATIVE: wells groundwaterConnected samples [region on C]
+  What wells are groundwater-connected to DTXSID8031865 samples (above 100 ng/L, detections only) in Maine?
+## REPRESENTATIVE: facilities groundwaterConnected wells
+  What facilities in Maine are groundwater-connected to wells?
+## REPRESENTATIVE: samples groundwaterConnected facilities
+  What samples in Maine are groundwater-connected to facilities?
+## REPRESENTATIVE: wells groundwaterConnected wells
+  What wells in Maine are groundwater-connected to wells in Maine?
 ## CRITICAL: facilities upstream from streams
   What facilities in Maine are upstream from streams?
 ## CRITICAL: facilities upstream from PFOS samples in York and Cumberland, facilities left empty

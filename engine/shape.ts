@@ -1,4 +1,6 @@
 import type { SparqlRow } from './types/sparql';
+import type { EntityType } from './types/query';
+import { entityFor } from './entities';
 import type { Industry, LatLon, MapFeature, SamplePointDetail, SampleRecord, SampleObservation } from './types/map';
 import { substanceLabel } from './constants/substances';
 
@@ -235,6 +237,45 @@ export function transformRegionBoundaries(rows: SparqlRow[]): MapFeature[] {
     }
   }
 
+  return features;
+}
+
+function counted(n: number, type: EntityType): string {
+  const entity = entityFor(type);
+  return `${n} ${n === 1 ? entity.singular : entity.label}`;
+}
+
+// The aquifers that link the two sides of a groundwater-connected question
+// (#121), drawn as context. Each says how many entities of each block sit on
+// it, block C first ("Links 13 samples ↔ 16 wells"): the count columns are
+// named for their block (buildLinkAquifersQuery), so the labels cannot swap.
+export function transformLinkAquifersToFeatures(
+  rows: SparqlRow[],
+  blocks: { a: EntityType; c: EntityType },
+): MapFeature[] {
+  const features: MapFeature[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (!row.aquiferWKT || seen.has(row.aquifer)) continue;
+    seen.add(row.aquifer);
+    const props = {
+      type: 'linkAquifer',
+      // The IRI's local name, "MGS-Aquifer.06489" from ...me_mgs_data#d.MGS-Aquifer.06489:
+      // aquifers have no label in the graph.
+      name: (row.aquifer.split(/[/#]/).pop() || row.aquifer).replace(/^d\./, ''),
+      aquiferType: row.aquiferType || '',
+      links: `Links ${counted(Number(row.countC) || 0, blocks.c)} ↔ ${counted(Number(row.countA) || 0, blocks.a)}`,
+    };
+    const polygon = parseWKTPolygon(row.aquiferWKT);
+    if (polygon) {
+      features.push({ id: row.aquifer, geometry: { type: 'Polygon', coordinates: polygon }, properties: props });
+      continue;
+    }
+    const multi = parseWKTMultiPolygon(row.aquiferWKT);
+    multi?.forEach((coordinates, i) => {
+      features.push({ id: `${row.aquifer}_${i}`, geometry: { type: 'Polygon', coordinates }, properties: props });
+    });
+  }
   return features;
 }
 

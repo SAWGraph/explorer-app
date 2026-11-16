@@ -406,6 +406,30 @@ export function MapPopupContent({ feature, isOpen = true }: MapPopupProps) {
     );
   }
 
+  if (props.type === 'linkAquifer') {
+    return (
+      <div className="map-popup">
+        <table className="popup-table">
+          <tbody>
+            <tr>
+              <td className="popup-label">Aquifer</td>
+              <td>{props.name || 'Aquifer'}</td>
+            </tr>
+            {props.aquiferType && (
+              <tr>
+                <td className="popup-label">Type</td>
+                <td>{props.aquiferType}</td>
+              </tr>
+            )}
+            <tr>
+              <td colSpan={2}>{props.links}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   if (props.type === 'regionBoundary') {
     return (
       <div className="map-popup">

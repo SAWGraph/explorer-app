@@ -8,7 +8,9 @@ import {
   transformWellsToFeatures,
   transformFlowlinesToFeatures,
   transformRegionBoundaries,
+  transformLinkAquifersToFeatures,
 } from '../../engine/shape';
+import type { AnalysisQuestion } from '../../engine/types/query';
 
 export interface MapLayerData {
   samples: MapFeature[];
@@ -17,12 +19,16 @@ export interface MapLayerData {
   wells: MapFeature[];
   streams: MapFeature[];
   regionBoundaries: MapFeature[];
+  // The aquifers that link the two sides of a groundwater-connected result.
+  linkAquifers: MapFeature[];
   // KG IRIs of aquifers matched by the current query (empty when the query has
   // no aquifer side). Used to scope the aquifer overlay to near-sample aquifers.
   matchedAquiferIris: string[];
 }
 
-export function useMapLayers(result: PipelineResult | null): MapLayerData {
+// The question names the blocks the link aquifer popups count ("Links 13
+// samples ↔ 16 wells").
+export function useMapLayers(result: PipelineResult | null, question: AnalysisQuestion): MapLayerData {
   return useMemo(() => {
     const empty: MapLayerData = {
       samples: [],
@@ -31,6 +37,7 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       wells: [],
       streams: [],
       regionBoundaries: [],
+      linkAquifers: [],
       matchedAquiferIris: [],
     };
 
@@ -68,7 +75,11 @@ export function useMapLayers(result: PipelineResult | null): MapLayerData {
       wells: transformWellsToFeatures(wellRows),
       streams: transformFlowlinesToFeatures([...streamRows, ...flowlineRows]),
       regionBoundaries: transformRegionBoundaries(boundaryRows),
+      linkAquifers:
+        result.decoration.linkAquifers?.length
+          ? transformLinkAquifersToFeatures(result.decoration.linkAquifers, { a: question.blockA.type, c: question.blockC.type })
+          : [],
       matchedAquiferIris,
     };
-  }, [result]);
+  }, [result, question]);
 }

@@ -69,7 +69,12 @@ SELECT ?p ?o WHERE {
 ```
 
 Verified: only `il-isgs:ilSawAqId` (e.g. `BR0001`) and `saw_water:aquiferType`.
-No name, no label, no polygon geometry.
+No name and no label. This query filters out the `spatialai` predicates, which
+hides the geometry: every aquifer (all 8,441) has a polygon at
+`geo:hasGeometry/geo:asWKT` (checked 2026-11-13, plan
+`docs/plans/active/2026-11-13-groundwater-connected.md`). The
+groundwater-connected relationship draws the aquifers that link its two sides
+from it.
 
 ## Spatial footprint = S2 cells only (render-load check)
 

@@ -10,6 +10,8 @@ const LABEL = 'facilities';
 export const facilities: EntityModule = {
   type: 'facilities',
   label: LABEL,
+  singular: 'facility',
+  isPoint: true,
   isFlowline: false,
   details: {
     kind: 'by-iri',

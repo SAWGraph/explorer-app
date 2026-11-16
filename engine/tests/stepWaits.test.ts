@@ -12,9 +12,8 @@ import assert from 'node:assert/strict';
 import { it } from 'vitest';
 import { planPipeline, type PipelineStep, type PipelineStepType } from '../planner';
 import type { AnalysisQuestion, EntityType, SpatialRelationship } from '../types/query';
+import { ENTITY_TYPES, RELATIONSHIPS, SHAPE_COUNT, offered } from './support/shapes';
 
-const ENTITY_TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers', 'streams'];
-const RELATIONSHIPS: SpatialRelationship['type'][] = ['near', 'downstream', 'upstream'];
 
 const question = (a: EntityType, rel: SpatialRelationship['type'], c: EntityType, withRegion: boolean): AnalysisQuestion =>
   ({
@@ -43,6 +42,7 @@ it('every step waits only for what it reads, and decoration holds up nothing', (
   for (const a of ENTITY_TYPES) {
     for (const c of ENTITY_TYPES) {
       for (const rel of RELATIONSHIPS) {
+        if (!offered(a, rel, c)) continue;
         for (const withRegion of [true, false]) {
           const steps = planPipeline(question(a, rel, c, withRegion));
           const where = `${a} ${rel} ${c}${withRegion ? ' [ME]' : ''}`;
@@ -95,5 +95,5 @@ it('every step waits only for what it reads, and decoration holds up nothing', (
       }
     }
   }
-  assert.equal(plans, ENTITY_TYPES.length * ENTITY_TYPES.length * RELATIONSHIPS.length * 2);
+  assert.equal(plans, SHAPE_COUNT * 2);
 });

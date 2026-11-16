@@ -1,15 +1,25 @@
-import type { SpatialRelationship } from '../../../engine/types/query';
+import type { EntityType, SpatialRelationship } from '../../../engine/types/query';
+import { GROUNDWATER_TYPES } from '../../../engine/question';
 import { FlatSelect } from './FlatSelect/FlatSelect';
+import { InfoTip } from '../common/DefinedTerm';
 
 interface RelationshipSelectorProps {
   value: SpatialRelationship;
   onChange: (rel: SpatialRelationship) => void;
+  // The types of the two blocks: groundwater-connected is offered between
+  // point types only (GROUNDWATER_TYPES), and the planner refuses the rest.
+  blockTypes: [EntityType, EntityType];
 }
 
 const RELATIONSHIP_TYPES: { value: SpatialRelationship['type']; label: string; description: string }[] = [
   { value: 'near', label: 'Near', description: 'the feature(s) below' },
   { value: 'downstream', label: 'Downstream of', description: 'downstream of the feature(s) below' },
   { value: 'upstream', label: 'Upstream from', description: 'upstream from the feature(s) below' },
+  {
+    value: 'groundwaterConnected',
+    label: 'Groundwater-connected to',
+    description: 'on the same aquifer as the feature(s) below, so they may share groundwater',
+  },
 ];
 
 const NEAR_DISTANCE_OPTIONS = [
@@ -30,8 +40,14 @@ const FLOW_DISTANCE_OPTIONS = [
   { value: '100', label: 'Within 100 km of flow' },
 ];
 
-export function RelationshipSelector({ value, onChange }: RelationshipSelectorProps) {
+export function RelationshipSelector({ value, onChange, blockTypes }: RelationshipSelectorProps) {
   const selected = RELATIONSHIP_TYPES.find((r) => r.value === value.type) || RELATIONSHIP_TYPES[0];
+  const pointTypes = blockTypes.every((t) => GROUNDWATER_TYPES.includes(t));
+  const options = RELATIONSHIP_TYPES.map((r) =>
+    r.value === 'groundwaterConnected' && !pointTypes
+      ? { ...r, disabled: true, info: <InfoTip term="groundwaterConnected" /> }
+      : r,
+  );
   const currentHops = value.hops ?? 1;
 
   return (
@@ -41,7 +57,7 @@ export function RelationshipSelector({ value, onChange }: RelationshipSelectorPr
       </div>
       <div className="relationship-content">
         <FlatSelect
-          options={RELATIONSHIP_TYPES}
+          options={options}
           selectedValues={[value.type]}
           onChange={(vals) => {
             if (vals[0]) onChange({ ...value, type: vals[0] as SpatialRelationship['type'] });

@@ -69,6 +69,7 @@ const everyLayer: MapLayerData = {
   wells: [point('well', 'well', 44.04)],
   streams: [line('stream', 'stream')],
   regionBoundaries: [polygon('county', 'regionBoundary')],
+  linkAquifers: [{ ...polygon('linkAquifer', 'linkAquifer'), properties: { type: 'linkAquifer', name: 'linkAquifer', aquiferType: 'sand and gravel', links: 'Links 13 samples ↔ 16 wells' } }],
   matchedAquiferIris: [],
 };
 
@@ -134,7 +135,7 @@ it('has a fixture for every data layer, so the checks below cover each one', () 
 it('opens every popup and tooltip above all data, and keeps each layer in its own pane', async () => {
   renderMap(everyLayer);
   await toggle(/Region Boundaries/);
-  await waitForFeatures(8);
+  await waitForFeatures(9);
 
   const top = { popup: 'popup', tooltip: 'tooltip' };
   expect(panes()).toEqual({
@@ -146,6 +147,7 @@ it('opens every popup and tooltip above all data, and keeps each layer in its ow
     well: { shape: 'wells', ...top },
     stream: { shape: 'streams', ...top },
     county: { shape: 'region', ...top },
+    linkAquifer: { shape: 'linkAquifer', ...top },
   });
 });
 
@@ -157,7 +159,7 @@ const zOf = (name: string) => leafletDefault[name] ?? Number(map.getPane(name)!.
 
 it('stacks the panes in a fixed order, bottom to top', () => {
   renderMap(everyLayer);
-  const bottomToTop = ['aquiferPane', 'regionPane', 'waterAreasPane', 'streamsPane', 'overlayPane', 'samplesPane', 'wellsPane', 'markerPane', 'measurePane', 'tooltipPane', 'popupPane'];
+  const bottomToTop = ['aquiferPane', 'linkAquiferPane', 'regionPane', 'waterAreasPane', 'streamsPane', 'overlayPane', 'samplesPane', 'wellsPane', 'markerPane', 'measurePane', 'tooltipPane', 'popupPane'];
   const zs = bottomToTop.map(zOf);
   expect(zs).toEqual([...new Set(zs)].sort((a, b) => a - b));
 });
@@ -167,7 +169,7 @@ it('stacks the panes in a fixed order, bottom to top', () => {
 // popups also had a 400px outer scroll around their own table scroll (#88).
 it('caps every popup to the size of the map it opens in', async () => {
   renderMap(everyLayer);
-  await waitForFeatures(7);
+  await waitForFeatures(8);
   const capsAt = (width: number, height: number) => {
     // A fresh point each call, as Leaflet's own getSize() returns: callers mutate it.
     vi.spyOn(map, 'getSize').mockImplementation(() => L.point(width, height));
@@ -220,12 +222,12 @@ it('keeps popups and fitted results clear of the banner and the open panels, the
   const fitBounds = vi.spyOn(L.Map.prototype, 'fitBounds').mockImplementation(function (this: L.Map) {
     return this;
   });
-  const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [] };
+  const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [], linkAquifers: [] };
   const { rerender } = render(withBanner(empty));
   await screen.findByText(/Aquifers/);
   vi.spyOn(map, 'getSize').mockImplementation(() => L.point(1396, 846));
   rerender(withBanner(everyLayer));
-  await waitForFeatures(7);
+  await waitForFeatures(8);
 
   // The banner ends 70px down: 70 + 8. Map Layers spans x 1136 to 1386 of a
   // 1396px map: 1396 - 1136 + 8.
@@ -261,7 +263,7 @@ it('reserves nothing for an open panel that would leave too little of the map', 
   const fitBounds = vi.spyOn(L.Map.prototype, 'fitBounds').mockImplementation(function (this: L.Map) {
     return this;
   });
-  const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [] };
+  const empty = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], regionBoundaries: [], linkAquifers: [] };
   const { rerender } = renderMap(empty);
   await screen.findByText(/Aquifers/);
   vi.spyOn(map, 'getSize').mockImplementation(() => L.point(390, 392));
@@ -270,7 +272,7 @@ it('reserves nothing for an open panel that would leave too little of the map', 
       <ResultsMap layers={everyLayer} />
     </QueryClientProvider>,
   );
-  await waitForFeatures(7);
+  await waitForFeatures(8);
 
   expect(fitBounds.mock.calls[fitBounds.mock.calls.length - 1][1]!.paddingBottomRight).toEqual(L.point(50, 50));
   let facility: L.Marker | undefined;
@@ -292,7 +294,7 @@ it('re-reads the map size whenever its container resizes', () => {
   expect(invalidateSize).toHaveBeenCalledWith({ debounceMoveend: true });
 });
 
-const onlyCounties: MapLayerData = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [] };
+const onlyCounties: MapLayerData = { ...everyLayer, samples: [], facilities: [], waterBodies: [], wells: [], streams: [], linkAquifers: [] };
 const regionBox = async () => (await screen.findByText(/Region Boundaries/)).closest('label')!.querySelector('input')!;
 const counties = () => {
   let n = 0;
@@ -350,10 +352,22 @@ it('draws aquifers in aquiferPane, under streams and counties, and leaves nothin
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [aquifer] }))));
 
   renderMap(everyLayer);
-  await toggle(/Aquifers/);
+  await toggle(/Aquifers \(extent\)/);
   await waitFor(() => expect(document.querySelector('.leaflet-map-pane canvas')).not.toBeNull());
   expect(paneOf(document.querySelector('.leaflet-map-pane canvas')!)).toBe('aquifer');
 
-  await toggle(/Aquifers/);
+  await toggle(/Aquifers \(extent\)/);
   expect(document.querySelector('.leaflet-overlay-pane canvas')).toBeNull();
+});
+
+// A groundwater-connected result (#121) outlines the aquifers that link its two
+// sides, and each says what it links (plan decision 14).
+it('says what each link aquifer links, in its popup', async () => {
+  renderMap(everyLayer);
+  await waitForFeatures(8);
+  map.eachLayer((layer) => {
+    if (layer.getTooltip()?.getElement()?.textContent === 'linkAquifer') layer.openPopup();
+  });
+  expect(await screen.findByText('Links 13 samples ↔ 16 wells')).toBeTruthy();
+  expect(screen.getByText('sand and gravel')).toBeTruthy();
 });

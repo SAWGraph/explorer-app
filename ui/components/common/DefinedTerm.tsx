@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-export type GlossaryTerm = 'analysisQuestion' | 'feature' | 'observation' | 'wells';
+export type GlossaryTerm = 'analysisQuestion' | 'feature' | 'observation' | 'wells' | 'groundwaterConnected';
 
 interface GlossaryEntry {
   label: string;
@@ -27,6 +27,10 @@ const GLOSSARY: Record<GlossaryTerm, GlossaryEntry> = {
   wells: {
     label: 'Wells',
     definition: 'Wells data only exist for Maine & Illinois.',
+  },
+  groundwaterConnected: {
+    label: 'Groundwater-connected',
+    definition: 'Groundwater-connected links samples, facilities and wells only.',
   },
 };
 

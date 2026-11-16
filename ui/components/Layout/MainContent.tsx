@@ -10,9 +10,10 @@ import { useQueryPipeline } from '../../hooks/useQueryPipeline';
 
 export function MainContent() {
   const pipelineResult = useQueryStore((s) => s.pipelineResult);
+  const question = useQueryStore((s) => s.question);
   const pendingAutoRun = useQueryStore((s) => s.pendingAutoRun);
   const clearPendingAutoRun = useQueryStore((s) => s.clearPendingAutoRun);
-  const layers = useMapLayers(pipelineResult);
+  const layers = useMapLayers(pipelineResult, question);
   const { runPipeline, isRunning } = useQueryPipeline();
 
   // Auto-run pipeline when navigating from Dashboard

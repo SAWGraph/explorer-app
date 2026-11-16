@@ -10,6 +10,7 @@ import { WellLayer } from './WellLayer';
 import { StreamLayer } from './StreamLayer';
 import { RegionBoundaryLayer } from './RegionBoundaryLayer';
 import { AquiferBoundaryLayer } from './AquiferBoundaryLayer';
+import { LinkAquiferLayer } from './LinkAquiferLayer';
 import { MapCenterController } from './MapCenterController';
 import { panelPadding } from './panelPadding';
 import { LayerPanel } from './LayerPanel';
@@ -30,6 +31,7 @@ const LAYER_COMPONENTS: Record<string, ComponentType<{ features: MapFeature[] }>
   wells: WellLayer,
   streams: StreamLayer,
   regionBoundaries: RegionBoundaryLayer,
+  linkAquifers: LinkAquiferLayer,
 };
 
 // Tablets, phones and short windows: the open panels (~280px wide each, the
@@ -39,16 +41,17 @@ const LAYER_COMPONENTS: Record<string, ComponentType<{ features: MapFeature[] }>
 const COMPACT_SCREEN = '(max-width: 1024px), (max-height: 600px)';
 
 // Every layer has its own pane, so the stacking order stays fixed whatever is
-// toggled (#88). Bottom to top: aquifers, counties, water body areas, streams,
-// water body lines (overlayPane, 400), samples, wells, facility squares and
-// water body points (markerPane, 600), measure lines (just under tooltips,
-// 650). Each layer names its pane with a pane prop: wrapping it in <Pane>
+// toggled (#88). Bottom to top: aquifers, link aquifers (groundwater-connected),
+// counties, water body areas, streams, water body lines (overlayPane, 400),
+// samples, wells, facility squares and water body points (markerPane, 600),
+// measure lines (just under tooltips, 650). Each layer names its pane with a pane prop: wrapping it in <Pane>
 // would hand the pane to its popups too, under the data (#86). Render this
 // before the layers, which need their panes to exist.
 export function MapPanes() {
   return (
     <>
       <Pane name="aquiferPane" style={{ zIndex: 340 }} />
+      <Pane name="linkAquiferPane" style={{ zIndex: 345 }} />
       <Pane name="regionPane" style={{ zIndex: 350 }} />
       <Pane name="waterAreasPane" style={{ zIndex: 360 }} />
       <Pane name="streamsPane" style={{ zIndex: 380 }} />

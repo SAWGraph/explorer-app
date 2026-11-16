@@ -9,6 +9,12 @@ export interface EntityModule {
   // The plural noun with no filters applied ("surface water bodies"), shared by
   // the step labels and the question sentence so they cannot drift apart.
   readonly label: string;
+  // The singular noun, for a count of one ("Links 1 sample").
+  readonly singular: string;
+  // A point on the map (a sample point, a facility, a well), not a surface
+  // feature or an aquifer. Only point types can sit on either side of a
+  // groundwater-connected question (#121).
+  readonly isPoint: boolean;
   // The trace result is this entity itself (streams): a trace needs no hop from
   // a flowline onto a cell, and the question needs no separate stream layer.
   // The flowline form of the trace (binding ?ds_flowline as the entity, with

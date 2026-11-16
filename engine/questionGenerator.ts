@@ -38,6 +38,8 @@ function describeRelationship(rel: SpatialRelationship): string {
         : 'upstream from';
     case 'within':
       return 'within';
+    case 'groundwaterConnected':
+      return 'groundwater-connected to';
   }
 }
 

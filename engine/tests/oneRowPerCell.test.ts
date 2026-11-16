@@ -21,10 +21,9 @@ import { it } from 'vitest';
 import { planPipeline, type PipelineContext } from '../planner';
 import { entityFor } from '../entities';
 import { normalise } from '../question';
-import type { AnalysisQuestion, EntityBlock, EntityType, SpatialRelationship } from '../types/query';
+import type { AnalysisQuestion, EntityBlock, EntityType } from '../types/query';
+import { ENTITY_TYPES, RELATIONSHIPS, offered } from './support/shapes';
 
-const ENTITY_TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers', 'streams'];
-const RELATIONSHIPS: SpatialRelationship['type'][] = ['near', 'downstream', 'upstream'];
 const PFOS = 'http://w3id.org/DSSTox/v1/DTXSID3031864';
 const YORK = { stateCode: '23', countyCodes: ['23031'] };
 
@@ -72,8 +71,9 @@ it('every fused query joins one row per entity and cell', () => {
   for (const a of ENTITY_TYPES) {
     for (const c of ENTITY_TYPES) {
       for (const rel of RELATIONSHIPS) {
+        if (!offered(a, rel, c)) continue;
         for (const filtered of [true, false]) {
-          for (const maxDistanceKm of rel === 'near' ? [undefined] : [undefined, 30]) {
+          for (const maxDistanceKm of rel === 'near' || rel === 'groundwaterConnected' ? [undefined] : [undefined, 30]) {
             const question: AnalysisQuestion = {
               blockA: block(a, filtered),
               relationship: { type: rel, ...(rel === 'near' ? { hops: 1 } : {}), ...(maxDistanceKm ? { maxDistanceKm } : {}) },
@@ -118,9 +118,10 @@ it('every fused query joins one row per entity and cell', () => {
       }
     }
   }
-  // 36 type pairs x (1 near + 2 traces x 2 distances) x 2 filter settings, each
-  // with two discovery steps, plus a wells step wherever wells appear.
-  assert.ok(checked > 36 * 5 * 2 * 2, `checked only ${checked} queries`);
+  // (36 type pairs x (1 near + 2 traces x 2 distances) + 9 point-type pairs x 1
+  // groundwater-connected) x 2 filter settings, each with two discovery steps,
+  // plus a wells step wherever wells appear.
+  assert.ok(checked > (36 * 5 + 9) * 2 * 2, `checked only ${checked} queries`);
 });
 
 it('leaves a facilities side with only full 6-digit codes as it was', () => {

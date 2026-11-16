@@ -206,9 +206,10 @@ This creates an `AnalysisQuestion` object (`engine/types/query.ts`):
 ```
 
 Six entity types are available for either block: `samples`, `facilities`,
-`waterBodies`, `wells`, `aquifers`, `streams`. Four relationships: `near`
+`waterBodies`, `wells`, `aquifers`, `streams`. Five relationships: `near`
 (with `hops`), `within`, `downstream` and `upstream` (each with an optional
-`maxDistanceKm`).
+`maxDistanceKm`), and `groundwaterConnected` (samples, facilities and wells
+only: both sides sit on the same aquifer, see `GLOSSARY.md`).
 
 The `*Labels` maps exist only to render chips in the editor. They never reach a
 query, and `cacheKey.ts` strips them, so re-picking the same county with
@@ -260,6 +261,7 @@ has to decide two separate things, and they are not independent.
 | `A near C` | block C | block A | n/a | symmetric, either side works |
 | `A downstream from C` | block C | block A | downstream | C is the upstream side |
 | `A upstream from C` | **block A** | block C | **downstream** | A is the upstream side, and seeding from an unfiltered C ("every stream in the country") times out |
+| `A groundwater-connected to C` | block C | block A | n/a | symmetric: both sides take the same test |
 
 Read the table by its last column and the rule is one line: **the anchor is
 always the upstream side of the question, so the trace always runs downstream
@@ -994,6 +996,30 @@ the planner never asks for one: a reversed trace is only correct if the seed is
 the *downstream* side, and the seed is never that side, because the side that
 seeds is the side the question filtered. See the anchor/target table under
 [Planner Creates Pipeline Steps](#2-planner-creates-pipeline-steps).
+
+### Pattern 4: Groundwater-connected (the same aquifer)
+
+```sparql
+# each side's own cell holds part of one aquifer: the same test on both sides
+?s2anchor spatial:connectedTo ?_linkAquifer .
+?_linkAquifer rdf:type gwml2:GW_Aquifer .
+{ SELECT ?_linkAquifer WHERE {
+    ?_aquiferCell spatial:connectedTo ?_linkAquifer .
+    ?_linkAquifer rdf:type gwml2:GW_Aquifer .
+  } GROUP BY ?_linkAquifer HAVING (COUNT(?_aquiferCell) <= 1000) }
+?s2target spatial:connectedTo ?_linkAquifer .
+```
+
+No well or sample links to an aquifer directly: the only link is a shared S2
+cell. Neither side is widened by a ring of neighbouring cells, so swapping the
+blocks cannot change the answer. The subquery leaves out regional aquifers
+(over 1,000 cells, about 1,000 km²): all 13 are in Illinois, and the largest
+linked one sample to 240,038 of the state's 379,496 wells. A same-type
+question adds `FILTER(?wellA != ?wellC)`. Two decoration steps re-derive the
+join: `GET_LINK_AQUIFERS` returns each linking aquifer's polygon and how many
+entities of each block sit on it, and `GET_SKIPPED_AQUIFERS` (advisory) the
+regional ones it left out, for the note. Plan:
+`docs/plans/active/2026-11-13-groundwater-connected.md`.
 
 ---
 

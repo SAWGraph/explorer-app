@@ -46,6 +46,8 @@ function sampleJoinsNeeded(filters: SampleFilters | undefined) {
 export const samples: EntityModule = {
   type: 'samples',
   label: LABEL,
+  singular: 'sample',
+  isPoint: true,
   isFlowline: false,
   // By IRI on federation, in request-size chunks (planner.ts iriScopes).
   // Re-deriving the trace here is what used to time out.

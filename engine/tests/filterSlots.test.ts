@@ -17,9 +17,8 @@ import { normalise } from '../question';
 import { planPipeline, type PipelineContext } from '../planner';
 import { cacheKey } from '../cacheKey';
 import type { AnalysisQuestion, EntityBlock, EntityType, SpatialRelationship } from '../types/query';
+import { ENTITY_TYPES, RELATIONSHIPS, SHAPE_COUNT, offered } from './support/shapes';
 
-const ENTITY_TYPES: EntityType[] = ['samples', 'facilities', 'waterBodies', 'wells', 'aquifers', 'streams'];
-const RELATIONSHIPS: SpatialRelationship['type'][] = ['near', 'downstream', 'upstream'];
 
 // One filter that narrows each type, in its own slot.
 const OWN: Record<EntityType, Partial<EntityBlock>> = {
@@ -81,6 +80,7 @@ describe('a question with leftover slots', () => {
     for (const a of ENTITY_TYPES) {
       for (const c of ENTITY_TYPES) {
         for (const rel of RELATIONSHIPS) {
+          if (!offered(a, rel, c)) continue;
           // With and without the block's own filter: a block with none of its
           // own and a leftover one is where the old rule read "filtered".
           for (const own of [true, false]) {
@@ -93,7 +93,7 @@ describe('a question with leftover slots', () => {
         }
       }
     }
-    assert.equal(shapes, 216);
+    assert.equal(shapes, SHAPE_COUNT * 2);
   });
 
   it('shares the clean question\'s cache key', async () => {

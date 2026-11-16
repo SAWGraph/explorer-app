@@ -43,7 +43,8 @@ paths:
   layers', so pass it `pane`.
 - Don't set z-index on Leaflet classes in CSS. Every pane is its own stacking
   context, so such a rule only reorders things within one pane.
-- Panes, bottom to top: `tilePane` 200, `aquiferPane` 340, `regionPane` 350,
+- Panes, bottom to top: `tilePane` 200, `aquiferPane` 340, `linkAquiferPane`
+  345 (groundwater-connected link aquifers), `regionPane` 350,
   `waterAreasPane` 360, `streamsPane` 380, `overlayPane` 400 (water body
   lines), `samplesPane` 410, `wellsPane` 420, `markerPane` 600 (facilities,
   water body points), `measurePane` 640, `tooltipPane` 650, `popupPane` 700.

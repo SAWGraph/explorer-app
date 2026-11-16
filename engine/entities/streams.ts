@@ -18,6 +18,8 @@ export function streamFtypeFilter(filters: StreamFilters | undefined, suffix: st
 export const streams: EntityModule = {
   type: 'streams',
   label: LABEL,
+  singular: 'stream',
+  isPoint: false,
   isFlowline: true,
   details: {
     kind: 'by-iri',

@@ -1,5 +1,5 @@
-import type { AnalysisQuestion, EntityBlock, SpatialRelationship } from './types/query';
-import { entityFor } from './entities';
+import type { AnalysisQuestion, EntityBlock, EntityType, SpatialRelationship } from './types/query';
+import { ENTITY_TYPES, entityFor } from './entities';
 import type { FilterSlot } from './entities/types';
 
 // Stage 1 of a run: the question in the terms the rest of the engine works in.
@@ -15,8 +15,15 @@ import type { FilterSlot } from './entities/types';
 // needs a direction. Deciding it here, once, is the point: working it out again
 // elsewhere is how "upstream" once answered the mirror question
 // (docs/DEBUGGING.md, 2026-09-16) and how step labels named the wrong block.
-// A near question joins neighbouring cells; a trace follows the river network.
-export type QuestionKind = 'near' | 'trace';
+// A near question joins neighbouring cells; a trace follows the river network;
+// a groundwater question joins the two sides through one aquifer under both.
+// Groundwater-connected runs both ways, so it keeps near's roles (anchor C).
+export type QuestionKind = 'near' | 'trace' | 'groundwater';
+
+// The types that can sit on either side of a groundwater-connected question:
+// the point types (#121). Water bodies and streams are surface features, and an
+// aquifer is the link itself.
+export const GROUNDWATER_TYPES: readonly EntityType[] = ENTITY_TYPES.filter((t) => entityFor(t).isPoint);
 
 export interface NormalisedQuestion {
   // `within` is in the type but never offered; the planner has always built it
@@ -42,7 +49,7 @@ export function normalise(question: AnalysisQuestion): NormalisedQuestion {
   const anchor = anchorIsA ? blockA : blockC;
   const target = anchorIsA ? blockC : blockA;
   return {
-    kind: relationship.type === 'near' ? 'near' : 'trace',
+    kind: kindOf(relationship),
     relationship,
     anchor,
     target,
@@ -50,6 +57,12 @@ export function normalise(question: AnalysisQuestion): NormalisedQuestion {
     anchorRegion: regionCodes(anchor),
     targetRegion: regionCodes(target),
   };
+}
+
+function kindOf(relationship: SpatialRelationship): QuestionKind {
+  if (relationship.type === 'near') return 'near';
+  if (relationship.type === 'groundwaterConnected') return 'groundwater';
+  return 'trace';
 }
 
 const FILTER_SLOTS: FilterSlot[] = [
