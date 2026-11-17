@@ -108,20 +108,20 @@ describe('the advice when a question is too big, with both sides counted', () =>
 
   it('gives both counts and names the bigger block', () => {
     expect(outcomeMessage(counted(4528, 459877), question())).toBe(
-      `${TOO_MUCH} The first block matches 4,528 samples, the second 459,877 facilities. Adding a filter or region to the second block is the most effective change.`,
+      `${TOO_MUCH} The first block matches 4,528 sample results, the second 459,877 facilities. Adding a filter or region to the second block is the most effective change.`,
     );
   });
 
   it('names the first block when it is the bigger one', () => {
     expect(outcomeMessage(counted(8738, 12), question())).toBe(
-      `${TOO_MUCH} The first block matches 8,738 samples, the second 12 facilities. Adding a filter or region to the first block is the most effective change.`,
+      `${TOO_MUCH} The first block matches 8,738 sample results, the second 12 facilities. Adding a filter or region to the first block is the most effective change.`,
     );
   });
 
   it('gives the counts before the distance advice on a trace', () => {
     const q = question({ relationship: { type: 'downstream', maxDistanceKm: 30 } });
     expect(outcomeMessage(counted(70, 676), q)).toBe(
-      `${TOO_MUCH} The first block matches 70 samples, the second 676 facilities. Try a shorter distance than 30 km, or run those areas one at a time.`,
+      `${TOO_MUCH} The first block matches 70 sample results, the second 676 facilities. Try a shorter distance than 30 km, or run those areas one at a time.`,
     );
   });
 
@@ -137,7 +137,7 @@ describe('the advice when a question is too big, with both sides counted', () =>
       counts: { A: 4528, C: 459877 },
     };
     expect(partialNotice(result, question())).toBe(
-      'Showing incomplete results: York County, Maine could not be answered. The first block matches 4,528 samples, the second 459,877 facilities. Adding a filter or region to the second block is the most effective change.',
+      'Showing incomplete results: York County, Maine could not be answered. The first block matches 4,528 sample results, the second 459,877 facilities. Adding a filter or region to the second block is the most effective change.',
     );
   });
 });
@@ -154,7 +154,7 @@ describe('the message for a run with no answer', () => {
       'No facilities match the second block, so the question has no answer. Try a wider region or fewer filters.',
     );
     expect(outcomeMessage(empty('A'), question())).toBe(
-      'No samples match the first block, so the question has no answer. Try a wider region or fewer filters.',
+      'No sample results match the first block, so the question has no answer. Try a wider region or fewer filters.',
     );
   });
 

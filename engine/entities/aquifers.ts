@@ -2,10 +2,10 @@ import type { AquiferFilters } from '../types/query';
 import { AQUIFER_TYPE_VALUES, buildAquifersByIri } from '../templates/aquifers';
 import { ownFilterSet, subdivisionRegionCheck, type EntityModule } from './types';
 
-const LABEL = 'aquifers';
+const LABEL = 'ground water aquifers';
 
 const iriVar = (suffix: string): string => `?aquifer${suffix}`;
-// One kind selected reads as an adjective ("bedrock aquifers").
+// One kind selected reads as an adjective ("bedrock ground water aquifers").
 const KIND_WORDS: Record<string, string> = {
   surficial: 'sand & gravel',
   bedrock: 'bedrock',

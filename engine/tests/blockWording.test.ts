@@ -15,7 +15,7 @@ const many = LIST_THRESHOLD + 1;
 const pick = <T>(items: T[]): T[] => items.slice(0, many);
 
 const BLOCKS: [string, EntityBlock, string][] = [
-  ['streams', { type: 'streams', streamFilters: { ftypes: pick(STREAM_FTYPES).map((o) => o.value) } }, `streams of ${many} types`],
+  ['streams', { type: 'streams', streamFilters: { ftypes: pick(STREAM_FTYPES).map((o) => o.value) } }, `streams and flowlines of ${many} types`],
   // Only 3 water types exist today; a fourth (a new FTYPE) would read the same way.
   ['water bodies', { type: 'waterBodies', waterBodyFilters: { ftypes: [...WATER_BODY_FTYPES.map((o) => o.value), 'Estuary'].slice(0, many) } }, `surface water bodies of ${many} types`],
   ['wells', { type: 'wells', wellFilters: { wellCategories: ['meUse||a', 'meUse||b', 'meUse||c', 'meUse||d'].slice(0, many) } }, `wells of ${many} types`],
@@ -31,7 +31,7 @@ describe('a block with more picks than are named', () => {
 describe('a block with few picks', () => {
   it('still names them in front of the noun', () => {
     const block: EntityBlock = { type: 'streams', streamFilters: { ftypes: [STREAM_FTYPES[0].value] } };
-    expect(entityFor('streams').describe(block)).toBe(`${STREAM_FTYPES[0].label} streams`);
+    expect(entityFor('streams').describe(block)).toBe(`${STREAM_FTYPES[0].label} streams and flowlines`);
   });
 });
 
@@ -49,5 +49,18 @@ describe('facilities and their industry filter', () => {
   it('reads as facilities with an industry code when every industry is picked', () => {
     const block: EntityBlock = { type: 'facilities', facilityFilters: { industryCodes: ROOTS } };
     expect(entityFor('facilities').describe(block, totals)).toBe('facilities with an industry code');
+  });
+});
+
+// The unfiltered noun matches the Type menu entry, "Ground Water (Aquifers)"
+// (#164). One kind picked keeps its word in front of the noun.
+describe('aquifers and their kind filter', () => {
+  it('reads as ground water aquifers with no filter', () => {
+    expect(entityFor('aquifers').describe({ type: 'aquifers' })).toBe('ground water aquifers');
+  });
+
+  it('puts one picked kind in front of the noun', () => {
+    const block: EntityBlock = { type: 'aquifers', aquiferFilters: { aquiferTypes: ['bedrock'] } };
+    expect(entityFor('aquifers').describe(block)).toBe('bedrock ground water aquifers');
   });
 });
