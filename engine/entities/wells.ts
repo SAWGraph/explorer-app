@@ -1,4 +1,4 @@
-import { buildWellCategoryFilter } from '../templates/wells';
+import { buildWellCategoryFilter, buildWellOptionPattern } from '../templates/wells';
 import { ownFilterSet, subdivisionRegionCheck, type EntityModule } from './types';
 import { extractLabel, namedOrCounted } from './wording';
 
@@ -18,6 +18,11 @@ export const wells: EntityModule = {
     const typeFilter = buildWellCategoryFilter(block.wellFilters?.wellCategories, `?well${suffix}`);
     return `${s2Var} spatial:connectedTo ?well${suffix} .
       ${typeFilter}`;
+  },
+  // Keyed by classification IRI; an entry can stand for several (wellTokenCount).
+  options: {
+    bind: (s2Var, suffix, optionVar) => `${s2Var} spatial:connectedTo ${iriVar(suffix)} .
+      ${buildWellOptionPattern(iriVar(suffix), optionVar)}`,
   },
   // One row per entity and cell already (measured in Maine, 2026-11-06).
   fansOut: () => false,

@@ -52,6 +52,7 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
       {surfaceWaterType && (
         <SurfaceWaterFilters
           type={surfaceWaterType}
+          region={value.region}
           ftypes={(surfaceWaterType === 'streams' ? value.streamFilters : value.waterBodyFilters)?.ftypes}
           onChange={(type, ftypes) =>
             onChange({
@@ -86,13 +87,14 @@ export function EntityBlock({ label, value, onChange }: EntityBlockProps) {
             <WellFilters
               value={value.wellFilters}
               onChange={(f) => onChange({ ...value, wellFilters: f })}
-              stateCode={value.region?.stateCode}
+              region={value.region}
             />
           )}
           {value.type === 'aquifers' && (
             <AquiferFilters
               value={value.aquiferFilters}
               onChange={(f) => onChange({ ...value, aquiferFilters: f })}
+              region={value.region}
             />
           )}
         </>

@@ -21,6 +21,10 @@ export interface EntityModule {
   // Binds the entity inside the S2 cell `s2Var`, with the block's filters, and
   // only entities the map can draw.
   bindInCell(block: EntityBlock, s2Var: string, suffix: string): string;
+  // The type's filter dropdown, for counting each option
+  // (buildOptionCountQuery, #165). Absent for a type whose dropdowns are
+  // counted elsewhere (samples).
+  readonly options?: OptionCounting;
   // Whether the bind can yield more than one row per entity and cell (a join
   // on a field with several values: a sample's measurements, a facility's
   // industry codes). Such a side is collapsed to one row per entity and cell
@@ -39,6 +43,15 @@ export interface EntityModule {
   // A check that the entity itself, not only its cell, lies in the region.
   // Absent where the cell check is enough.
   regionCheck?(suffix: string, anyOf: (variable: string) => RegionMatch): string;
+}
+
+export interface OptionCounting {
+  // Binds the entity inside the cell as bindInCell does when one option is
+  // picked, with the option left open in `optionVar`.
+  bind(s2Var: string, suffix: string, optionVar: string): string;
+  // The key the dropdown stores for an option the bind found, or undefined
+  // when it lists no such option. Absent: the value itself.
+  key?(option: string): string | undefined;
 }
 
 export type DetailsLoad =

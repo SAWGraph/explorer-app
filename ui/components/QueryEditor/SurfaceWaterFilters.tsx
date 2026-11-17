@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { HierarchicalSelect } from './HierarchicalSelect/HierarchicalSelect';
 import type { TreeItem } from './HierarchicalSelect/useNaicsTree';
 import {
@@ -7,11 +7,14 @@ import {
   toSurfaceWaterCodes,
   type SurfaceWaterType,
 } from '../../../engine/constants/featureTypes';
+import type { RegionFilter } from '../../../engine/types/query';
+import { useOptionCounts } from '../../hooks/useDiscoveryQueries';
 
 interface SurfaceWaterFiltersProps {
   type: SurfaceWaterType;
   ftypes?: string[];
   onChange: (type: SurfaceWaterType, ftypes: string[]) => void;
+  region?: RegionFilter;
 }
 
 // Parents first, so buildTree sees each one before its children.
@@ -22,7 +25,16 @@ const ITEMS: TreeItem[] = SURFACE_WATER_GROUPS.flatMap((g) => [
 
 const PARENTS = SURFACE_WATER_GROUPS.map((g) => g.code);
 
-export function SurfaceWaterFilters({ type, ftypes = [], onChange }: SurfaceWaterFiltersProps) {
+export function SurfaceWaterFilters({ type, ftypes = [], onChange, region }: SurfaceWaterFiltersProps) {
+  // FTYPE values differ between the two parents, so one map holds both. The
+  // tree sums each parent from its children.
+  const { data: waterBodyCounts } = useOptionCounts('waterBodies', region);
+  const { data: streamCounts } = useOptionCounts('streams', region);
+  const counts = useMemo(
+    () => (waterBodyCounts || streamCounts ? { ...waterBodyCounts, ...streamCounts } : undefined),
+    [waterBodyCounts, streamCounts],
+  );
+
   // Unticking everything shows an empty tree so a child can be picked next,
   // while the block already holds the default (Surface Water Bodies, any type).
   // Display only: the editor remounts after a run, showing the default it used.
@@ -46,6 +58,7 @@ export function SurfaceWaterFilters({ type, ftypes = [], onChange }: SurfaceWate
           labelOnly
           selectAll={false}
           initiallyExpanded={PARENTS}
+          counts={counts}
         />
       </div>
     </div>

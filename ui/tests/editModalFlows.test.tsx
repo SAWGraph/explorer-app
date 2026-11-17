@@ -36,7 +36,7 @@ vi.mock('../hooks/useDiscoveryQueries', () => {
   const none = () => ({ data: [], isLoading: false, isError: false, error: null });
   return {
     useIndustries: none,
-    useIndustryCounts: none,
+    useOptionCounts: () => ({ data: undefined }),
     useSubstances: none,
     useMaterialTypes: none,
     useCounties: none,

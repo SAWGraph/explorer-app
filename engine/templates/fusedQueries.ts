@@ -1,5 +1,5 @@
 import { PREFIXES } from '../constants/prefixes';
-import type { EntityBlock } from '../types/query';
+import type { EntityBlock, EntityType } from '../types/query';
 import { entityFor, streamFtypeFilter } from '../entities';
 import { leadSide } from '../sides';
 import type { QuestionKind } from '../question';
@@ -43,6 +43,25 @@ export function buildEntityCountQuery(block: EntityBlock, regionCodes: string[] 
     ${PREFIXES}
     SELECT (COUNT(DISTINCT ${iriVarOf(block, 'P')}) AS ?count) WHERE {${sideBody(block, regionCodes)}
     }
+  `;
+}
+
+// How many entities each option of a type's filter dropdown would find in the
+// region: one row per option, `?option` and `?count` (#165). The count step's
+// body with the filter left open, so a count previews what picking that option
+// returns. Measured live on 2026-11-17: every type, nationwide and for Maine,
+// Hancock and Illinois, 1.8s or less.
+export function buildOptionCountQuery(type: EntityType, regionCodes: string[] | undefined): string {
+  const entity = entityFor(type);
+  if (!entity.options) throw new Error(`${type} has no filter options to count`);
+  const region = regionClause({ type }, regionCodes, '?s2probe', 'P');
+  return `
+    ${PREFIXES}
+    SELECT ?option (COUNT(DISTINCT ${entity.iriVar('P')}) AS ?count) WHERE {
+      ?s2probe rdf:type kwg-ont:S2Cell_Level13 .
+      ${region}
+      ${entity.options.bind('?s2probe', 'P', '?option')}
+    } GROUP BY ?option
   `;
 }
 

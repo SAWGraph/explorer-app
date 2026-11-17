@@ -1,6 +1,6 @@
 import { HierarchicalSelect } from './HierarchicalSelect/HierarchicalSelect';
 import type { FacilityFilters as FacilityFiltersType, RegionFilter } from '../../../engine/types/query';
-import { useIndustries, useIndustryCounts } from '../../hooks/useDiscoveryQueries';
+import { useIndustries, useOptionCounts } from '../../hooks/useDiscoveryQueries';
 
 interface FacilityFiltersProps {
   value?: FacilityFiltersType;
@@ -10,7 +10,7 @@ interface FacilityFiltersProps {
 
 export function FacilityFilters({ value, onChange, region }: FacilityFiltersProps) {
   const { data: industries = [] } = useIndustries();
-  const { data: counts } = useIndustryCounts(region);
+  const { data: counts } = useOptionCounts('facilities', region);
 
   return (
     <div className="facility-filters">
