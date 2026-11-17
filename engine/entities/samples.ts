@@ -5,7 +5,7 @@ import { FALLBACK_MATERIAL_TYPES } from '../constants/materialTypes';
 import type { EntityModule } from './types';
 import { LIST_THRESHOLD, extractLabel, summarize } from './wording';
 
-const LABEL = 'samples';
+const LABEL = 'sample results';
 
 // Concentration range and the non-detect exclusion, as one parenthetical:
 // " (10-1000 ng/L, detections only)". The editor's inputs are ng/L and the

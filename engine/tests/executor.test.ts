@@ -190,7 +190,7 @@ describe('a question too big to run whole', () => {
     expect(result.status).toBe('success');
     if (result.status !== 'success') return;
     expect(result.partial?.[0]).toEqual({
-      step: 'Finding samples near facilities',
+      step: 'Finding sample results near facilities',
       failed: ['facilities batch 1 (2/2)'],
       skipped: [],
     });
@@ -208,8 +208,8 @@ describe('a question too big to run whole', () => {
       if (result.status !== 'success') return;
       // Both discovery steps slice the same way, and each has its own budget.
       expect(result.partial).toEqual([
-        { step: 'Finding samples near facilities', failed: [], skipped: ['facilities batch 4'] },
-        { step: 'Finding facilities with samples near them', failed: [], skipped: ['facilities batch 4'] },
+        { step: 'Finding sample results near facilities', failed: [], skipped: ['facilities batch 4'] },
+        { step: 'Finding facilities with sample results near them', failed: [], skipped: ['facilities batch 4'] },
       ]);
     } finally {
       vi.useRealTimers();
@@ -805,7 +805,7 @@ describe('with chunking on refusal turned off', () => {
     const on = await run(SAMPLES_NEAR_LANDFILLS, networkOnBatch2());
     expect(on.status).toBe('success');
     if (on.status !== 'success') return;
-    expect(on.partial).toEqual([{ step: 'Loading details for samples', failed: ['batch 2'], skipped: [] }]);
+    expect(on.partial).toEqual([{ step: 'Loading details for sample results', failed: ['batch 2'], skipped: [] }]);
   });
 
   it('sends every batch however long the step takes, where chunking on stops at 300s', async () => {

@@ -4,7 +4,7 @@ import { STREAM_FTYPES } from '../constants/featureTypes';
 import { ownFilterSet, type EntityModule } from './types';
 import { ftypeLabels, namedOrCounted } from './wording';
 
-const LABEL = 'streams';
+const LABEL = 'streams and flowlines';
 
 // FTYPE restriction for flowlines, shared by the cell bind below and by the
 // trace query, where a streams target is the traced flowline itself.

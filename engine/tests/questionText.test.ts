@@ -73,7 +73,7 @@ it('collapses each block to "all counties" against its own state', () => {
     },
     totals,
   );
-  expect(text).toContain('samples in all counties in Illinois');
+  expect(text).toContain('sample results in all counties in Illinois');
   expect(text).toContain('facilities in all counties in Maine');
 });
 

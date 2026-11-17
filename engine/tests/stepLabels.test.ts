@@ -44,13 +44,14 @@ it('every question shape gets correct step labels and step set', () => {
         const steps = planPipeline(question(a, rel, c));
         combinations++;
 
-        // Nothing unlabelled, and no raw camelCase type name leaking through.
+        // Nothing unlabelled, and no raw type name leaking through. Some labels
+        // contain their type name ("ground water aquifers"), so the labels come
+        // out first: whatever type name is left over is a leak.
         for (const label of steps.map((s) => s.description)) {
           assert.ok(label.trim().length > 0, `empty description: ${where}`);
+          const withoutLabels = ENTITY_TYPES.reduce((text, type) => text.split(entityFor(type).label).join(''), label);
           for (const type of ENTITY_TYPES) {
-            if (type !== entityFor(type).label) {
-              assert.ok(!label.includes(type), `raw type name "${type}" in "${label}": ${where}`);
-            }
+            assert.ok(!withoutLabels.includes(type), `raw type name "${type}" in "${label}": ${where}`);
           }
         }
 
@@ -121,12 +122,12 @@ it('labels the reported downstream question', () => {
   assert.deepEqual(
     reported.map((s) => s.description),
     [
-      'Counting samples in the first block',
+      'Counting sample results in the first block',
       'Counting facilities in the second block',
-      'Finding samples downstream of facilities',
-      'Finding facilities with samples downstream of them',
+      'Finding sample results downstream of facilities',
+      'Finding facilities with sample results downstream of them',
       'Loading downstream stream geometries',
-      'Loading details for samples',
+      'Loading details for sample results',
       'Loading details for facilities',
       'Loading region boundaries',
     ],
@@ -140,9 +141,9 @@ it('swaps steps, not words, for the same question upstream', () => {
     relationship: { type: 'upstream' },
     blockC: { type: 'facilities' },
   } as AnalysisQuestion);
-  assert.equal(up.find((s) => s.type === 'FIND_ANCHOR_IRIS')!.description, 'Finding samples upstream from facilities');
+  assert.equal(up.find((s) => s.type === 'FIND_ANCHOR_IRIS')!.description, 'Finding sample results upstream from facilities');
   assert.equal(
     up.find((s) => s.type === 'FIND_TARGET_IRIS')!.description,
-    'Finding facilities with samples upstream from them',
+    'Finding facilities with sample results upstream from them',
   );
 });
