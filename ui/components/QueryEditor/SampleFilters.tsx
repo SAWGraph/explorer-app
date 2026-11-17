@@ -5,6 +5,7 @@ import {
   useMaterialTypes,
 } from '../../hooks/useDiscoveryQueries';
 import { FlatSelect } from './FlatSelect/FlatSelect';
+import { withCount } from './FlatSelect/withCount';
 import { HierarchicalSelect } from './HierarchicalSelect/HierarchicalSelect';
 
 // Material types have no hierarchy of their own — discovery buckets each one into
@@ -17,10 +18,6 @@ interface SampleFiltersProps {
   value?: SampleFiltersType;
   onChange: (filters: SampleFiltersType) => void;
   region?: RegionFilter;
-}
-
-function withCount(label: string, count?: number): string {
-  return count && count > 0 ? `${label} (${count.toLocaleString()})` : label;
 }
 
 export function SampleFilters({ value, onChange, region }: SampleFiltersProps) {

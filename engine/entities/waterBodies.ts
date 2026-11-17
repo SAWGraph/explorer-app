@@ -5,6 +5,10 @@ import { ftypeLabels, namedOrCounted } from './wording';
 
 const LABEL = 'surface water bodies';
 
+const iriVar = (suffix: string): string => `?waterBody${suffix}`;
+const inCell = (s2Var: string, suffix: string): string => `${s2Var} spatial:connectedTo ${iriVar(suffix)} .
+      ${iriVar(suffix)} rdf:type hyf:HY_WaterBody .`;
+
 export const waterBodies: EntityModule = {
   type: 'waterBodies',
   label: LABEL,
@@ -14,7 +18,7 @@ export const waterBodies: EntityModule = {
     endpoint: 'hydrologykg',
     buildQuery: (iris, block) => buildWaterBodiesByIri(iris, block.waterBodyFilters),
   },
-  iriVar: (suffix) => `?waterBody${suffix}`,
+  iriVar,
   bindInCell(block, s2Var, suffix) {
     let filterClauses = '';
     if (block.waterBodyFilters?.ftypes?.length) {
@@ -22,9 +26,12 @@ export const waterBodies: EntityModule = {
       filterClauses = `?waterBody${suffix} nhdplusv2:hasFTYPE ?ftype${suffix} .
       VALUES ?ftype${suffix} { ${ftypeValues} }`;
     }
-    return `${s2Var} spatial:connectedTo ?waterBody${suffix} .
-      ?waterBody${suffix} rdf:type hyf:HY_WaterBody .
+    return `${inCell(s2Var, suffix)}
       ${filterClauses}`;
+  },
+  options: {
+    bind: (s2Var, suffix, optionVar) => `${inCell(s2Var, suffix)}
+      ${iriVar(suffix)} nhdplusv2:hasFTYPE ${optionVar} .`,
   },
   // One row per entity and cell already (measured in Maine, 2026-11-06).
   fansOut: () => false,

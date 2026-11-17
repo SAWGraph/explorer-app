@@ -6,6 +6,10 @@ import { ftypeLabels, namedOrCounted } from './wording';
 
 const LABEL = 'streams and flowlines';
 
+const iriVar = (suffix: string): string => `?stream${suffix}`;
+const inCell = (s2Var: string, suffix: string): string => `${s2Var} spatial:connectedTo ${iriVar(suffix)} .
+      ${iriVar(suffix)} rdf:type hyf:HY_FlowPath .`;
+
 // FTYPE restriction for flowlines, shared by the cell bind below and by the
 // trace query, where a streams target is the traced flowline itself.
 export function streamFtypeFilter(filters: StreamFilters | undefined, suffix: string): string {
@@ -24,11 +28,14 @@ export const streams: EntityModule = {
     endpoint: 'hydrologykg',
     buildQuery: (iris, block) => buildStreamsByIri(iris, block.streamFilters),
   },
-  iriVar: (suffix) => `?stream${suffix}`,
+  iriVar,
   bindInCell(block, s2Var, suffix) {
-    return `${s2Var} spatial:connectedTo ?stream${suffix} .
-      ?stream${suffix} rdf:type hyf:HY_FlowPath .
+    return `${inCell(s2Var, suffix)}
       ${streamFtypeFilter(block.streamFilters, suffix)}`;
+  },
+  options: {
+    bind: (s2Var, suffix, optionVar) => `${inCell(s2Var, suffix)}
+      ${iriVar(suffix)} nhdplusv2:hasFTYPE ${optionVar} .`,
   },
   // One row per entity and cell already (measured in Maine, 2026-11-06).
   fansOut: () => false,

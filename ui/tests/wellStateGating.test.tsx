@@ -11,7 +11,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 vi.mock('../hooks/useDiscoveryQueries', () => {
   const none = () => ({ data: [], isLoading: false, isError: false, error: null });
-  return { useCounties: none, useWellClassifications: none };
+  return { useCounties: none, useWellClassifications: none, useOptionCounts: () => ({ data: undefined }) };
 });
 
 import { EntityBlock } from '../components/QueryEditor/EntityBlock';

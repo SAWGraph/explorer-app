@@ -51,3 +51,12 @@ export function buildWellCategoryFilter(
   }
   return blocks.join(' UNION ');
 }
+
+// One well classification left open in `optionVar`, for counting each option of
+// the dropdown (#165). The same three fields buildWellCategoryFilter reads; a
+// single pick is one field, so the AND across Maine type and use never applies.
+export function buildWellOptionPattern(wellVar: string, optionVar: string): string {
+  return `{ ${wellVar} rdf:type il_isgs:ISGS-Well ; il_isgs:wellPurpose ${optionVar} }
+      UNION { ${wellVar} rdf:type me_mgs:MGS-Well ; me_mgs:ofWellType ${optionVar} }
+      UNION { ${wellVar} rdf:type me_mgs:MGS-Well ; me_mgs:hasUse ${optionVar} }`;
+}

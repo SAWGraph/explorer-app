@@ -19,9 +19,9 @@ selected. Tick some of a branch and the parent shows an indeterminate state.
 The full list is large, 5596 rows from the endpoint, which is why it is a searchable tree
 rather than a list you scroll. Typing filters the tree and auto expands whatever matched.
 
-Each node also shows how many facilities of that kind exist in the currently selected region.
-Those numbers come from a completely separate query, documented in
-[Dropdowns Industry Counts](Dropdowns%20Industry%20Counts).
+Each node also shows how many facilities of that kind exist in the selected region, or
+nationwide with none. Those numbers come from a separate query, documented in
+[Option counts](Dropdowns%20Industry%20Counts).
 
 ### Nothing ticked is not the same as everything ticked
 
@@ -152,8 +152,8 @@ what the query actually returned before assuming the tree builder is broken.
 
 **Labels with odd trailing spaces.** Source data. They come through as is.
 
-**No counts next to anything.** No region is selected, or the counts query failed. See
-[Dropdowns Industry Counts](Dropdowns%20Industry%20Counts).
+**No counts next to anything.** The counts query failed or has not come back. See
+[Option counts](Dropdowns%20Industry%20Counts).
 
 **Selecting a parent does not match the facilities you expected.** Selections are expanded to
 descendant codes, so a parent only covers children that exist in this list. If the facility
@@ -162,4 +162,4 @@ you want carries a code absent from `fiokg`, no amount of parent ticking will re
 ## See also
 
 * [Dropdowns](Dropdowns), the index of all filter controls
-* [Dropdowns Industry Counts](Dropdowns%20Industry%20Counts), the numbers shown on each node
+* [Option counts](Dropdowns%20Industry%20Counts), the numbers shown on each node

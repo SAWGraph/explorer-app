@@ -4,7 +4,14 @@ import { ownFilterSet, subdivisionRegionCheck, type EntityModule } from './types
 
 const LABEL = 'ground water aquifers';
 
+// Each raw aquiferType value, to the dropdown option that covers it.
+const AQUIFER_OPTION_OF: Record<string, string> = Object.fromEntries(
+  Object.entries(AQUIFER_TYPE_VALUES).flatMap(([option, raws]) => raws.map((raw) => [raw, option])),
+);
+
 const iriVar = (suffix: string): string => `?aquifer${suffix}`;
+const inCell = (s2Var: string, suffix: string): string => `${s2Var} spatial:connectedTo ${iriVar(suffix)} .
+      ${iriVar(suffix)} rdf:type gwml2:GW_Aquifer .`;
 // One kind selected reads as an adjective ("bedrock ground water aquifers").
 const KIND_WORDS: Record<string, string> = {
   surficial: 'sand & gravel',
@@ -34,9 +41,14 @@ export const aquifers: EntityModule = {
   iriVar,
   bindInCell(block, s2Var, suffix) {
     const typeFilter = aquiferTypeFilter(block.aquiferFilters, suffix);
-    return `${s2Var} spatial:connectedTo ?aquifer${suffix} .
-      ?aquifer${suffix} rdf:type gwml2:GW_Aquifer .
+    return `${inCell(s2Var, suffix)}
       ${typeFilter}`;
+  },
+  // The bind finds raw aquiferType values; each dropdown option covers several.
+  options: {
+    bind: (s2Var, suffix, optionVar) => `${inCell(s2Var, suffix)}
+      ${iriVar(suffix)} saw_water:aquiferType ${optionVar} .`,
+    key: (raw) => AQUIFER_OPTION_OF[raw],
   },
   // The bind alone is one row per entity and cell (measured in Maine,
   // 2026-11-06). The region check is not: it joins the aquifer to each of its

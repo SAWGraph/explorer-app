@@ -20,9 +20,10 @@ themselves tickable and collapsible. Falls back to six material types.
 NAICS codes, as a searchable tree. Shown for Facilities. Endpoint `fiokg`. Falls back to
 eight codes covering the prebuilt questions.
 
-**[Industry counts](Dropdowns%20Industry%20Counts)**
-The facility counts shown on each industry tree node. Endpoint `federation`. No fallback,
-and nothing at all until a state is selected.
+**[Option counts](Dropdowns%20Industry%20Counts)**
+The numbers next to each option in Industry, Feature Type, Aquifer Type and Well
+classification: for the selected region, or nationwide with none. Endpoint `federation`, one
+query per type and region. No fallback.
 
 **[County](Dropdowns%20County)**
 Narrows to counties inside the selected state. Endpoint `spatialkg`. No fallback, on purpose.
@@ -66,15 +67,25 @@ with two parents, Surface Water Bodies (Lake or Pond, Swamp or Marsh, Reservoir)
 and Flowlines (Stream or River, Artificial Path, Canal or Ditch, Connector, Pipeline). Only one
 parent can hold ticks at a time, and that parent sets the block's type. It starts with Surface
 Water Bodies ticked; unticking everything shows an empty tree, and applying it empty runs
-Surface Water Bodies. A whole parent is stored as no filter, so it sends the same query as an unfiltered block. NHDPlus
+Surface Water Bodies. A whole parent is stored as no filter, so it sends the same query as an unfiltered block. Each
+option shows its count, and each parent the sum of its children
+([Option counts](Dropdowns%20Industry%20Counts)). NHDPlus
 FTYPEs that are rare or absent in the source files (Inundation Area, Estuary, Ice Mass, Playa,
 Drainageway, Underground Conduit) are left out (#70).
 [`SurfaceWaterFilters.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/SurfaceWaterFilters.tsx),
 [`constants/featureTypes.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/featureTypes.ts)
 
-**Well Source**. Illinois Wells and Maine Wells. Each is tied to one state, and picking a
-source that contradicts the selected state raises a warning.
-[`WellFilters.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/QueryEditor/WellFilters.tsx)
+**Aquifer Type**, shown for Ground Water (Aquifers). Two options, Sand & gravel (surficial)
+and Bedrock, each standing for one or more raw `saw_water:aquiferType` values
+(`AQUIFER_TYPE_VALUES`). Each shows its count
+([Option counts](Dropdowns%20Industry%20Counts)).
+[`AquiferFilters.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/ui/components/QueryEditor/AquiferFilters.tsx)
+
+**Well classification**, shown for Wells. Not a fixed list: the options come from
+`hydrologykg` (Illinois well purpose, Maine well type and use), grouped by state and field. A
+selected state hides the other state's groups. Each option shows its count for the region
+([Option counts](Dropdowns%20Industry%20Counts)).
+[`WellFilters.tsx`](https://github.com/SAWGraph/explorer-app/blob/main/ui/components/QueryEditor/WellFilters.tsx)
 
 **Basemap**, on the map itself. Five tile layers.
 [`basemaps.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/components/Map/basemaps.ts)

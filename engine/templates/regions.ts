@@ -11,24 +11,6 @@ export function buildDiscoverCountiesQuery(stateCode: string): string {
   `;
 }
 
-export function buildIndustryCountsQuery(region: { stateCode: string; countyCodes?: string[] }): string {
-  const codes = region.countyCodes?.length ? region.countyCodes : [region.stateCode];
-  const values = codes
-    .map((c) => `kwgr:administrativeRegion.USA.${c}`)
-    .join(' ');
-  return `
-    ${PREFIXES}
-    SELECT ?industryCode (COUNT(DISTINCT ?facility) AS ?num) WHERE {
-      VALUES ?_regionRoot { ${values} }
-      ?s2 rdf:type kwg-ont:S2Cell_Level13 ;
-          spatial:connectedTo ?_regionRoot ;
-          kwg-ont:sfContains ?facility .
-      ?facility fio:ofIndustry ?industryCode .
-      ?industryCode a naics:NAICS-IndustryCode .
-    } GROUP BY ?industryCode
-  `;
-}
-
 export function buildDiscoverIndustriesQuery(): string {
   return `
     ${PREFIXES}

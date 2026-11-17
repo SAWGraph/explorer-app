@@ -8,6 +8,11 @@ import { namedOrCounted } from './wording';
 const LABEL = 'facilities';
 
 const iriVar = (suffix: string): string => `?facility${suffix}`;
+const inCell = (s2Var: string, suffix: string): string => `${s2Var} kwg-ont:sfContains ${iriVar(suffix)} .`;
+// The facility's industry, in `codeVar`: what an industry filter and the
+// dropdown's counts both bind.
+const ofIndustry = (suffix: string, codeVar: string): string => `${iriVar(suffix)} fio:ofIndustry ${codeVar} .
+      ${codeVar} a naics:NAICS-IndustryCode .`;
 
 export const facilities: EntityModule = {
   type: 'facilities',
@@ -24,17 +29,21 @@ export const facilities: EntityModule = {
   // 2026-11-16, #145). The geometry is required because the details step
   // cannot draw a facility without one (Cumberland: 2,595 without the check).
   bindInCell(block, s2Var, suffix) {
-    const facility = iriVar(suffix);
-    const inCell = `${s2Var} kwg-ont:sfContains ${facility} .`;
     const codes = (block.facilityFilters as FacilityFilters | undefined)?.industryCodes;
     if (!codes?.length) {
-      return `${inCell}
-      ${facility} a fio:Facility ; geo:hasGeometry ?_facilityGeom${suffix} .`;
+      return `${inCell(s2Var, suffix)}
+      ${iriVar(suffix)} a fio:Facility ; geo:hasGeometry ?_facilityGeom${suffix} .`;
     }
-    return `${inCell}
-      ${facility} fio:ofIndustry ?industryCode${suffix} .
-      ?industryCode${suffix} a naics:NAICS-IndustryCode .
+    return `${inCell(s2Var, suffix)}
+      ${ofIndustry(suffix, `?industryCode${suffix}`)}
       ${buildIndustryValues(codes, suffix)}`;
+  },
+  // As the filtered bind above: a picked industry reads no geometry. The
+  // dropdown keys industries by bare code.
+  options: {
+    bind: (s2Var, suffix, optionVar) => `${inCell(s2Var, suffix)}
+      ${ofIndustry(suffix, optionVar)}`,
+    key: (iri) => iri.split(/[#/]/).pop()?.replace(/^NAICS-/, '') || undefined,
   },
   // A facility has one row per industry code that passes the filter. A full
   // 6-digit code matches itself only, so those sides are one row per facility

@@ -1,12 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { executeSparql } from '../../engine/endpoint';
 import type { SparqlRow } from '../../engine/types/sparql';
+import type { EntityType } from '../../engine/types/query';
+import { buildOptionCountQuery } from '../../engine/templates/fusedQueries';
+import { optionCountsFrom } from '../../engine/optionCounts';
 import {
   buildDiscoverIndustriesQuery,
   buildDiscoverSubstancesQuery,
   buildDiscoverMaterialTypesQuery,
   buildDiscoverCountiesQuery,
-  buildIndustryCountsQuery,
   buildDiscoverIllinoisPurposesQuery,
   buildDiscoverMaineTypesQuery,
   buildDiscoverMaineUsesQuery,
@@ -73,36 +75,33 @@ interface RegionParam {
   countyCodes?: string[];
 }
 
-export function useIndustryCounts(region?: RegionParam) {
-  const key = region?.stateCode
-    ? (region.countyCodes?.length ? [...region.countyCodes].sort() : [region.stateCode]).join(',')
-    : '';
+// How many entities each option of a type's filter dropdown would find: in the
+// region when one is picked, nationwide when none is (#165). Keyed the way the
+// dropdown keys its options (optionCountsFrom). Runs once per type and region a
+// session, when the dropdown mounts. A failed query leaves the dropdown working,
+// with no numbers.
+export function useOptionCounts(type: EntityType, region?: RegionParam): UseQueryResult<Record<string, number>> {
+  const codes = regionCodes(region);
   return useQuery<Record<string, number>>({
-    queryKey: ['industryCounts', key],
+    queryKey: ['optionCounts', type, codes?.join(',') ?? ''],
     queryFn: async () => {
-      if (!region?.stateCode) return {};
-      const rows = await executeSparql(
-        'federation',
-        buildIndustryCountsQuery({ stateCode: region.stateCode, countyCodes: region.countyCodes }),
-      );
-      const counts: Record<string, number> = {};
-      for (const r of rows) {
-        const uri = r.industryCode || '';
-        const code = uri.split(/[#/]/).pop()?.replace(/^NAICS-/, '');
-        if (!code) continue;
-        counts[code] = Number(r.num) || 0;
-      }
-      return counts;
+      const rows = await executeSparql('federation', buildOptionCountQuery(type, codes));
+      return optionCountsFrom(type, rows);
     },
-    enabled: !!region?.stateCode,
     staleTime: Infinity,
+    retry: 1,
   });
 }
 
+// The selected counties, sorted so the same counties in another order share a
+// cache entry, or the state; undefined with no state.
+function regionCodes(region?: RegionParam): string[] | undefined {
+  if (!region?.stateCode) return undefined;
+  return region.countyCodes?.length ? [...region.countyCodes].sort() : [region.stateCode];
+}
+
 function regionKey(region?: RegionParam): string {
-  if (!region?.stateCode) return '';
-  const codes = region.countyCodes?.length ? [...region.countyCodes].sort() : [region.stateCode];
-  return codes.join(',');
+  return regionCodes(region)?.join(',') ?? '';
 }
 
 export function useSubstances(region?: RegionParam) {
