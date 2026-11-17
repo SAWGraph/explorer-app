@@ -65,14 +65,14 @@ When you click Apply, the query engine:
 
 1. **Plans** the question (`engine/planner.ts`) → array of `PipelineStep`
 2. **Executes** steps sequentially (`engine/executor.ts`), threading S2 cell sets between steps
-3. **Renders** results as map layers (`resultTransformer.ts` → `MapFeature[]`)
+3. **Renders** results as map layers (`engine/shape.ts` → `MapFeature[]`)
 
 Supported entity types: **samples**, **facilities**, **water bodies**, **wells**, **streams**
 Supported relationships: **near** (~1–2 km), **downstream**, **upstream**
 
 Downstream/upstream traces accept an optional cumulative flowpath cutoff
 (`Within N km of flow`). Unset, the trace is the full transitive closure.
-`node scripts/flow-distance-check.mjs` verifies the bounded trace against the
+`node engine/scripts/flow-distance-check.mjs` verifies the bounded trace against the
 live endpoints.
 
 ## SPARQL endpoints
@@ -105,12 +105,11 @@ Inside `docs/`:
 | ------------------- | --------------------------------------------------------------- |
 | `ARCHITECTURE.md`   | System design, module boundaries, data flow                     |
 | `SCHEMA.md`         | Predicate inventories, class counts, endpoint roles             |
-| `QUERY-MATRIX.md`   | Every query shape, measured — plus the error catalogue (Part 4) |
+| `QUERY-SWEEP.md`   | Every query shape, measured — plus the error catalogue (Part 4) |
 | `health/STATUS.md`  | Weekly dashboard health: working, timings, row-count drift       |
-| `query-matrix/`     | One CSV per sweep, dated, with a generated index                |
+| `query-sweep/`     | One CSV per sweep, dated, with a generated index                |
 | `DEBUGGING.md`      | Documented bugs with root causes and fixes                      |
 | `CONVENTIONS.md`    | Coding standards, endpoint selection rules                      |
 | `wiki/`             | One page per filter dropdown; source of truth for the GitHub Wiki |
-| `queries/`          | Write-ups of individual real questions                          |
 | `changelog/`        | Weekly changelogs (`YYYY-Www.md`)                               |
 | `plans/`            | Feature planning: `drafts/` → `active/` → `done/`               |

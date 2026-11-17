@@ -19,9 +19,22 @@ selected. Tick some of a branch and the parent shows an indeterminate state.
 The full list is large, 5596 rows from the endpoint, which is why it is a searchable tree
 rather than a list you scroll. Typing filters the tree and auto expands whatever matched.
 
-Each node also shows how many facilities of that kind exist in the currently selected region.
-Those numbers come from a completely separate query, documented in
-[Dropdowns Industry Counts](Dropdowns%20Industry%20Counts).
+Each node also shows how many facilities of that kind exist in the selected region, or
+nationwide with none. Those numbers come from a separate query, documented in
+[Option counts](Dropdowns%20Industry%20Counts).
+
+### Nothing ticked is not the same as everything ticked
+
+With nothing ticked, a facility query finds every facility, whether or not it has a NAICS
+code. Most do not: in Cumberland County, Maine, 603 of 2,203 facilities have a code
+(measured 2026-11-16). A facility with no code shows **Unspecified or Unknown** as its
+industry in the popup, the hover tooltip and the list of facilities on a shared point.
+
+With any box ticked, including **Select all**, only facilities with a matching code are
+found, and the question reads "facilities with an industry code" when every industry is
+picked. A facility linked only to a code the graph does not type as a NAICS industry code
+(an older NAICS version such as `NAICS-44711`, or a bare sector) counts as having no code,
+so no box matches it. (#145)
 
 ### How the tree gets built
 
@@ -103,7 +116,7 @@ some labels carry trailing whitespace straight from the source data.
 * The query text is built by
   [`buildDiscoverIndustriesQuery()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts#L32).
 * It runs through
-  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/sparqlClient.ts#L4)
+  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/engine/endpoint.ts)
   against the `fiokg` URL in
   [`endpoints.ts`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/endpoints.ts).
 * The fallback list is
@@ -139,8 +152,8 @@ what the query actually returned before assuming the tree builder is broken.
 
 **Labels with odd trailing spaces.** Source data. They come through as is.
 
-**No counts next to anything.** No region is selected, or the counts query failed. See
-[Dropdowns Industry Counts](Dropdowns%20Industry%20Counts).
+**No counts next to anything.** The counts query failed or has not come back. See
+[Option counts](Dropdowns%20Industry%20Counts).
 
 **Selecting a parent does not match the facilities you expected.** Selections are expanded to
 descendant codes, so a parent only covers children that exist in this list. If the facility
@@ -149,4 +162,4 @@ you want carries a code absent from `fiokg`, no amount of parent ticking will re
 ## See also
 
 * [Dropdowns](Dropdowns), the index of all filter controls
-* [Dropdowns Industry Counts](Dropdowns%20Industry%20Counts), the numbers shown on each node
+* [Option counts](Dropdowns%20Industry%20Counts), the numbers shown on each node

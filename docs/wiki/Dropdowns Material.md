@@ -196,7 +196,7 @@ Maine returns 54, Cumberland County 25.
   and the region part by
   [`buildSamplePointRegionPattern()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/templates/regions.ts#L46).
 * It runs through
-  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/src/engine/sparqlClient.ts#L4).
+  [`executeSparql()`](https://github.com/SAWGraph/explorer-app/blob/main/engine/endpoint.ts).
 * The fallback list is
   [`FALLBACK_MATERIAL_TYPES`](https://github.com/SAWGraph/explorer-app/blob/main/src/constants/materialTypes.ts#L19),
   six entries covering groundwater, drinking water, surface water, soil, sludge and leachate.

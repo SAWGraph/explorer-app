@@ -16,7 +16,7 @@ Where the options in each filter control come from.
 * [Substance](Dropdowns%20Substance)
 * [Material](Dropdowns%20Material)
 * [Industry](Dropdowns%20Industry)
-* [Industry counts](Dropdowns%20Industry%20Counts)
+* [Option counts](Dropdowns%20Industry%20Counts)
 * [County](Dropdowns%20County)
 * [Include non-detects](Samples%20Non%20Detects), the Samples checkbox that moves the
   numbers most
@@ -34,8 +34,6 @@ code and are read while working in it:
   a log of bugs and graph quirks with their causes
 * [`docs/CONVENTIONS.md`](https://github.com/SAWGraph/explorer-app/blob/main/docs/CONVENTIONS.md),
   coding standards
-* [`docs/queries/`](https://github.com/SAWGraph/explorer-app/tree/main/docs/queries),
-  five complete example questions walked through end to end
 
 ## Editing this wiki
 

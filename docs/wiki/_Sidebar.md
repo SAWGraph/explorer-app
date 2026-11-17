@@ -8,7 +8,7 @@
 * [Substance](Dropdowns%20Substance)
 * [Material](Dropdowns%20Material)
 * [Industry](Dropdowns%20Industry)
-* [Industry counts](Dropdowns%20Industry%20Counts)
+* [Option counts](Dropdowns%20Industry%20Counts)
 * [County](Dropdowns%20County)
 
 **Samples**
