@@ -1,4 +1,5 @@
-name: Dashboard health
+name: Dashboard health (weekly, live)
+run-name: "Dashboard health: ${{ github.event_name == 'schedule' && 'weekly run' || 'manual run' }}"
 
 # Runs every dashboard question against the live endpoints once a week and
 # writes down what happened: worked or not, how long, how many rows. The point
@@ -35,6 +36,7 @@ permissions:
 
 jobs:
   measure:
+    name: Run dashboard questions on main and development
     runs-on: ubuntu-latest
     timeout-minutes: 90
 

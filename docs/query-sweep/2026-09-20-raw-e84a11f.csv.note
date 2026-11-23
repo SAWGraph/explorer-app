@@ -1,0 +1,5 @@
+**The file name and the `commit` column disagree.** The name says `e84a11f`,
+the commit before the seed-side fix (`ec221d9`). Every row's `commit` column
+says `4454b80`, a later commit that includes that fix. Which code this measured
+is not recorded beyond that; treat the name as the intent and check before
+relying on it as the pre-fix half of a comparison.

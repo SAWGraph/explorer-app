@@ -76,7 +76,7 @@ template fix: the SPARQL text of each variant already works, what is missing is
 a pipeline that issues both and merges.
 
 The executor already merges slice results as a set, deduping on
-`JSON.stringify(row)` (`src/engine/scope.ts`), so the merge path exists. What is
+`JSON.stringify(row)` (`engine/scope.ts`), so the merge path exists. What is
 new is issuing a second variant of the same step deliberately rather than as a
 failure retry.
 
@@ -94,7 +94,7 @@ Sketch, to be firmed up during implementation:
 
 1. Add the `widen` option to `buildFusedWhereBody` and thread it through
    `buildFusedHydrologyQuery` and `buildFusedWellQuery`. Default preserves
-   current output; assert that in `scripts/check-query-joins.mts`.
+   current output; assert that in `engine/tests/queryJoins.test.ts`.
    **Restructure the body emission first.** `buildFusedWhereBody` currently
    writes the whole body out twice, once anchor-first and once target-first,
    with the streams-target case spelled in both. Adding `widen` on top of that
@@ -118,12 +118,12 @@ Sketch, to be firmed up during implementation:
 4. Executor: issue both variants, union, single step report. Partial failure of
    one variant should degrade to the other's rows rather than failing the step,
    matching how the flowline layer is already `optional`.
-5. Extend `scripts/check-flowline-scope.mts` or add a sibling check asserting
+5. Extend `engine/tests/flowlineScope.test.ts` or add a sibling check asserting
    both variants are emitted for all 72 hydrology shapes.
-6. Re-run `npm run query-matrix` in engine mode and commit a dated CSV. Counts
+6. Re-run `npm run query-sweep` in engine mode and commit a dated CSV. Counts
    will move upward across hydrology shapes; the sweep is how that is recorded
    rather than discovered later.
-7. Update `docs/QUERY-MATRIX.md` Part 3.2/3.3 costs, and `docs/SCHEMA.md` with
+7. Update `docs/QUERY-SWEEP.md` Part 3.2/3.3 costs, and `docs/SCHEMA.md` with
    the cell-coverage numbers above, which are not currently written down
    anywhere.
 

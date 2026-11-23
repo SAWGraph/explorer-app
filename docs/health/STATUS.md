@@ -15,29 +15,29 @@ look wrong, there is a date to point at.
 
 ## development
 
-**8 of 8 working** · 2026-10-19 12:28 UTC · `bf275c5`
+**8 of 8 working** · 2026-11-23 17:36 UTC · `2410fb1`
 
 | | Question | Time | Targets | Anchors | Reaches | Change since last run |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
-| ✅ | Facilities Upstream from PFHpA Groundwater Contamination in Cumberland County | 207s | 49 | 265 | 84 | — |
-| ✅ | Samples Near Landfills & DOD Sites in Penobscot and Knox County | 13s | 60 | 8 | — | — |
-| ✅ | Samples Downstream of Waste Treatment Facilities in Indiana | 48s | 123 | 882 | 13988 | — |
-| ✅ | Chemical & Plastics Manufacturers Upstream from Streams in Cook County, IL | 55s | 526 | 732 | — | — |
-| ✅ | Samples Near Agricultural Chemical Facilities in Maine | 6s | 29 | 11 | — | — |
-| ✅ | Surface Water Bodies Near Landfills & DOD Sites in Penobscot and Knox County | 3s | 103 | 6 | — | — |
-| ✅ | Maine Private Wells Near Landfills & DoD Sites | 13s | 751 | 38 | — | — |
-| ✅ | Maine Private Wells Near Wastewater Treatment Facilities | 10s | 2431 | 135 | — | — |
+| ✅ | Facilities Upstream from PFHpA Groundwater Contamination in Cumberland County | 34s | 58 | 669 | 105 | **targets 49 → 58, anchors 265 → 669, boundaries 0 → 16, reaches 84 → 105** |
+| ✅ | Samples Near Landfills & DOD Sites in Penobscot and Knox County | 31s | 60 | 8 | — | **boundaries 0 → 16** |
+| ✅ | Samples Downstream of Waste Treatment Facilities in Indiana | 59s | 123 | 882 | 13988 | — |
+| ✅ | Chemical & Plastics Manufacturers Upstream from Streams in Cook County, IL | 59s | 495 | 706 | — | **targets 526 → 495, anchors 732 → 706** |
+| ✅ | Samples Near Agricultural Chemical Facilities in Maine | 13s | 29 | 11 | — | — |
+| ✅ | Surface Water Bodies Near Landfills & DOD Sites in Penobscot and Knox County | 4s | 9 | 6 | — | — |
+| ✅ | Maine Private Wells Near Landfills & DoD Sites | 37s | 751 | 38 | — | — |
+| ✅ | Maine Private Wells Near Wastewater Treatment Facilities | 24s | 2431 | 135 | — | — |
 
 ## main
 
-**8 of 8 working** · 2026-10-19 12:34 UTC · `cda3186`
+**8 of 8 working** · 2026-11-23 17:41 UTC · `e616c28`
 
 | | Question | Time | Targets | Anchors | Reaches | Change since last run |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
-| ✅ | Facilities Upstream from PFHpA Groundwater Contamination in Cumberland County | 107s | 49 | 265 | 84 | — |
-| ✅ | Samples Near Landfills & DOD Sites in Penobscot and Knox County | 13s | 60 | 8 | — | — |
-| ✅ | Samples Downstream of Waste Treatment Facilities in Indiana | 37s | 123 | 882 | 13988 | — |
-| ✅ | Chemical & Plastics Manufacturers Upstream from Streams in Cook County, IL | 29s | 526 | 732 | — | — |
+| ✅ | Facilities Upstream from PFHpA Groundwater Contamination in Cumberland County | 125s | 49 | 265 | 84 | — |
+| ✅ | Samples Near Landfills & DOD Sites in Penobscot and Knox County | 14s | 60 | 8 | — | — |
+| ✅ | Samples Downstream of Waste Treatment Facilities in Indiana | 42s | 123 | 882 | 13988 | — |
+| ✅ | Chemical & Plastics Manufacturers Upstream from Streams in Cook County, IL | 28s | 526 | 732 | — | — |
 | ✅ | Samples Near Agricultural Chemical Facilities in Maine | 6s | 29 | 11 | — | — |
 | ✅ | Surface Water Bodies Near Landfills & DOD Sites in Penobscot and Knox County | 3s | 103 | 6 | — | — |
 | ✅ | Maine Private Wells Near Landfills & DoD Sites | 13s | 751 | 38 | — | — |

@@ -108,47 +108,44 @@ This finds all facilities with industry code 3253 and returns their names.
 
 ## Folder Structure
 
+The engine and the UI are separate top-level folders. The engine is headless:
+it runs in Node as well as in the browser, and `engine/tests/headless.test.ts`
+fails if it imports anything from `ui/` or any package. The UI may import the
+engine; never the other way round. Each folder has its own README and tests.
+
 ```
 explorer/
-├── src/
-│   ├── components/          # React UI components
-│   │   ├── Dashboard/       # Pre-built query cards
-│   │   ├── QueryEditor/     # Block A / Relationship / Block C editors
-│   │   ├── Map/             # Leaflet map + one layer component per entity type
-│   │   ├── Pipeline/        # Progress strip, partial-results notice
-│   │   ├── Publish/         # Share a question and its result by link
-│   │   ├── DesignSystem/    # Design guide route
-│   │   ├── common/          # FlatSelect, HierarchicalSelect, shared bits
-│   │   └── Layout/          # Header, sidebar, layout
-│   │
-│   ├── engine/              # THE CORE: query planning and execution
-│   │   ├── planner.ts       # Question → pipeline steps
-│   │   ├── executor.ts      # Runs steps, splits what the engine refuses
-│   │   ├── scope.ts         # How to slice a step that was too big
-│   │   ├── sparqlClient.ts  # Sends SPARQL, retries, 60s request timeout
-│   │   ├── sparqlErrors.ts  # Classifies failures (a 429 is usually a timeout)
-│   │   ├── queryBreadth.ts  # Pre-flight warning for questions that reliably fail
-│   │   ├── cacheKey.ts      # Canonical question → cache key
-│   │   ├── wire.ts          # What a cached result looks like on the wire
-│   │   ├── resultTransformer.ts # SPARQL rows → map features
-│   │   └── templates/       # SPARQL builders
-│   │       ├── fusedQueries.ts   # The main one: spatial + hydrological joins
-│   │       ├── hydrate.ts        # Fetch details for a known list of IRIs
-│   │       ├── regions.ts        # Dropdown discovery queries
-│   │       ├── downstreamSamples.ts
-│   │       ├── wells.ts · aquifers.ts
-│   │       ├── facilities.ts · samples.ts  # Shared fragments, not whole queries
-│   │       └── spatial.ts        # Region boundary geometry
-│   │
-│   ├── api/                 # Talks to our own API (not to SPARQL)
-│   │   ├── resultCacheClient.ts
-│   │   └── publishClient.ts
-│   │
+├── engine/                  # Headless: question in, SPARQL out, rows in, features out
+│   ├── README.md            # Entry points and how to call the engine from Node
+│   ├── run.ts               # runQuestion: the one entry point, runs stages 1 to 6 (the UI shapes rows until Phase 1)
+│   ├── question.ts          # 1 Normalise: which block is the anchor and which the target, near or trace
+│   ├── sides.ts             # 2 Assess: how narrow each side is (the rank that picks the start side)
+│   ├── planner.ts           # 3 Strategy: question to pipeline steps
+│   ├── slicing.ts           # 4 Slice: request-size chunks, and splitting after a refusal
+│   ├── executor.ts          # 5 Run: runs steps, splits what the endpoint refuses
+│   ├── merge.ts             # 6 Merge: combine slices, pass found IRIs to later steps
+│   ├── endpoint.ts          # Sends SPARQL (the swappable SparqlRunner), retries, 60s request timeout
+│   ├── errors.ts            # Classifies failures (a 429 is usually a timeout), words every error message
+│   ├── queryBreadth.ts      # Pre-flight warning for questions that reliably fail
+│   ├── cacheKey.ts          # Canonical question to cache key
+│   ├── wire.ts              # What a cached result looks like on the wire
+│   ├── shape.ts             # 7 Shape: SPARQL rows to map features
+│   ├── questionGenerator.ts # The question as an English sentence
+│   ├── entities/            # One module per entity type: IRI variable, cell bind, filters, region check, how details load
+│   ├── templates/           # SPARQL builders (fusedQueries is the main one)
+│   ├── types/               # AnalysisQuestion, MapFeature, SPARQL rows
+│   ├── constants/           # Endpoints, prefixes, regions, substances, prebuilt queries
+│   └── tests/               # npm run test:engine
+│
+├── ui/                      # The React app
+│   ├── README.md            # Folder map and how the UI calls the engine
+│   ├── main.tsx · App.tsx   # Entry point (index.html loads /ui/main.tsx)
+│   ├── components/          # Dashboard, QueryEditor, Map, Pipeline, Publish, Layout
+│   ├── hooks/               # React Query + pipeline hooks
 │   ├── store/queryStore.ts  # Zustand: the question, results, view state
 │   ├── storage/             # localStorage: saved questions, publish tokens
-│   ├── hooks/               # React Query + pipeline hooks
-│   ├── types/               # AnalysisQuestion, MapFeature, SPARQL rows
-│   └── constants/           # Endpoints, prefixes, regions, prebuilt queries
+│   ├── api/                 # Talks to our own API (not to SPARQL)
+│   └── tests/               # npm run test:ui (jsdom)
 │
 ├── server/                  # Express + Postgres API (deployed separately)
 │   └── src/
@@ -156,19 +153,24 @@ explorer/
 │       ├── routes/results.ts   # Public read, token-gated write
 │       └── routes/publish.ts   # Published questions
 │
-├── scripts/                 # Maintainer tools (tsx)
+├── scripts/ops/             # Write to the live cache (need CACHE_WRITE_TOKEN)
 │   ├── warm-cache.mts       # Run the dashboard questions, upload the results
-│   ├── check-cache-key.mts  # Assertions on cache-key canonicalisation
-│   └── query-matrix.mts     # Measure every query shape, write the CSV
+│   └── warm-questions.mts   # Same, for a JSON list of questions
 │
-└── docs/                    # See CLAUDE.md for the full map
+│   Maintainer scripts live with what they serve: engine/scripts/ measures
+│   the engine against the live endpoints (health-check, query-sweep,
+│   flow-distance-check); ui/scripts/ builds or audits UI assets
+│   (build-thumbnails, precompute_aquifers, contrast-check).
+│
+└── docs/                    # Project-wide docs
 ```
 
+`index.html`, `vite.config.ts`, `public/` and `package.json` stay at the root:
+Railway's builder finds the Vite config there and serves `dist/`.
+
 **Key directories:**
-- **`engine/`** — The brain. All query logic lives here.
-- **`components/`** — React UI. Organized by screen area.
-- **`store/`** — Zustand for global state (the current question and results).
-- **`hooks/`** — React Query for async data fetching (dropdown population).
+- **`engine/`**: the brain. All query logic lives here. See `engine/README.md`.
+- **`ui/`**: the React UI, organized by screen area. See `ui/README.md`.
 - **`server/`** — The only part that is not a static bundle. Holds the cache.
 
 ---
@@ -183,7 +185,7 @@ User selects in the UI:
 - **Block C** (anchor): "Landfills" (NAICS 562212)
 - **Region**: "Penobscot County, Maine"
 
-This creates an `AnalysisQuestion` object (`src/types/query.ts`):
+This creates an `AnalysisQuestion` object (`engine/types/query.ts`):
 
 ```typescript
 {
@@ -245,7 +247,7 @@ Each step specifies:
 else; the hydrate steps take that list and fetch geometry, labels and
 measurements for exactly those entities. Keeping them apart is what stopped an
 ID-finding query from building every measurement in the state and throwing it
-away — see `docs/QUERY-MATRIX.md` Part 5.
+away — see `docs/QUERY-SWEEP.md` Part 5.
 
 **Which block seeds the trace, and which way it runs.** The templates know
 nothing about block A and block C. They take an *anchor* (the side the query
@@ -266,12 +268,29 @@ the two decisions have to be made separately rather than passing
 `relationship.type` through as the direction. Doing exactly that answered the
 mirror question for every upstream shape until 2026-09-16
 (`docs/DEBUGGING.md`, 2026-09-16), and it is guarded now by
-`scripts/check-trace-direction.mts`, which reads the emitted SPARQL rather than
+`engine/tests/traceDirection.test.ts`, which reads the emitted SPARQL rather than
 the flag, because three separate builders trace and they all have to agree.
 
 ### 3. Executor Runs the Steps
 
-`executor.ts` runs steps in order, but each step is more than one request.
+Every plan opens with two count steps, one per side (`COUNT_TARGET`,
+`COUNT_ANCHOR`): the same body as discovery's side, counted. They run together,
+and discovery waits for both. A side at 0 ends the run as empty, naming the
+block. The counts go into the advice when a question is too big, and into how a
+refused query is split (a probe the count says would come back full is not
+sent). A count is advice: one that fails or takes over 10s is dropped, in
+either chunking mode. `countSides: false` plans without them.
+
+Each step names the steps it waits for (`after` in `planner.ts`), and
+`executor.ts` starts every step whose wait is over. The main steps (find, find,
+details, details) still wait for one another, so they run one at a time in plan
+order. Decoration waits only for what it reads: the region boundaries need only
+the state and start with the run; the stream lines start once both sides are
+found, alongside the details. When the run has its outcome (an empty side, a
+failed step) the steps still running are stopped and reported skipped.
+`engine/tests/stepWaits.test.ts` checks every shape's waits.
+
+Each step is more than one request.
 
 ```typescript
 // Simplified from executor.ts runStep()
@@ -300,7 +319,7 @@ while (queue.length) {
 the slices that actually fail get divided, so a question that fits pays nothing
 for the machinery.
 
-**The slice is chosen per question** (`scope.ts` `chooseAxis`). Which axis is
+**The slice is chosen per question** (`slicing.ts` `chooseAxis`). Which axis is
 right flips between states: Maine has 4,528 samples and 2,976 facilities,
 Illinois has 78 and 22,574 — so there is no fixed answer to "which side should
 we chunk". `chooseAxis` probes both sides in parallel (`LIMIT 201`, cheap), uses
@@ -328,7 +347,7 @@ Key Design Decision 2.)
 
 ### 4. Result Transformer → Map Features
 
-`resultTransformer.ts` converts SPARQL rows to GeoJSON-like features:
+`shape.ts` converts SPARQL rows to GeoJSON-like features:
 
 **Input (SPARQL row):**
 ```javascript
@@ -365,12 +384,18 @@ React components in `components/Map/` render features, one per entity type:
 - `FacilityLayer` — facility markers
 - `WaterBodyLayer` — water body polygons and lines
 - `WellLayer` — wells
-- `StreamLayer` — river reaches from `GET_FLOWLINE_GEOMETRIES`
+- `StreamLayer`: river reaches, the stream lines a trace draws or the answer when a block is streams
 - `AquiferBoundaryLayer` — aquifer polygons
 - `RegionBoundaryLayer` — county and state outlines
 
-`useMapLayers.ts` decides which to build by row shape: a `spWKT` column means
-samples, `facWKT` facilities, `wbWKT` water bodies.
+A run answers by block: `blockA` and `blockC` (each block's detail rows,
+whichever of anchor or target it was) and `decoration` (`boundaries`,
+`streamLines`). The rows grouped by pipeline step stay inside the executor.
+`useMapLayers.ts` draws both blocks and the decoration, and decides which layer
+a row goes to by its shape: a `spWKT` column means samples, `facWKT`
+facilities, `wbWKT` water bodies. The result cache stores the same shape
+(`engine/wire.ts`, `WIRE_VERSION` w3) and still reads a result stored by step
+(a published view's, saved before w3).
 
 ---
 
@@ -504,7 +529,7 @@ it. The most important thing to know about this: **it reports that timeout as
 HTTP 429 "Too Many Requests"**, with the real cause only in the JSON body. It is
 not rate limiting, and backing off does not help.
 
-`sparqlErrors.ts` classifies what comes back:
+`errors.ts` classifies what comes back:
 
 | Kind | How it arrives | Splitting helps? |
 | --- | --- | --- |
@@ -516,8 +541,15 @@ not rate limiting, and backing off does not help.
 
 `isSplittable(kind)` is what the executor consults before dividing a step.
 
+All of that rescue (the retry, splitting after a refusal, and the 300s step
+limit) can be turned off with the run option `chunkOnRefusal: false`; the app
+reads it from `VITE_CHUNK_ON_REFUSAL=false` at build time. The run then answers
+completely or shows the first error, from any step, and the message says it was
+not retried or split. Request-size batches (1,000 IRIs a request) and the 60s
+request limit stay on either way.
+
 Two guards sit around every request: a **60 s client-side timeout**
-(`sparqlClient.ts`) so a hung request cannot stall a run, and one automatic
+(`endpoint.ts`) so a hung request cannot stall a run, and one automatic
 retry on retryable kinds — a repeat query starts warm, and 26.5 s cold vs 1.5 s
 warm has been measured on the same query.
 
@@ -525,7 +557,7 @@ warm has been measured on the same query.
 broad NAICS, no substance filter is a combination that reliably fails, and the
 editor warns rather than spending 30 s proving it.
 
-**The measurements for all of this live in `docs/QUERY-MATRIX.md`** — Part 4 is
+**The measurements for all of this live in `docs/QUERY-SWEEP.md`** — Part 4 is
 the error catalogue, Parts 6 and 7 the before/after. They are not repeated here
 because they are re-measured as the graph changes.
 
@@ -571,7 +603,7 @@ statewide well question and are never drawn.
 
 **Who can write.** Reads are public; writes are not. The publisher writes the
 result it has just computed, authenticated by the `editToken` the server issued
-for that publication. The maintainer script `scripts/warm-cache.mts` writes with
+for that publication. The maintainer script `scripts/ops/warm-cache.mts` writes with
 `CACHE_WRITE_TOKEN`. Nothing else can put an entry in front of someone else's
 map.
 
@@ -640,11 +672,20 @@ Both blocks of a question go through it, once for the anchor cell and once for
 the target cell, and the relationship supplies the path between the two cells.
 That is the whole trick: "near" is `sfTouches`, and a trace is a flow-path join.
 
-**One guard is worth knowing about.** `bindEntityInCell` takes a
-`sampleObservations` flag. An ID-finding query needs the sample *points*; a
-detail query needs every observation on them. Serving both callers from one
-branch is what made a query to find sample IDs build every measurement in the
-state and discard it — the bug behind most of `QUERY-MATRIX.md` Part 5.
+**One rule is worth knowing about: one row per entity and cell.** Each entity
+module's `bindInCell` (`engine/entities/`) writes only the joins its filters
+read, and only entities the map can draw (a sample point needs a location, and
+a filtered match must name a chemical). A side whose bind still repeats an
+entity in a cell (`fansOut`: a sample's matching measurements, a facility's
+industry codes under a prefix code or no code filter) is collapsed to
+`SELECT DISTINCT ?entity ?cell`, with its region and pin inside, before it
+meets the other side. The wells step collapses its join the same way before the
+well columns attach. Carried into the join uncollapsed, 407 sample points
+became 20,826 rows and issue #82's question failed after 626s; collapsed, it
+answers in about 24s. Measurement detail is read only by the details step.
+`engine/tests/oneRowPerCell.test.ts` checks every question shape. (The old
+`sampleObservations` flag, which let the wells step build every measurement on
+the other side, is gone.)
 
 The older `facilities.ts` and `samples.ts` are no longer whole-query builders.
 They survive as fragment helpers — `buildIndustryValues()`,
@@ -727,7 +768,7 @@ requests.
 - Fewer requests, so fewer chances to hit the 30 s limit.
 
 **What it costs:** a fused query is one indivisible unit of work, so when it is
-too big there is no natural seam. That is exactly what `scope.ts` exists to
+too big there is no natural seam. That is exactly what `slicing.ts` exists to
 supply — see [Bounded Execution](#bounded-execution).
 
 ### 3. Why Zustand + React Query?
@@ -782,7 +823,7 @@ genuinely reads the unit, so that case keeps it. Nothing ever needs the material
 
 **The rule to carry into new templates:** fetch what you project or filter on,
 nothing else, and reach for `OPTIONAL` the moment a field is not universal.
-`scripts/check-query-joins.mts` asserts this across all 108 shapes in CI.
+`engine/tests/queryJoins.test.ts` asserts this across all 108 shapes in CI.
 
 ### 6. Why Transform SPARQL Rows to Features?
 
@@ -796,7 +837,7 @@ nothing else, and reach for `OPTIONAL` the moment a field is not universal.
 { id: '...', geometry: { type: 'Point', coordinates: [44.3, -69.7] }, properties: {...} }
 ```
 
-**Solution:** `resultTransformer.ts` parses WKT → coordinates, detects feature type from row shape, builds typed objects.
+**Solution:** `shape.ts` parses WKT → coordinates, detects feature type from row shape, builds typed objects.
 
 **Benefits:**
 - Decouples SPARQL from React components
@@ -962,7 +1003,7 @@ seeds is the side the question filtered. See the anchor/target table under
 
 - **`docs/SCHEMA.md`** — does this predicate exist, and on what? Predicate
   inventories with triple counts, per endpoint.
-- **`docs/QUERY-MATRIX.md`** — Part 4 tells you what an HTTP status actually
+- **`docs/QUERY-SWEEP.md`** — Part 4 tells you what an HTTP status actually
   means. A 429 is almost never rate limiting.
 - **`docs/DEBUGGING.md`** — bugs already diagnosed, with their root causes.
 
@@ -984,7 +1025,7 @@ console.log(rows.length);
 ### 4. Test a query directly
 
 Copy it from the console and run it against the endpoint the step used — they
-are listed in `src/constants/endpoints.ts`. Most discovery steps run on
+are listed in `engine/constants/endpoints.ts`. Most discovery steps run on
 `federation`:
 
 ```
@@ -1003,11 +1044,12 @@ console.log('anchor IRIs:', context.anchorIris.length);
 An empty `FIND_TARGET_IRIS` ends the run and shows "no results". That is often
 the correct answer — confirm the data exists before treating it as a bug.
 
-### 6. Run the whole matrix
+### 6. Run the whole sweep
 
-`npm run query-matrix` re-measures every query shape and writes
-`docs/query-matrix/2026-09-14-raw-baseline.csv`. Slow, but it is how a regression gets proven rather
-than suspected.
+`npm run query-sweep` re-measures every query shape through the engine and
+writes one CSV per sweep into `docs/query-sweep/`, one row per request. Compare
+against the newest chunking-off sweep (the index in `docs/query-sweep/README.md`
+lists them). Slow, but it is how a regression gets proven rather than suspected.
 
 ---
 
